@@ -7,3 +7,5 @@ coverage
 .env.local
 apps/web/data/*.json
 apps/web/data/*.db
+
+*.tsbuildinfo
