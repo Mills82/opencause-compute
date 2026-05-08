@@ -12,7 +12,11 @@ V1 release includes:
 
 Donate your idle computer to AI-powered open science.
 
-V1 does **not** make medical claims and uses deterministic `Mock Extractor v1` only.
+V1 does **not** make medical claims.
+
+Extractor status:
+- Current implementation: deterministic `Mock Extractor v1` (real packet processing flow, non-LLM extraction logic)
+- Not implemented yet: small local LLM extraction backend (planned next step)
 
 ## Quick start (release mode)
 
@@ -90,6 +94,20 @@ Current V1 provides script-based installers:
 - macOS/Linux: `npm run release:install:unix`
 - Windows PowerShell: `npm run release:install:windows`
 
+Persistent worker service management:
+- Unix/macOS:
+  - `npm run service:install:unix`
+  - `npm run service:start:unix`
+  - `npm run service:stop:unix`
+  - `npm run service:status:unix`
+  - `npm run service:uninstall:unix`
+- Windows:
+  - `npm run service:install:windows`
+  - `npm run service:start:windows`
+  - `npm run service:stop:windows`
+  - `npm run service:status:windows`
+  - `npm run service:uninstall:windows`
+
 Best file type for broad user install:
 - Windows-first audience: signed `.exe` or `.msi`
 - macOS: signed `.pkg`
@@ -123,6 +141,16 @@ npm run start:worker:once
 npm run start:worker:loop
 npm run release:install:unix
 npm run release:install:windows
+npm run service:install:unix
+npm run service:start:unix
+npm run service:stop:unix
+npm run service:status:unix
+npm run service:uninstall:unix
+npm run service:install:windows
+npm run service:start:windows
+npm run service:stop:windows
+npm run service:status:windows
+npm run service:uninstall:windows
 npm run demo:up
 npm run demo:web
 npm run demo:seed
