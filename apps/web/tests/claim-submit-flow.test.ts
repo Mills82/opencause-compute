@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   claimWork,
+  getWorkerControl,
   heartbeatNode,
   registerNode,
   seedDemoData,
-  submitResult
+  submitResult,
+  triggerRunNow,
+  updateWorkerControl
 } from '../lib/coordinator';
 import type { DatabaseState } from '@opencause/shared';
 import { runMockExtractorV1 } from '@opencause/shared';
@@ -16,7 +19,15 @@ function emptyDb(): DatabaseState {
     nodes: [],
     claims: [],
     results: [],
-    facts: []
+    facts: [],
+    workerControl: {
+      paused: false,
+      idleMode: 'user-and-cpu',
+      minIdleSeconds: 120,
+      maxCpuPercent: 35,
+      runNowToken: 0,
+      updatedAt: new Date().toISOString()
+    }
   };
 }
 
@@ -205,5 +216,23 @@ describe('claim/submit flow', () => {
 
     const refreshedNodeA = db.nodes.find((node) => node.id === nodeA.id);
     expect(refreshedNodeA?.status).toBe('offline');
+  });
+
+  it('updates worker controls and run-now token', () => {
+    const db = emptyDb();
+    const before = getWorkerControl(db);
+    expect(before.paused).toBe(false);
+    expect(before.runNowToken).toBe(0);
+
+    updateWorkerControl(db, { paused: true, idleMode: 'cpu-only', maxCpuPercent: 55, minIdleSeconds: 0 });
+    const afterUpdate = getWorkerControl(db);
+    expect(afterUpdate.paused).toBe(true);
+    expect(afterUpdate.idleMode).toBe('cpu-only');
+    expect(afterUpdate.maxCpuPercent).toBe(55);
+    expect(afterUpdate.minIdleSeconds).toBe(0);
+
+    triggerRunNow(db);
+    const afterRunNow = getWorkerControl(db);
+    expect(afterRunNow.runNowToken).toBe(1);
   });
 });

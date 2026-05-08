@@ -44,7 +44,7 @@ npm run start:up
 1. Start web coordinator:
 
 ```bash
-npm run demo:web
+npm run start:web
 ```
 
 2. Seed demo project/packets:
@@ -60,6 +60,11 @@ npm run start:worker:once
 # or continuous loop:
 npm run start:worker:loop
 ```
+
+4. Use `/nodes` Worker Controls to:
+- Pause/resume worker processing
+- Set idle mode, idle delay, and max CPU
+- Trigger `Run one packet now` for manual testing without waiting for idle
 
 ## Idle behavior
 
@@ -102,6 +107,9 @@ This repo currently ships script installers and runtime commands, with native si
 - `GET /api/work-packets`
 - `GET /api/results`
 - `POST /api/admin/seed-demo-data`
+- `GET /api/worker/control`
+- `POST /api/worker/control`
+- `POST /api/worker/run-now`
 
 ## Scripts
 

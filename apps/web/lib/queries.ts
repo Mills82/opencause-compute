@@ -1,4 +1,4 @@
-import { listNodes, reconcileCoordinatorState } from './coordinator';
+import { getWorkerControl, listNodes, reconcileCoordinatorState } from './coordinator';
 import { loadDb, withDb } from './db';
 
 export async function getDashboardData() {
@@ -54,4 +54,8 @@ export async function getResults() {
 
 export async function getNodes() {
   return withDb((db) => listNodes(db));
+}
+
+export async function getWorkerControlConfig() {
+  return withDb((db) => getWorkerControl(db));
 }

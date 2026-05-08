@@ -11,14 +11,26 @@ const EMPTY_DB: DatabaseState = {
   nodes: [],
   claims: [],
   results: [],
-  facts: []
+  facts: [],
+  workerControl: {
+    paused: false,
+    idleMode: 'user-and-cpu',
+    minIdleSeconds: 120,
+    maxCpuPercent: 35,
+    runNowToken: 0,
+    updatedAt: new Date().toISOString()
+  }
 };
 
 export async function loadDb(): Promise<DatabaseState> {
   await mkdir(DATA_DIR, { recursive: true });
   try {
     const raw = await readFile(DB_PATH, 'utf8');
-    return databaseSchema.parse(JSON.parse(raw));
+    const parsed = JSON.parse(raw) as Partial<DatabaseState>;
+    if (!parsed.workerControl) {
+      parsed.workerControl = { ...EMPTY_DB.workerControl };
+    }
+    return databaseSchema.parse(parsed);
   } catch {
     await saveDb(EMPTY_DB);
     return EMPTY_DB;

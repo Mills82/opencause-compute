@@ -1,7 +1,13 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { runMockExtractorV1, verifyPayloadHmac, type ResultPayload, type WorkPacketPayload } from '@opencause/shared';
+import {
+  runMockExtractorV1,
+  verifyPayloadHmac,
+  type ResultPayload,
+  type WorkPacketPayload,
+  type WorkerControlConfig
+} from '@opencause/shared';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle';
 
 type JsonValue = Record<string, unknown>;
@@ -49,6 +55,15 @@ function readIdleConfig(): IdleConfig {
   };
 }
 
+function toIdleConfigFromControl(config: WorkerControlConfig): IdleConfig {
+  return {
+    mode: config.idleMode,
+    minIdleSeconds: config.minIdleSeconds,
+    maxCpuPercent: config.maxCpuPercent,
+    sampleMs: Number(arg('--cpu-sample-ms', process.env.CPU_SAMPLE_MS ?? '800'))
+  };
+}
+
 async function post<T>(server: string, route: string, body: JsonValue): Promise<T> {
   const response = await fetch(`${server}${route}`, {
     method: 'POST',
@@ -61,6 +76,15 @@ async function post<T>(server: string, route: string, body: JsonValue): Promise<
     throw new Error(`http_${response.status}:${JSON.stringify(json)}`);
   }
   return json;
+}
+
+async function getControlConfig(server: string): Promise<WorkerControlConfig> {
+  const response = await fetch(`${server}/api/worker/control`);
+  const json = (await response.json()) as { config: WorkerControlConfig };
+  if (!response.ok) {
+    throw new Error(`http_${response.status}:${JSON.stringify(json)}`);
+  }
+  return json.config;
 }
 
 async function register(server: string): Promise<string> {
@@ -121,16 +145,18 @@ async function submit(server: string, nodeId: string, claimId: string, packetId:
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
 
-async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig): Promise<void> {
-  await heartbeat(server, nodeId);
-
-  const idleDecision = await checkHostIdle(idleConfig);
-  if (!idleDecision.eligible) {
-    const userIdle = idleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${idleDecision.metrics.userIdleSeconds}s`;
-    await log(
-      `idle gate blocked run reason=${idleDecision.reason} cpu=${idleDecision.metrics.cpuPercent}% userIdle=${userIdle}`
-    );
-    return;
+async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig, bypassIdleGate = false): Promise<void> {
+  if (!bypassIdleGate) {
+    const idleDecision = await checkHostIdle(idleConfig);
+    if (!idleDecision.eligible) {
+      const userIdle = idleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${idleDecision.metrics.userIdleSeconds}s`;
+      await log(
+        `idle gate blocked run reason=${idleDecision.reason} cpu=${idleDecision.metrics.cpuPercent}% userIdle=${userIdle}`
+      );
+      return;
+    }
+  } else {
+    await log('run-now token received, bypassing idle gate for one packet');
   }
 
   const claimed = await claim(server, nodeId);
@@ -149,13 +175,23 @@ async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig): 
   await submit(server, nodeId, claimed.claimId, claimed.packet.id, result);
 }
 
-async function loop(server: string, nodeId: string, intervalMs: number, idleConfig: IdleConfig): Promise<void> {
-  await log(
-    `loop started intervalMs=${intervalMs} idleMode=${idleConfig.mode} minIdleSeconds=${idleConfig.minIdleSeconds} maxCpuPercent=${idleConfig.maxCpuPercent}`
-  );
+async function loop(server: string, nodeId: string, intervalMs: number): Promise<void> {
+  await log(`loop started intervalMs=${intervalMs}`);
+  let lastRunNowToken: number | null = null;
+
   while (true) {
     try {
-      await runOnce(server, nodeId, idleConfig);
+      await heartbeat(server, nodeId);
+      const controlConfig = await getControlConfig(server);
+      const effectiveIdleConfig = toIdleConfigFromControl(controlConfig);
+      const runNowRequested = lastRunNowToken !== null && controlConfig.runNowToken !== lastRunNowToken;
+
+      if (controlConfig.paused && !runNowRequested) {
+        await log('paused by coordinator control settings');
+      } else {
+        await runOnce(server, nodeId, effectiveIdleConfig, runNowRequested);
+      }
+      lastRunNowToken = controlConfig.runNowToken;
     } catch (error) {
       await log(`loop error ${(error as Error).message}`);
     }
@@ -187,14 +223,15 @@ async function main() {
 
   if (command === 'run-once') {
     const nodeId = arg('--node-id') ?? (await register(server));
-    await runOnce(server, nodeId, idleConfig);
+    await heartbeat(server, nodeId);
+    await runOnce(server, nodeId, idleConfig, arg('--force-now') === 'true');
     return;
   }
 
   if (command === 'loop') {
     const nodeId = arg('--node-id') ?? (await register(server));
     const intervalMs = Number(arg('--interval-ms', '5000'));
-    await loop(server, nodeId, intervalMs, idleConfig);
+    await loop(server, nodeId, intervalMs);
     return;
   }
 

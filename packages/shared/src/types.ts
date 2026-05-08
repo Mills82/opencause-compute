@@ -94,13 +94,23 @@ export const extractedFactRecordSchema = extractedFactSchema.extend({
   sourceUrl: z.string().url()
 });
 
+export const workerControlConfigSchema = z.object({
+  paused: z.boolean(),
+  idleMode: z.enum(['user-and-cpu', 'cpu-only']),
+  minIdleSeconds: z.number().int().min(0),
+  maxCpuPercent: z.number().min(1).max(100),
+  runNowToken: z.number().int().min(0),
+  updatedAt: z.string()
+});
+
 export const databaseSchema = z.object({
   projects: z.array(projectSchema),
   workPackets: z.array(workPacketSchema),
   nodes: z.array(volunteerNodeSchema),
   claims: z.array(workClaimSchema),
   results: z.array(extractionResultSchema),
-  facts: z.array(extractedFactRecordSchema)
+  facts: z.array(extractedFactRecordSchema),
+  workerControl: workerControlConfigSchema
 });
 
 export type RelationshipType = z.infer<typeof relationshipTypeSchema>;
@@ -113,4 +123,5 @@ export type VolunteerNode = z.infer<typeof volunteerNodeSchema>;
 export type WorkClaim = z.infer<typeof workClaimSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
 export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
+export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;

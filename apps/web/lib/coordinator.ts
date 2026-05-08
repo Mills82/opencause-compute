@@ -11,7 +11,8 @@ import {
   type Project,
   type ExtractionResult,
   type ExtractedFactRecord,
-  type DatabaseState
+  type DatabaseState,
+  type WorkerControlConfig
 } from '@opencause/shared';
 import { signWorkPacketPayload } from './signing';
 
@@ -19,6 +20,7 @@ const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'>;
+type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 
 const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
   slug: 'cancer-knowledge-miner',
@@ -359,4 +361,23 @@ export function listResults(db: DatabaseState): Array<ExtractionResult & { facts
 export function listNodes(db: DatabaseState): VolunteerNode[] {
   reconcileCoordinatorState(db);
   return db.nodes;
+}
+
+export function getWorkerControl(db: DatabaseState): WorkerControlConfig {
+  return db.workerControl;
+}
+
+export function updateWorkerControl(db: DatabaseState, update: WorkerControlUpdate): WorkerControlConfig {
+  db.workerControl = {
+    ...db.workerControl,
+    ...update,
+    updatedAt: new Date().toISOString()
+  };
+  return db.workerControl;
+}
+
+export function triggerRunNow(db: DatabaseState): WorkerControlConfig {
+  db.workerControl.runNowToken += 1;
+  db.workerControl.updatedAt = new Date().toISOString();
+  return db.workerControl;
 }

@@ -18,6 +18,10 @@
   - WorkClaim
   - ExtractionResult
   - ExtractedFact
+- Maintains worker control state:
+  - paused/resumed status
+  - idle mode and thresholds
+  - run-now token for one-shot manual execution
 
 ## Worker
 
@@ -35,6 +39,8 @@
   5. run Mock Extractor v1
   6. submit results
 - Writes activity log to `~/.opencause-compute/worker.log`.
+- Polls coordinator worker-control config and applies central pause/resume and thresholds.
+- Supports one-shot run-now token that bypasses idle gate for manual testing.
 
 ## Shared package
 

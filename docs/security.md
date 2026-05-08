@@ -19,6 +19,7 @@
 - Worker uses local app-data directory (`~/.opencause-compute`) and writes visible activity logs.
 - No inbound ports or local LLM server are required for worker operation.
 - Worker gates packet execution behind idle checks (default: user idle + CPU threshold).
+- Coordinator-managed worker controls allow pause/resume and run-now testing without changing executable code.
 
 ## Known V1 limits
 
