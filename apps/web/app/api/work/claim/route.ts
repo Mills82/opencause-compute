@@ -19,7 +19,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ claim: null, message: 'no_work_available' });
     }
     return NextResponse.json(claim);
-  } catch {
-    return NextResponse.json({ error: 'node_not_found' }, { status: 404 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'claim_failed';
+    if (message === 'node_not_found') {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+    if (message === 'node_offline') {
+      return NextResponse.json({ error: message }, { status: 409 });
+    }
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -16,6 +16,7 @@ import {
 import { signWorkPacketPayload } from './signing';
 
 const LEASE_MINUTES = 10;
+const NODE_STALE_MINUTES = 3;
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'>;
 
@@ -68,12 +69,21 @@ export function registerNode(db: DatabaseState, input: RegisterInput): Volunteer
 }
 
 export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode {
+  const now = new Date();
+  reconcileCoordinatorState(db, now);
+
   const node = db.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error('node_not_found');
   }
-  node.lastHeartbeatAt = new Date().toISOString();
+  node.lastHeartbeatAt = now.toISOString();
   node.status = 'online';
+
+  const activeClaim = db.claims.find((claim) => claim.nodeId === nodeId && claim.status === 'claimed');
+  if (activeClaim) {
+    activeClaim.leaseExpiresAt = new Date(now.getTime() + LEASE_MINUTES * 60_000).toISOString();
+  }
+
   return node;
 }
 
@@ -118,14 +128,58 @@ function reclaimExpiredClaims(db: DatabaseState, now: Date): void {
   }
 }
 
+function markStaleNodes(db: DatabaseState, now: Date): void {
+  const staleCutoffMs = now.getTime() - NODE_STALE_MINUTES * 60_000;
+  for (const node of db.nodes) {
+    const heartbeatMs = node.lastHeartbeatAt ? new Date(node.lastHeartbeatAt).getTime() : 0;
+    node.status = heartbeatMs >= staleCutoffMs ? 'online' : 'offline';
+  }
+}
+
+function reclaimClaimsFromOfflineNodes(db: DatabaseState, now: Date): void {
+  const nowIso = now.toISOString();
+
+  for (const claim of db.claims) {
+    if (claim.status !== 'claimed') {
+      continue;
+    }
+    const claimNode = db.nodes.find((node) => node.id === claim.nodeId);
+    if (claimNode?.status === 'offline') {
+      claim.status = 'expired';
+      claim.completedAt = nowIso;
+    }
+  }
+
+  for (const packet of db.workPackets) {
+    if (packet.status !== 'claimed') {
+      continue;
+    }
+    const hasActiveClaim = db.claims.some((claim) => claim.workPacketId === packet.id && claim.status === 'claimed');
+    if (!hasActiveClaim) {
+      packet.status = 'queued';
+      packet.updatedAt = nowIso;
+    }
+  }
+}
+
+export function reconcileCoordinatorState(db: DatabaseState, now: Date = new Date()): void {
+  markStaleNodes(db, now);
+  reclaimClaimsFromOfflineNodes(db, now);
+  reclaimExpiredClaims(db, now);
+}
+
 export function claimWork(db: DatabaseState, nodeId: string): { claimId: string; packet: WorkPacketPayload; signature: string } | null {
+  reconcileCoordinatorState(db);
+
   const node = db.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error('node_not_found');
   }
+  if (node.status === 'offline') {
+    throw new Error('node_offline');
+  }
 
   const now = new Date();
-  reclaimExpiredClaims(db, now);
 
   const existingClaim = db.claims.find((claim) => claim.nodeId === nodeId && claim.status === 'claimed');
   if (existingClaim) {
@@ -285,16 +339,24 @@ export function seedDemoData(db: DatabaseState): { project: Project; packetsCrea
 }
 
 export function listProjects(db: DatabaseState): Project[] {
+  reconcileCoordinatorState(db);
   return db.projects;
 }
 
 export function listWorkPackets(db: DatabaseState): WorkPacket[] {
+  reconcileCoordinatorState(db);
   return db.workPackets;
 }
 
 export function listResults(db: DatabaseState): Array<ExtractionResult & { facts: ExtractedFactRecord[] }> {
+  reconcileCoordinatorState(db);
   return db.results.map((result) => ({
     ...result,
     facts: db.facts.filter((f) => f.resultId === result.id)
   }));
+}
+
+export function listNodes(db: DatabaseState): VolunteerNode[] {
+  reconcileCoordinatorState(db);
+  return db.nodes;
 }

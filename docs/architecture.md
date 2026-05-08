@@ -55,7 +55,10 @@
 ## Claim leasing behavior
 
 - Claims are leased for 10 minutes.
+- Heartbeats from a node with an active claim extend that claim lease.
 - Coordinator reclaims expired claims during subsequent claim attempts.
+- Nodes with no heartbeat for 3 minutes are marked offline.
+- Claims held by offline nodes are expired and their packets are requeued.
 - Expired claims are marked `expired`, and packets with no active claim are requeued.
 - Duplicate claim attempts from the same node return the existing active claim (idempotent claim behavior).
 

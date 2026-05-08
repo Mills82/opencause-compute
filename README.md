@@ -16,29 +16,33 @@ V1 does **not** make medical claims and uses deterministic `Mock Extractor v1` o
 
 ## Quick start
 
-1. Install dependencies:
+1. Install + verify once:
 
 ```bash
-npm install
+npm run setup
 ```
 
-2. Seed demo data:
+2. Start web coordinator:
 
 ```bash
-cd apps/web
-npm run dev
-# In another shell:
-curl -X POST http://localhost:3000/api/admin/seed-demo-data
+npm run demo:web
 ```
 
-3. Run worker once (auto-registers if no node id):
+3. Seed demo project/packets:
 
 ```bash
-cd apps/worker
-npm run dev -- run-once --server http://localhost:3000
+npm run demo:seed
 ```
 
-4. Open dashboard routes in browser:
+4. Run worker:
+
+```bash
+npm run demo:worker:once
+# or continuous loop:
+npm run demo:worker:loop
+```
+
+5. Open dashboard routes in browser:
 - `/`
 - `/projects`
 - `/projects/[id]`
@@ -63,6 +67,11 @@ npm run dev -- run-once --server http://localhost:3000
 From repo root:
 
 ```bash
+npm run setup
+npm run demo:web
+npm run demo:seed
+npm run demo:worker:once
+npm run demo:worker:loop
 npm run build
 npm run typecheck
 npm run test

@@ -15,6 +15,7 @@
   - citation/source metadata preservation on extracted facts
 - Claim leases are time-limited and expired claims are reclaimed/requeued.
 - Duplicate claim attempts from one node are idempotent and do not create concurrent active claims.
+- Nodes are marked offline when heartbeat is stale, and offline-node claims are reclaimed.
 - Worker uses local app-data directory (`~/.opencause-compute`) and writes visible activity logs.
 - No inbound ports or local LLM server are required for worker operation.
 

@@ -1,7 +1,11 @@
-import { loadDb } from './db';
+import { listNodes, reconcileCoordinatorState } from './coordinator';
+import { loadDb, withDb } from './db';
 
 export async function getDashboardData() {
-  const db = await loadDb();
+  const db = await withDb((state) => {
+    reconcileCoordinatorState(state);
+    return state;
+  });
   return {
     projectCount: db.projects.length,
     packetCount: db.workPackets.length,
@@ -49,6 +53,5 @@ export async function getResults() {
 }
 
 export async function getNodes() {
-  const db = await loadDb();
-  return db.nodes;
+  return withDb((db) => listNodes(db));
 }
