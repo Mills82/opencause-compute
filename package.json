@@ -10,6 +10,7 @@
     "dev:web": "npm run dev -w @opencause/web",
     "dev:worker": "npm run dev -w @opencause/worker",
     "setup": "npm install && npm run build && npm run typecheck && npm run test",
+    "demo:up": "node scripts/demo-up.mjs",
     "demo:web": "npm run dev:web",
     "demo:seed": "node scripts/seed-demo.mjs",
     "demo:worker:once": "npm run dev -w @opencause/worker -- run-once --server http://localhost:3000",

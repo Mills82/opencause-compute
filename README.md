@@ -22,27 +22,13 @@ V1 does **not** make medical claims and uses deterministic `Mock Extractor v1` o
 npm run setup
 ```
 
-2. Start web coordinator:
+2. Start full demo stack (web + seed + worker loop) in one command:
 
 ```bash
-npm run demo:web
+npm run demo:up
 ```
 
-3. Seed demo project/packets:
-
-```bash
-npm run demo:seed
-```
-
-4. Run worker:
-
-```bash
-npm run demo:worker:once
-# or continuous loop:
-npm run demo:worker:loop
-```
-
-5. Open dashboard routes in browser:
+3. Open dashboard routes in browser:
 - `/`
 - `/projects`
 - `/projects/[id]`
@@ -50,6 +36,30 @@ npm run demo:worker:loop
 - `/results`
 - `/nodes`
 - `/about`
+
+4. Stop everything with `Ctrl+C`.
+
+## Manual mode (separate terminals)
+
+1. Start web coordinator:
+
+```bash
+npm run demo:web
+```
+
+2. Seed demo project/packets:
+
+```bash
+npm run demo:seed
+```
+
+3. Run worker:
+
+```bash
+npm run demo:worker:once
+# or continuous loop:
+npm run demo:worker:loop
+```
 
 ## API endpoints
 
@@ -68,6 +78,7 @@ From repo root:
 
 ```bash
 npm run setup
+npm run demo:up
 npm run demo:web
 npm run demo:seed
 npm run demo:worker:once
