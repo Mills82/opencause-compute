@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: #0b1324;
+  color: #e2e8f0;
+}
+
+a {
+  color: #43c4a6;
+}
+
+a:hover {
+  text-decoration: underline;
+}

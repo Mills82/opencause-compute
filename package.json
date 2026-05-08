@@ -1,0 +1,16 @@
+{
+  "name": "opencause-compute",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @opencause/web",
+    "dev:worker": "npm run dev -w @opencause/worker",
+    "build": "npm run build -w @opencause/shared && npm run build -w @opencause/web && npm run build -w @opencause/worker",
+    "typecheck": "npm run typecheck -w @opencause/shared && npm run typecheck -w @opencause/web && npm run typecheck -w @opencause/worker",
+    "test": "npm run test -w @opencause/shared && npm run test -w @opencause/web && npm run test -w @opencause/worker"
+  }
+}
