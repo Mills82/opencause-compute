@@ -13,6 +13,8 @@
   - confidence bounds (0..1)
   - evidence sentence inclusion in source text
   - citation/source metadata preservation on extracted facts
+- Claim leases are time-limited and expired claims are reclaimed/requeued.
+- Duplicate claim attempts from one node are idempotent and do not create concurrent active claims.
 - Worker uses local app-data directory (`~/.opencause-compute`) and writes visible activity logs.
 - No inbound ports or local LLM server are required for worker operation.
 

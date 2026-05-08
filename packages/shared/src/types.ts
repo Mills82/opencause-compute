@@ -67,7 +67,7 @@ export const workClaimSchema = z.object({
   id: z.string(),
   workPacketId: z.string(),
   nodeId: z.string(),
-  status: z.enum(['claimed', 'completed']),
+  status: z.enum(['claimed', 'completed', 'expired']),
   claimedAt: z.string(),
   leaseExpiresAt: z.string(),
   completedAt: z.string().nullable()

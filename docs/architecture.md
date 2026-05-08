@@ -52,6 +52,13 @@
 6. Coordinator validates and stores result/facts.
 7. Dashboard renders state from coordinator DB.
 
+## Claim leasing behavior
+
+- Claims are leased for 10 minutes.
+- Coordinator reclaims expired claims during subsequent claim attempts.
+- Expired claims are marked `expired`, and packets with no active claim are requeued.
+- Duplicate claim attempts from the same node return the existing active claim (idempotent claim behavior).
+
 ## Local dev fallback
 
 - No Postgres required in V1.

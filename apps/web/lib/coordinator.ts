@@ -77,10 +77,66 @@ export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode 
   return node;
 }
 
+function buildPacketPayload(packet: WorkPacket): WorkPacketPayload {
+  return workPacketPayloadSchema.parse({
+    id: packet.id,
+    projectId: packet.projectId,
+    title: packet.title,
+    sourceText: packet.sourceText,
+    sourceCitation: packet.sourceCitation,
+    sourceUrl: packet.sourceUrl,
+    sourcePublishedAt: packet.sourcePublishedAt,
+    inputHash: packet.inputHash,
+    extractor: 'mock-extractor-v1',
+    createdAt: packet.createdAt
+  });
+}
+
+function reclaimExpiredClaims(db: DatabaseState, now: Date): void {
+  const nowIso = now.toISOString();
+  const nowMs = now.getTime();
+
+  for (const claim of db.claims) {
+    if (claim.status !== 'claimed') {
+      continue;
+    }
+    if (new Date(claim.leaseExpiresAt).getTime() <= nowMs) {
+      claim.status = 'expired';
+      claim.completedAt = nowIso;
+    }
+  }
+
+  for (const packet of db.workPackets) {
+    if (packet.status !== 'claimed') {
+      continue;
+    }
+    const hasActiveClaim = db.claims.some((claim) => claim.workPacketId === packet.id && claim.status === 'claimed');
+    if (!hasActiveClaim) {
+      packet.status = 'queued';
+      packet.updatedAt = nowIso;
+    }
+  }
+}
+
 export function claimWork(db: DatabaseState, nodeId: string): { claimId: string; packet: WorkPacketPayload; signature: string } | null {
   const node = db.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error('node_not_found');
+  }
+
+  const now = new Date();
+  reclaimExpiredClaims(db, now);
+
+  const existingClaim = db.claims.find((claim) => claim.nodeId === nodeId && claim.status === 'claimed');
+  if (existingClaim) {
+    const existingPacket = db.workPackets.find((packet) => packet.id === existingClaim.workPacketId);
+    if (existingPacket) {
+      return {
+        claimId: existingClaim.id,
+        packet: buildPacketPayload(existingPacket),
+        signature: existingPacket.signature
+      };
+    }
   }
 
   const packet = db.workPackets.find((p) => p.status === 'queued');
@@ -88,7 +144,6 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
     return null;
   }
 
-  const now = new Date();
   const claimId = randomUUID();
   db.claims.push({
     id: claimId,
@@ -101,24 +156,11 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
   });
 
   packet.status = 'claimed';
-  packet.updatedAt = new Date().toISOString();
-
-  const packetPayload = workPacketPayloadSchema.parse({
-    id: packet.id,
-    projectId: packet.projectId,
-    title: packet.title,
-    sourceText: packet.sourceText,
-    sourceCitation: packet.sourceCitation,
-    sourceUrl: packet.sourceUrl,
-    sourcePublishedAt: packet.sourcePublishedAt,
-    inputHash: packet.inputHash,
-    extractor: 'mock-extractor-v1',
-    createdAt: packet.createdAt
-  });
+  packet.updatedAt = now.toISOString();
 
   return {
     claimId,
-    packet: packetPayload,
+    packet: buildPacketPayload(packet),
     signature: packet.signature
   };
 }
@@ -137,18 +179,18 @@ export function submitResult(
     throw new Error('invalid_claim');
   }
 
-  const packetPayload = workPacketPayloadSchema.parse({
-    id: packet.id,
-    projectId: packet.projectId,
-    title: packet.title,
-    sourceText: packet.sourceText,
-    sourceCitation: packet.sourceCitation,
-    sourceUrl: packet.sourceUrl,
-    sourcePublishedAt: packet.sourcePublishedAt,
-    inputHash: packet.inputHash,
-    extractor: 'mock-extractor-v1',
-    createdAt: packet.createdAt
-  });
+  const now = new Date();
+  if (new Date(claim.leaseExpiresAt).getTime() <= now.getTime()) {
+    claim.status = 'expired';
+    claim.completedAt = now.toISOString();
+    if (packet.status !== 'completed') {
+      packet.status = 'queued';
+      packet.updatedAt = now.toISOString();
+    }
+    throw new Error('claim_expired');
+  }
+
+  const packetPayload = buildPacketPayload(packet);
 
   const validation = validateResultForPacket(input.result, packetPayload);
   const submittedAt = new Date().toISOString();
