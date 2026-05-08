@@ -18,6 +18,7 @@
 - Nodes are marked offline when heartbeat is stale, and offline-node claims are reclaimed.
 - Worker uses local app-data directory (`~/.opencause-compute`) and writes visible activity logs.
 - No inbound ports or local LLM server are required for worker operation.
+- Worker gates packet execution behind idle checks (default: user idle + CPU threshold).
 
 ## Known V1 limits
 

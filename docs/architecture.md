@@ -29,10 +29,11 @@
   - `loop`
 - `run-once` flow:
   1. heartbeat
-  2. claim
-  3. verify HMAC signature
-  4. run Mock Extractor v1
-  5. submit results
+  2. idle gate check (user idle + CPU threshold, configurable)
+  3. claim
+  4. verify HMAC signature
+  5. run Mock Extractor v1
+  6. submit results
 - Writes activity log to `~/.opencause-compute/worker.log`.
 
 ## Shared package

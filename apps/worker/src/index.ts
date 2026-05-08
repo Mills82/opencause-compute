@@ -2,6 +2,7 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { runMockExtractorV1, verifyPayloadHmac, type ResultPayload, type WorkPacketPayload } from '@opencause/shared';
+import { checkHostIdle, type IdleConfig, type IdleMode } from './idle';
 
 type JsonValue = Record<string, unknown>;
 
@@ -30,6 +31,22 @@ function required(value: string | undefined, name: string): string {
     throw new Error(`missing_arg:${name}`);
   }
   return value;
+}
+
+function readIdleConfig(): IdleConfig {
+  const modeValue = arg('--idle-mode', process.env.IDLE_MODE ?? 'user-and-cpu');
+  const mode: IdleMode = modeValue === 'cpu-only' ? 'cpu-only' : 'user-and-cpu';
+
+  const minIdleSeconds = Number(arg('--min-idle-seconds', process.env.MIN_IDLE_SECONDS ?? '120'));
+  const maxCpuPercent = Number(arg('--max-cpu-percent', process.env.MAX_CPU_PERCENT ?? '35'));
+  const sampleMs = Number(arg('--cpu-sample-ms', process.env.CPU_SAMPLE_MS ?? '800'));
+
+  return {
+    mode,
+    minIdleSeconds: Number.isFinite(minIdleSeconds) ? minIdleSeconds : 120,
+    maxCpuPercent: Number.isFinite(maxCpuPercent) ? maxCpuPercent : 35,
+    sampleMs: Number.isFinite(sampleMs) ? sampleMs : 800
+  };
 }
 
 async function post<T>(server: string, route: string, body: JsonValue): Promise<T> {
@@ -104,8 +121,18 @@ async function submit(server: string, nodeId: string, claimId: string, packetId:
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
 
-async function runOnce(server: string, nodeId: string): Promise<void> {
+async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig): Promise<void> {
   await heartbeat(server, nodeId);
+
+  const idleDecision = await checkHostIdle(idleConfig);
+  if (!idleDecision.eligible) {
+    const userIdle = idleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${idleDecision.metrics.userIdleSeconds}s`;
+    await log(
+      `idle gate blocked run reason=${idleDecision.reason} cpu=${idleDecision.metrics.cpuPercent}% userIdle=${userIdle}`
+    );
+    return;
+  }
+
   const claimed = await claim(server, nodeId);
   if (!claimed) {
     return;
@@ -122,11 +149,13 @@ async function runOnce(server: string, nodeId: string): Promise<void> {
   await submit(server, nodeId, claimed.claimId, claimed.packet.id, result);
 }
 
-async function loop(server: string, nodeId: string, intervalMs: number): Promise<void> {
-  await log(`loop started intervalMs=${intervalMs}`);
+async function loop(server: string, nodeId: string, intervalMs: number, idleConfig: IdleConfig): Promise<void> {
+  await log(
+    `loop started intervalMs=${intervalMs} idleMode=${idleConfig.mode} minIdleSeconds=${idleConfig.minIdleSeconds} maxCpuPercent=${idleConfig.maxCpuPercent}`
+  );
   while (true) {
     try {
-      await runOnce(server, nodeId);
+      await runOnce(server, nodeId, idleConfig);
     } catch (error) {
       await log(`loop error ${(error as Error).message}`);
     }
@@ -137,6 +166,7 @@ async function loop(server: string, nodeId: string, intervalMs: number): Promise
 async function main() {
   const command = process.argv[2] ?? 'run-once';
   const server = arg('--server', DEFAULT_SERVER) as string;
+  const idleConfig = readIdleConfig();
 
   if (command === 'register') {
     await register(server);
@@ -157,14 +187,14 @@ async function main() {
 
   if (command === 'run-once') {
     const nodeId = arg('--node-id') ?? (await register(server));
-    await runOnce(server, nodeId);
+    await runOnce(server, nodeId, idleConfig);
     return;
   }
 
   if (command === 'loop') {
     const nodeId = arg('--node-id') ?? (await register(server));
     const intervalMs = Number(arg('--interval-ms', '5000'));
-    await loop(server, nodeId, intervalMs);
+    await loop(server, nodeId, intervalMs, idleConfig);
     return;
   }
 

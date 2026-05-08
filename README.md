@@ -1,12 +1,12 @@
-# OpenCause Compute V1
+# OpenCause Compute V1 Release
 
 OpenCause Compute is a volunteer-compute platform for AI-powered open science.
 
-V1 vertical slice includes:
+V1 release includes:
 - Next.js coordinator/dashboard (`apps/web`)
 - CLI worker (`apps/worker`)
 - Shared schemas, signing, extractor, validation (`packages/shared`)
-- Local file DB fallback for immediate dev demo (`apps/web/data/db.json`)
+- Local file DB fallback for immediate setup (`apps/web/data/db.json`)
 
 ## Positioning
 
@@ -14,18 +14,18 @@ Donate your idle computer to AI-powered open science.
 
 V1 does **not** make medical claims and uses deterministic `Mock Extractor v1` only.
 
-## Quick start
+## Quick start (release mode)
 
-1. Install + verify once:
+1. Install and verify:
 
 ```bash
 npm run setup
 ```
 
-2. Start full demo stack (web + seed + worker loop) in one command:
+2. Start the full stack in one command (web + seed + worker loop):
 
 ```bash
-npm run demo:up
+npm run start:up
 ```
 
 3. Open dashboard routes in browser:
@@ -39,7 +39,7 @@ npm run demo:up
 
 4. Stop everything with `Ctrl+C`.
 
-## Manual mode (separate terminals)
+## Manual start (separate terminals)
 
 1. Start web coordinator:
 
@@ -56,10 +56,41 @@ npm run demo:seed
 3. Run worker:
 
 ```bash
-npm run demo:worker:once
+npm run start:worker:once
 # or continuous loop:
-npm run demo:worker:loop
+npm run start:worker:loop
 ```
+
+## Idle behavior
+
+The worker only processes packets when idle thresholds pass:
+- `IDLE_MODE=user-and-cpu` (default): requires user-idle signal + CPU threshold
+- `IDLE_MODE=cpu-only`: CPU threshold only
+- `MIN_IDLE_SECONDS` default `120`
+- `MAX_CPU_PERCENT` default `35`
+
+Examples:
+
+```bash
+IDLE_MODE=cpu-only MAX_CPU_PERCENT=30 npm run start:worker:loop
+```
+
+```bash
+npm run start:worker:loop -- --idle-mode user-and-cpu --min-idle-seconds 180
+```
+
+## Installers and packaging
+
+Current V1 provides script-based installers:
+- macOS/Linux: `npm run release:install:unix`
+- Windows PowerShell: `npm run release:install:windows`
+
+Best file type for broad user install:
+- Windows-first audience: signed `.exe` or `.msi`
+- macOS: signed `.pkg`
+- Linux: `.deb`/`.rpm` or AppImage
+
+This repo currently ships script installers and runtime commands, with native signed installers planned as the next packaging step.
 
 ## API endpoints
 
@@ -78,11 +109,15 @@ From repo root:
 
 ```bash
 npm run setup
+npm run start:up
+npm run start:web
+npm run start:worker:once
+npm run start:worker:loop
+npm run release:install:unix
+npm run release:install:windows
 npm run demo:up
 npm run demo:web
 npm run demo:seed
-npm run demo:worker:once
-npm run demo:worker:loop
 npm run build
 npm run typecheck
 npm run test
