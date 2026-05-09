@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@opencause/shared": "*",
+    "@opencause/shared": "file:../../packages/shared",
     "next": "14.2.5",
     "pg": "^8.13.1",
     "react": "18.3.1",
