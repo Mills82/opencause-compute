@@ -5,42 +5,138 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>OpenCause Compute Worker</title>
     <style>
-      body { margin: 0; font-family: system-ui, sans-serif; background: #0b1020; color: #e5eefc; }
-      main { max-width: 900px; margin: 0 auto; padding: 32px; }
-      section { border: 1px solid #26324d; border-radius: 12px; padding: 16px; margin: 12px 0; background: #11182a; }
+      :root { color-scheme: dark; }
+      body { margin: 0; font-family: Inter, Segoe UI, system-ui, sans-serif; background: #0b1020; color: #e5eefc; }
+      main { max-width: 980px; margin: 0 auto; padding: 32px; }
+      header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+      header img { width: 44px; height: 44px; border-radius: 10px; }
+      h1, h2, h3 { margin: 0; }
+      p { color: #b8c4d9; line-height: 1.55; }
+      section, .card { border: 1px solid #26324d; border-radius: 14px; padding: 18px; margin: 14px 0; background: #11182a; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
       .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
-      button { margin-right: 8px; padding: 8px 12px; border-radius: 8px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
-      pre { white-space: pre-wrap; background: #070b14; padding: 12px; border-radius: 8px; overflow: auto; }
+      button, select { margin-top: 8px; padding: 9px 12px; border-radius: 9px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
+      button.primary { background: #7dd3fc; border-color: #7dd3fc; color: #07111f; font-weight: 700; }
+      button:disabled { opacity: .55; cursor: not-allowed; }
+      label { display: block; color: #d7e1f4; font-size: 14px; margin-bottom: 6px; }
+      pre { white-space: pre-wrap; background: #070b14; padding: 12px; border-radius: 8px; overflow: auto; max-height: 280px; }
+      .small { font-size: 13px; color: #94a3b8; }
+      .pill { display: inline-block; border: 1px solid #3b4b70; border-radius: 999px; padding: 3px 8px; font-size: 12px; color: #b8c4d9; margin-left: 8px; }
+      .callout { background: #1d2438; border-left: 4px solid #7dd3fc; }
     </style>
   </head>
   <body>
     <main>
-      <h1>OpenCause Compute Worker</h1>
-      <p>Desktop prototype shell. Not a signed public installer yet.</p>
-      <div id="screens"></div>
-      <section>
-        <button id="refresh">Refresh</button>
-        <button id="start">Start worker</button>
-        <button id="stop">Stop worker</button>
-        <button id="log">Tail log</button>
-        <button id="pull-default">Download default model</button>
+      <header>
+        <img src="./assets/icon.png" alt="" />
+        <div>
+          <h1>OpenCause Compute Worker</h1>
+          <p class="small">Contribute idle compute to AI-assisted open science.</p>
+        </div>
+      </header>
+
+      <section class="callout">
+        <h2>First-run setup</h2>
+        <p>
+          OpenCause Compute downloads models only after you choose them. Start with the recommended small model, then switch to
+          stronger models later if your machine can handle the extra resource use.
+        </p>
       </section>
-      <pre id="output"></pre>
+
+      <div class="grid">
+        <section>
+          <h2>1. Runtime</h2>
+          <p id="runtime-message">Checking Ollama...</p>
+          <button id="refresh">Refresh status</button>
+        </section>
+
+        <section>
+          <h2>2. Model</h2>
+          <label for="model-select">Approved local model</label>
+          <select id="model-select"></select>
+          <p id="model-guidance" class="small"></p>
+          <button id="pull-model" class="primary">Download selected model</button>
+        </section>
+
+        <section>
+          <h2>3. Worker</h2>
+          <p id="worker-message">Checking worker...</p>
+          <button id="start">Start worker</button>
+          <button id="stop">Stop worker</button>
+        </section>
+      </div>
+
+      <section>
+        <h2>Setup checklist</h2>
+        <div id="screens"></div>
+      </section>
+
+      <section>
+        <h2>Activity log</h2>
+        <button id="log">Tail log</button>
+        <pre id="output"></pre>
+      </section>
     </main>
     <script>
       const api = window.opencauseDesktop;
       const screens = document.getElementById('screens');
       const output = document.getElementById('output');
-      async function refresh() {
-        const state = await api.getState();
-        screens.innerHTML = state.viewModel.map(screen => `<section><h2>${screen.title}</h2><p class="${screen.status}">${screen.status}</p><p>${screen.message}</p></section>`).join('');
-        output.textContent = JSON.stringify(state, null, 2);
+      const runtimeMessage = document.getElementById('runtime-message');
+      const workerMessage = document.getElementById('worker-message');
+      const modelSelect = document.getElementById('model-select');
+      const modelGuidance = document.getElementById('model-guidance');
+      const pullButton = document.getElementById('pull-model');
+      let latestState = null;
+
+      function modelLabel(model) {
+        return `${model.label} (${model.id})`;
       }
+
+      function renderModels(modelRuntime) {
+        const selected = modelRuntime.selectedModel;
+        modelSelect.innerHTML = modelRuntime.approvedModels.map(model =>
+          `<option value="${model.id}" ${model.id === selected ? 'selected' : ''}>${modelLabel(model)}</option>`
+        ).join('');
+        renderSelectedModelGuidance();
+      }
+
+      function renderSelectedModelGuidance() {
+        if (!latestState?.modelRuntime) return;
+        const model = latestState.modelRuntime.approvedModels.find(candidate => candidate.id === modelSelect.value);
+        if (!model) {
+          modelGuidance.textContent = 'This model is not approved.';
+          pullButton.disabled = true;
+          return;
+        }
+        modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
+        pullButton.disabled = model.tier === 'large' || model.tier === 'experimental';
+        pullButton.textContent = pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model';
+      }
+
+      async function refresh() {
+        latestState = await api.getState();
+        runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
+        workerMessage.textContent = latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.';
+        screens.innerHTML = latestState.viewModel.map(screen => `<div class="card"><h3>${screen.title}<span class="pill ${screen.status}">${screen.status}</span></h3><p>${screen.message}</p></div>`).join('');
+        renderModels(latestState.modelRuntime);
+        output.textContent = JSON.stringify(latestState, null, 2);
+      }
+
       document.getElementById('refresh').onclick = refresh;
-      document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); };
-      document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); };
+      document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
-      document.getElementById('pull-default').onclick = async () => { output.textContent = JSON.stringify(await api.pullModel('llama3.2:3b'), null, 2); };
+      modelSelect.onchange = renderSelectedModelGuidance;
+      pullButton.onclick = async () => {
+        const model = modelSelect.value;
+        output.textContent = `Downloading ${model}. This can take a while...`;
+        try {
+          output.textContent = JSON.stringify(await api.pullModel(model), null, 2);
+        } catch (error) {
+          output.textContent = String(error?.message ?? error);
+        }
+        await refresh();
+      };
       refresh();
     </script>
   </body>

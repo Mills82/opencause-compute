@@ -49,4 +49,4 @@ Bundling model weights would make the installer huge, slow updates, complicate l
 - pull approved non-large/non-experimental models on explicit user action
 - reject unapproved, large, or experimental pulls unless a future advanced confirmation flow is implemented
 
-The Electron prototype exposes a `pullModel` IPC action and a prototype button for downloading the default `llama3.2:3b` model. This should become a polished first-run screen before public release.
+The Electron prototype exposes a `pullModel` IPC action and a first-run setup screen for checking Ollama, choosing an approved model, reviewing resource guidance, and downloading the selected non-advanced model.
