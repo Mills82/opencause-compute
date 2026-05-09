@@ -26,6 +26,7 @@
       .small { font-size: 13px; color: #94a3b8; }
       .pill { display: inline-block; border: 1px solid #3b4b70; border-radius: 999px; padding: 3px 8px; font-size: 12px; color: #b8c4d9; margin-left: 8px; }
       .callout { background: #1d2438; border-left: 4px solid #7dd3fc; }
+      .hidden { display: none; }
     </style>
   </head>
   <body>
@@ -50,6 +51,7 @@
         <section>
           <h2>1. Runtime</h2>
           <p id="runtime-message">Checking Ollama...</p>
+          <p id="ollama-help" class="small hidden">Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>, then click Refresh status.</p>
           <button id="refresh">Refresh status</button>
         </section>
 
@@ -111,6 +113,17 @@
       </section>
 
       <section>
+        <h2>Worker registration</h2>
+        <p class="small">Enter the one-time enrollment code from your invite or enrollment email. Codes are used only on computers you control.</p>
+        <label>
+          Enrollment code
+          <input id="enrollment-code" type="password" placeholder="occ_..." />
+        </label>
+        <button id="register-worker" class="primary">Register worker</button>
+        <p id="registration-message" class="small"></p>
+      </section>
+
+      <section>
         <h2>Setup checklist</h2>
         <div id="screens"></div>
       </section>
@@ -130,6 +143,9 @@
       const modelSelect = document.getElementById('model-select');
       const modelGuidance = document.getElementById('model-guidance');
       const pullButton = document.getElementById('pull-model');
+      const ollamaHelp = document.getElementById('ollama-help');
+      const enrollmentCode = document.getElementById('enrollment-code');
+      const registrationMessage = document.getElementById('registration-message');
       const versionMessage = document.getElementById('version-message');
       const settingsMessage = document.getElementById('settings-message');
       const coordinatorUrl = document.getElementById('coordinator-url');
@@ -161,8 +177,9 @@
           return;
         }
         modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
-        pullButton.disabled = model.tier === 'large' || model.tier === 'experimental';
-        pullButton.textContent = pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model';
+        const runtimeAvailable = Boolean(latestState.modelRuntime.available);
+        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental';
+        pullButton.textContent = !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
       }
 
       async function refresh() {
@@ -177,6 +194,7 @@
         try {
         latestState = await api.getState();
         runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
+        ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
         workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
         versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
         screens.innerHTML = latestState.viewModel.map(screen => `<div class="card"><h3>${screen.title}<span class="pill ${screen.status}">${screen.status}</span></h3><p>${screen.message}</p></div>`).join('');
@@ -201,6 +219,18 @@
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('register-worker').onclick = async () => {
+        registrationMessage.textContent = 'Registering worker...';
+        try {
+          const result = await api.registerWorker(enrollmentCode.value);
+          registrationMessage.textContent = result.code === 0 ? 'Worker registered. Refreshing status...' : `Registration failed: ${result.stderr || result.stdout || result.code}`;
+          output.textContent = JSON.stringify(result, null, 2);
+          await refresh();
+        } catch (error) {
+          registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`;
+          output.textContent = registrationMessage.textContent;
+        }
+      };
       document.getElementById('save-settings').onclick = async () => {
         settingsMessage.textContent = 'Saving settings...';
         const saved = await api.updateSettings({
@@ -225,6 +255,10 @@
       modelSelect.onchange = renderSelectedModelGuidance;
       pullButton.onclick = async () => {
         const model = modelSelect.value;
+        if (!latestState?.modelRuntime?.available) {
+          output.textContent = 'Install Ollama first, then click Refresh status before downloading a model.';
+          return;
+        }
         output.textContent = `Downloading ${model}. This can take a while...`;
         try {
           output.textContent = JSON.stringify(await api.pullModel(model), null, 2);

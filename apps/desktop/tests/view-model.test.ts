@@ -11,7 +11,7 @@ describe('desktop view model', () => {
     credentialsPath: '/tmp/opencause/node.json'
   };
 
-  it('blocks launch UI until disclaimer, enrollment, and runtime are ready', () => {
+  it('keeps only runtime as hard-blocked while onboarding items remain actionable warnings', () => {
     const vm = buildDesktopViewModel({
       settings: defaultDesktopSettings,
       runtime,
@@ -21,10 +21,10 @@ describe('desktop view model', () => {
     });
 
     expect(vm.filter((screen) => screen.status === 'blocked').map((screen) => screen.id)).toEqual([
-      'welcome',
-      'enrollment',
       'runtime-check'
     ]);
+    expect(vm.filter((screen) => screen.status === 'warning').map((screen) => screen.id)).toContain('welcome');
+    expect(vm.filter((screen) => screen.status === 'warning').map((screen) => screen.id)).toContain('enrollment');
     expect(publicLaunchUiReady(vm)).toBe(false);
   });
 

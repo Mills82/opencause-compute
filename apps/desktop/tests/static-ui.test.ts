@@ -28,4 +28,11 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Desktop bridge failed to load');
     expect(html).toContain('Desktop state check failed');
   });
+
+  it('guides first-run users through Ollama installation and worker registration', () => {
+    expect(html).toContain('Install Ollama first');
+    expect(html).toContain('ollama.com/download');
+    expect(html).toContain('Worker registration');
+    expect(html).toContain('Register worker');
+  });
 });

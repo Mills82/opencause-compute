@@ -34,7 +34,7 @@ export function buildDesktopViewModel(input: DesktopViewModelInput): ScreenViewM
     {
       id: 'welcome',
       title: 'Welcome',
-      status: input.disclaimerAccepted ? 'ready' : 'blocked',
+      status: input.disclaimerAccepted ? 'ready' : 'warning',
       message: input.disclaimerAccepted
         ? 'Science disclaimer accepted.'
         : 'Review AI-assisted open science, resource-use, and no-medical-advice disclaimers before contributing.',
@@ -43,12 +43,12 @@ export function buildDesktopViewModel(input: DesktopViewModelInput): ScreenViewM
     {
       id: 'enrollment',
       title: 'Volunteer enrollment',
-      status: input.settings.nodeId ? 'ready' : input.publicEnrollmentEnabled ? 'warning' : 'blocked',
+      status: input.settings.nodeId ? 'ready' : 'warning',
       message: input.settings.nodeId
         ? 'Worker is registered.'
         : input.publicEnrollmentEnabled
           ? 'Request or enter a one-time enrollment code to register this worker.'
-          : 'Public enrollment is currently disabled.',
+          : 'Enter the one-time enrollment code from your invite or enrollment email.',
       actions: input.settings.nodeId ? [] : ['request-enrollment', 'register-worker']
     },
     {

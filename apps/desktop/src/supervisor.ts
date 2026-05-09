@@ -90,6 +90,22 @@ export class WorkerSupervisor {
     return this.status();
   }
 
+  register(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+    const [entry, ...args] = this.buildArgs({ kind: 'register', enrollmentCode });
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [entry, ...args], {
+        env: { ...process.env, OPENCAUSE_APP_DIR: this.config.appDir },
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+      child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      child.on('close', (code) => resolve({ code, stdout, stderr }));
+      child.on('error', (error) => resolve({ code: 1, stdout, stderr: error.message }));
+    });
+  }
+
   stop(): WorkerRuntimeStatus {
     if (this.child && !this.child.killed) {
       this.child.kill('SIGTERM');

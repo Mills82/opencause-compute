@@ -91,6 +91,10 @@ ipcMain.handle('desktop:pause-worker', async () => {
 ipcMain.handle('desktop:stop-worker', async () => (await supervisor()).stop());
 ipcMain.handle('desktop:uninstall-local-state', async () => (await supervisor()).uninstallLocalState());
 ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLog());
+ipcMain.handle('desktop:register-worker', async (_event: unknown, enrollmentCode: unknown) => {
+  if (typeof enrollmentCode !== 'string' || enrollmentCode.trim().length < 8) throw new Error('enrollment_code_required');
+  return (await supervisor()).register(enrollmentCode.trim());
+});
 ipcMain.handle('desktop:pull-model', async (_event: unknown, model: unknown) => {
   if (typeof model !== 'string') throw new Error('model_required');
   return pullOllamaModel(model);

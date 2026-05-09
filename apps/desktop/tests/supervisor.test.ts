@@ -25,6 +25,10 @@ describe('worker supervisor contract', () => {
     ]);
   });
 
+  it('exposes register command execution for the desktop enrollment form', async () => {
+    expect(typeof supervisor.register).toBe('function');
+  });
+
   it('builds loop command with node credentials and interval', () => {
     expect(supervisor.buildArgs({ kind: 'loop', intervalMs: 10000 })).toEqual([
       '/tmp/worker.js',
