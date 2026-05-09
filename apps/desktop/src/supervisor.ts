@@ -86,17 +86,25 @@ export class WorkerSupervisor {
     return args;
   }
 
+  private workerEnv(): NodeJS.ProcessEnv {
+    const workerDir = path.dirname(path.dirname(this.config.workerEntry));
+    const publicKeyPath = path.join(workerDir, 'config', 'packet-signing-public-key.pem');
+    const keyIdPath = path.join(workerDir, 'config', 'packet-signing-key-id.txt');
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      OPENCAUSE_APP_DIR: this.config.appDir,
+      ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
+    };
+    if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = require('node:fs').readFileSync(publicKeyPath, 'utf8');
+    if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = require('node:fs').readFileSync(keyIdPath, 'utf8').trim();
+    return env;
+  }
+
   startLoop(options: { forceNow?: boolean } = {}): WorkerRuntimeStatus {
     if (this.child && !this.child.killed) return this.status();
     const [entry, ...args] = this.buildArgs(options.forceNow ? { kind: 'run-once', forceNow: true } : { kind: 'loop' });
-    this.child = spawn(process.execPath, [entry, ...args], {
-      env: {
-        ...process.env,
-        ELECTRON_RUN_AS_NODE: '1',
-        OPENCAUSE_APP_DIR: this.config.appDir,
-        ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
-      }
-    });
+    this.child = spawn(process.execPath, [entry, ...args], { env: this.workerEnv() });
     this.child.stdout.on('data', (chunk) => { void this.appendWorkerLog(chunk.toString().trimEnd()); });
     this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
     this.child.on('error', (error) => { this.lastError = error.message; void this.appendWorkerLog(`spawn error ${error.message}`); });
@@ -178,7 +186,7 @@ export class WorkerSupervisor {
     const [entry, ...args] = this.buildArgs({ kind: 'register', enrollmentCode });
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [entry, ...args], {
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OPENCAUSE_APP_DIR: this.config.appDir },
+        env: this.workerEnv(),
         stdio: ['ignore', 'pipe', 'pipe']
       });
       let stdout = '';

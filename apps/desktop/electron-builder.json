@@ -30,6 +30,10 @@
       "to": "worker/node_modules/zod"
     },
     {
+      "from": "static/config",
+      "to": "worker/config"
+    },
+    {
       "from": "assets",
       "to": "assets"
     }
