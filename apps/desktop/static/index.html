@@ -50,6 +50,7 @@
       .stat-card { background: #0d1425; border: 1px solid #25314d; border-radius: 12px; padding: 14px; }
       .stat-card strong { display:block; font-size: 22px; margin-bottom: 4px; }
       .hero-dashboard { background: linear-gradient(135deg, #14213d, #101827); border-color: #38527c; }
+      .log-card { background:#080d18; border:1px solid #25314d; border-radius:12px; padding:12px; max-height:260px; overflow:auto; white-space:pre-wrap; }
       @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
       @media (max-width: 950px) { .layout.dashboard-mode #profile-step, .layout.dashboard-mode #settings-step { grid-column: 1 / -1; } }
     </style>
@@ -175,7 +176,15 @@
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
               <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
               <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed work</p></div>
+              <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resource eligibility</p></div>
             </div>
+            <div class="grid">
+              <div class="stat-card"><strong id="dashboard-idle">—</strong><p class="small">User idle time</p></div>
+              <div class="stat-card"><strong id="dashboard-cpu">—</strong><p class="small">CPU usage</p></div>
+              <div class="stat-card"><strong id="dashboard-resource-reason">—</strong><p class="small">Current resource decision</p></div>
+            </div>
+            <h3>Latest worker log</h3>
+            <pre id="latest-log" class="log-card">No log lines yet.</pre>
             <p class="small">Resource telemetry such as CPU/GPU usage and temperatures will appear after hardware telemetry is added.</p>
             <div class="dashboard-actions">
           <button id="start" class="primary">Resume / start worker</button>
@@ -248,6 +257,11 @@
       const dashboardRuntime = document.getElementById('dashboard-runtime');
       const dashboardModel = document.getElementById('dashboard-model');
       const dashboardWork = document.getElementById('dashboard-work');
+      const dashboardEligible = document.getElementById('dashboard-eligible');
+      const dashboardIdle = document.getElementById('dashboard-idle');
+      const dashboardCpu = document.getElementById('dashboard-cpu');
+      const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
+      const latestLog = document.getElementById('latest-log');
       let latestState = null;
       let ollamaPoll = null;
       let modelDownloadPoll = null;
@@ -305,6 +319,11 @@
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
         dashboardWork.textContent = 'See web impact dashboard';
+        const resources = latestState?.resources;
+        dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
+        dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
+        dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
+        dashboardResourceReason.textContent = resources?.reason || '—';
       }
 
       function statusLabel(status) {
@@ -370,6 +389,8 @@
           ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
           if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
           workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : `Worker is not running.${latestState.runtime.lastExitCode !== undefined ? ' Last exit code: ' + latestState.runtime.lastExitCode + '.' : ''}${latestState.runtime.lastError ? ' Last error: ' + latestState.runtime.lastError : ''}`);
+          const log = await api.tailLog();
+          latestLog.textContent = log || 'No log lines yet.';
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
           openProfile.disabled = !profileSetupUrl;
           profileMessage.textContent = profileSetupUrl ? 'Profile setup link is available for this registered worker.' : (registered() ? 'No profile setup link found. Re-register or request a fresh profile setup link.' : 'Register this worker to receive a profile setup link.');
@@ -411,7 +432,7 @@
       document.getElementById('start').onclick = async () => { workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
-      document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('log').onclick = async () => { const log = await api.tailLog(); latestLog.textContent = log || 'No log lines yet.'; output.textContent = log || 'No log lines yet.'; };
       document.getElementById('diagnostics').onclick = async () => {
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;

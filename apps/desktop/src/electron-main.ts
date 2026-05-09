@@ -5,6 +5,7 @@ import { buildDesktopViewModel } from './view-model.js';
 import { loadDesktopSettings, redactedSettings, updateDesktopSettings, type DesktopSettings } from './settings.js';
 import { WorkerSupervisor } from './supervisor.js';
 import { modelDownloadStatus, modelRuntimeStatus, pullOllamaModel, startOllamaModelDownload } from './model-runtime.js';
+import { resourceStatus } from './host-metrics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(app.getPath('userData'), 'opencause-worker');
@@ -69,11 +70,13 @@ ipcMain.handle('desktop:get-state', async () => {
   const runtime = sup.status();
   const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
+  const resources = await resourceStatus(settings);
   return {
     settings: redactedSettings(settings),
     runtime,
     profileSetupUrl: credentials?.profileSetupUrl,
     modelRuntime,
+    resources,
     viewModel: buildDesktopViewModel({
       settings,
       runtime,
