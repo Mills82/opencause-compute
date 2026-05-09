@@ -6,8 +6,17 @@ import { requireProductionEnv } from '../lib/runtime-config';
 const links = [
   ['Home', '/'],
   ['About', '/about'],
+  ['Science disclaimer', '/science-disclaimer'],
   ['Volunteer waitlist', 'mailto:hello@appassist.ai?subject=OpenCause%20Compute%20volunteer%20interest'],
   ['Admin', '/admin']
+] as const;
+
+const footerLinks = [
+  ['Privacy', '/privacy'],
+  ['Terms', '/terms'],
+  ['Security', '/security'],
+  ['Science disclaimer', '/science-disclaimer'],
+  ['Responsible disclosure', '/responsible-disclosure']
 ] as const;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -33,6 +42,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+          <footer className="border-t border-line/70">
+            <div className="mx-auto flex max-w-6xl flex-wrap gap-4 px-6 py-6 text-sm text-slate-300">
+              {footerLinks.map(([label, href]) => (
+                <a key={href} href={href}>
+                  {label}
+                </a>
+              ))}
+            </div>
+          </footer>
         </div>
       </body>
     </html>

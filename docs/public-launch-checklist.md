@@ -45,7 +45,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## Legal/trust checklist
 
-- [ ] Add `/privacy`, `/terms`, `/security`, `/science-disclaimer`, and `/responsible-disclosure`.
+- [x] Add baseline `/privacy`, `/terms`, `/security`, `/science-disclaimer`, and `/responsible-disclosure` pages.
 - [ ] Explain what data volunteers process and send back.
 - [ ] Explain local file access boundaries, telemetry, uninstall, security reporting, electricity/resource implications, open-access literature caveats, and no-medical-advice posture.
 
