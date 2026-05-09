@@ -19,7 +19,7 @@ export type WorkerSupervisorConfig = {
     schedule: 'always' | 'idle-only' | 'manual';
   };
   modelRuntime?: {
-    qualityMode?: 'balanced' | 'high' | 'ultra' | 'custom';
+    qualityMode?: 'budget' | 'balanced' | 'ultra' | 'custom';
     numCtx?: number;
     numPredict?: number;
   };
@@ -112,12 +112,12 @@ export class WorkerSupervisor {
     };
     if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
     if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
-    const qualityMode = this.config.modelRuntime?.qualityMode ?? 'high';
-    env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 12288 : qualityMode === 'balanced' ? 4096 : 8192));
-    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (qualityMode === 'ultra' ? 1600 : qualityMode === 'balanced' ? 900 : 1200));
+    const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
+    env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 12288 : qualityMode === 'budget' ? 4096 : 8192));
+    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (qualityMode === 'ultra' ? 1600 : qualityMode === 'budget' ? 900 : 1200));
     env.LOCAL_LLM_TEMPERATURE = '0';
     env.LOCAL_LLM_TOP_P = '0.9';
-    env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'ultra' ? 'ultra' : qualityMode === 'balanced' ? 'balanced' : 'high';
+    env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'ultra' ? 'ultra' : qualityMode === 'budget' ? 'low' : 'high';
     return env;
   }
 

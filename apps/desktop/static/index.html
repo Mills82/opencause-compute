@@ -144,8 +144,8 @@
               Quality mode
               <select id="quality-mode">
                 <option value="ultra">Ultra quality (12k context)</option>
-                <option value="high">High quality (8k context)</option>
-                <option value="balanced">Balanced (4k context)</option>
+                <option value="balanced">Balanced quality (8k context)</option>
+                <option value="budget">Budget / low-resource (4k context)</option>
                 <option value="custom">Custom / advanced</option>
               </select>
             </label>
@@ -428,7 +428,7 @@
             schedule.value = latestState.settings.resourceControls.schedule;
             startup.checked = latestState.settings.startupOnLogin;
             battery.checked = latestState.settings.resourceControls.runOnBattery;
-            qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'high';
+            qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
           }
           modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
           output.textContent = JSON.stringify(latestState, null, 2);
