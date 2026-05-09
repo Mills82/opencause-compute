@@ -37,6 +37,7 @@ function getCronConfig() {
     pubmedRetmax: parseEnvInt(process.env.CRON_PUBMED_RETMAX, 100, 1, 250),
     queueTarget: parseEnvInt(process.env.CRON_QUEUE_TARGET, 1000, 1, 10000),
     maxPacketsPerRun: parseEnvInt(process.env.CRON_MAX_PACKETS_PER_RUN, 100, 1, 250),
+    enablePmcOa: process.env.CRON_ENABLE_PMC_OA === 'true',
     pmcQuery: process.env.CRON_PMC_OA_QUERY ?? process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
     pmcRetmax: parseEnvInt(process.env.CRON_PMC_OA_RETMAX, 6, 1, 50)
   };
@@ -62,8 +63,8 @@ async function runIngestion() {
   const config = getCronConfig();
   const beforeQueue = await queueSnapshot();
   const queueDeficit = Math.max(0, config.queueTarget - beforeQueue.totalPackets);
-  const pubmedRetmax = Math.min(config.pubmedRetmax, config.maxPacketsPerRun, queueDeficit || config.pubmedRetmax);
-  const pmcRetmax = queueDeficit > pubmedRetmax ? Math.min(config.pmcRetmax, config.maxPacketsPerRun - pubmedRetmax, queueDeficit - pubmedRetmax) : 0;
+  const pubmedRetmax = Math.min(config.maxPacketsPerRun, queueDeficit);
+  const pmcRetmax = config.enablePmcOa && queueDeficit > pubmedRetmax ? Math.min(config.pmcRetmax, config.maxPacketsPerRun - pubmedRetmax, queueDeficit - pubmedRetmax) : 0;
 
   if (queueDeficit <= 0) {
     return { skipped: true, reason: 'queue_target_met', queueTarget: config.queueTarget, beforeQueue };
@@ -89,12 +90,12 @@ async function runIngestion() {
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
     }),
-      ingestPmcOaFullTextWithReport({
+      pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({
       query: config.pmcQuery,
       retmax: pmcRetmax,
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
-      })
+      }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, sources: [], failures: [], skippedCount: 0 })
     ]);
 
   const pubmedSources = pubmedRecords.map((record) => ({
