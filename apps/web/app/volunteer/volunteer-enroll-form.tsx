@@ -59,8 +59,8 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
           <p className="font-medium text-white">One-time enrollment code</p>
           <code className="block break-all text-accent">{enrollmentCode}</code>
           <p className="text-slate-300">
-            Use this code only on a computer you control. Future desktop installers will apply it automatically; command-line
-            testers can set <code>NODE_ENROLLMENT_CODE</code> or pass <code>--enrollment-code</code> during registration.
+            Use this code only on a computer you control. Open the desktop worker and enter the code during registration. Developer
+            testers can still set <code>NODE_ENROLLMENT_CODE</code> or pass <code>--enrollment-code</code> during CLI registration.
           </p>
         </div>
       ) : null}

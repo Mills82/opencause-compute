@@ -1,6 +1,6 @@
 # Windows desktop release QA checklist
 
-This checklist applies after the unsigned prototype artifact is produced by `.github/workflows/desktop-windows-artifact.yml`.
+This checklist applies after an unsigned prototype or signed candidate installer is produced by `.github/workflows/desktop-windows-release.yml` and published to a GitHub Release.
 
 Status: **not public-release ready** until every required item is complete.
 
@@ -8,7 +8,7 @@ Status: **not public-release ready** until every required item is complete.
 
 - [ ] Artifact came from GitHub Actions `windows-latest`, not an ad-hoc local machine.
 - [ ] Commit SHA is recorded in release notes.
-- [ ] Artifact name includes `unsigned-prototype` until signing is implemented.
+- [ ] Artifact/release name clearly identifies unsigned prototype status until signing is implemented.
 - [ ] SHA256 checksums are generated and published with the artifact.
 - [ ] Build logs are archived.
 
@@ -74,7 +74,8 @@ Use a clean Windows VM or physical machine with no repo checkout and no develope
 
 ## Prototype artifact intake
 
-- [ ] Download `PROTOTYPE-RELEASE-NOTES.md` from the workflow artifact.
+- [ ] Download the installer from the GitHub Release, not a local build.
+- [ ] Download `RELEASE-NOTES.md` from the GitHub Release.
 - [ ] Confirm commit SHA matches the intended source commit.
 - [ ] Download `SHA256SUMS.txt`.
 - [ ] Verify installer/executable checksums before testing.

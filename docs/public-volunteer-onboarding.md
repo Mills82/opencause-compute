@@ -7,7 +7,7 @@ Goal: move from private invite codes to self-serve public volunteer enrollment w
 - `POST /api/volunteer/enroll` can issue a one-time enrollment code when `ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT=true`.
 - Hosted/public enrollment is protected with Cloudflare Turnstile via `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY`.
 - Hosted/public enrollment requires configured email delivery (`RESEND_API_KEY` and `ENROLLMENT_EMAIL_FROM`) before codes are issued.
-- The worker uses the one-time code through `NODE_ENROLLMENT_CODE` or `--enrollment-code` during registration.
+- Selected testers use the Windows desktop worker installer and enter the one-time code during registration. Developer/CLI testers can still use `NODE_ENROLLMENT_CODE` or `--enrollment-code`.
 - Registration consumes the code and links it to the created node.
 - Admins can suspend/revoke nodes after registration.
 
@@ -18,17 +18,17 @@ Private-alpha `NODE_ENROLLMENT_CODES` are static operator-issued invite codes. P
 ## Still needed before turning it on publicly
 
 - Exercise the `/volunteer` Turnstile and email flow in hosted preview before enabling public enrollment.
-- Add stronger suspicious-activity monitoring and alerting around enrollment spikes, repeated failures, and disposable-domain abuse.
-- Add admin view for enrollments and suspicious activity.
-- Ship the desktop worker app/installer so volunteers are not asked to run Node/npm.
+- Configure alert destinations and provider/edge monitoring around enrollment spikes, repeated failures, and disposable-domain abuse.
+- Continue improving admin review workflows for enrollments and suspicious activity.
+- Complete clean-machine QA for the Windows desktop worker installer so volunteers are not asked to run Node/npm.
 
 ## Suggested launch progression
 
-1. Keep `ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT=false` while installer work is incomplete.
-2. Test the endpoint with Turnstile in preview/staging.
-3. Enable for a small public beta.
-4. Monitor enrollments, node registrations, claims, submissions, and audit events.
-5. Move to broad public launch only after installer, sandbox, distributed abuse controls, and reviewer/consensus workflows are ready.
+1. Keep `ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT=false` until the current Windows prototype has passed clean-machine QA or the tester group is explicitly controlled.
+2. Test the endpoint with Turnstile and email delivery in preview/staging.
+3. Enable for a small selected public beta using the desktop installer.
+4. Monitor enrollments, node registrations, claims, submissions, and audit/abuse-monitoring events.
+5. Move to broad public launch only after signing, clean-machine QA, sandbox/resource checks, abuse monitoring, and reviewer/consensus workflows are ready.
 
 ## Admin management
 

@@ -2,7 +2,7 @@
 
 Status: **not public-launch ready**.
 
-Current deployment is suitable only for controlled private-alpha/demo exposure with trusted participants.
+Current deployment is suitable for controlled private-alpha/demo exposure. A Windows desktop installer prototype exists for selected tester QA, but broad public launch is still blocked.
 
 ## Closed or materially reduced
 
@@ -18,24 +18,26 @@ Current deployment is suitable only for controlled private-alpha/demo exposure w
 - Ingestion runs and audit events are tracked.
 - Baseline legal/trust pages exist.
 - Private-alpha incident response notes exist.
+- Windows desktop installer prototype and GitHub Release workflow exist, so selected Windows testers should not need Node/npm.
+- Baseline abuse monitoring snapshot exists for admin/operator review.
 
 ## Still blocking broad public launch
 
-- Desktop installer/tray UX and no-developer-tooling install path.
-- Stronger worker sandbox/resource controls.
-- Production-grade, distributed rate limiting and abuse monitoring beyond in-process best-effort limits.
+- Signed desktop installer and clean-machine Windows QA.
+- Stronger worker sandbox/resource verification on a packaged build.
+- Provider/edge abuse monitoring and configured alert destinations for broader traffic.
 - Mature consensus validation: semantic comparison, configurable thresholds, reviewer tooling, consensus exports.
 - More complete public legal review and policy copy.
-- Real public volunteer account/onboarding flow beyond private-alpha invite codes.
+- Hosted public volunteer enrollment must be exercised with Turnstile/email delivery and selected-testers before broad opening.
 - More robust NCBI batching/history/backoff for larger ingestion jobs.
 - Load/concurrency tests against real Postgres for claim/submit/consensus under worker load.
 
 ## Current go/no-go
 
 - Private alpha / controlled demo: **go**, with trusted users only.
-- Public beta with selected external volunteers: **not yet**; installer, sandbox/resource controls, and stronger abuse controls should land first.
+- Public beta with selected external volunteers: **close but not automatic**; use the Windows installer prototype only after clean-machine QA and enrollment/download env verification.
 - Broad public launch: **no-go** until every blocker in `docs/public-launch-checklist.md` is closed.
 
 ## Abuse-control update
 
-Hosted deployments now use Postgres-backed rate-limit buckets when `DATABASE_URL` is present, with in-memory fallback for local development or if `OPENCAUSE_DB_RATE_LIMITS=false`. This is stronger than pure in-process limits for serverless deployments, but broad public launch should still monitor abuse patterns and consider edge/provider controls for high traffic.
+Hosted deployments now use Postgres-backed rate-limit buckets when `DATABASE_URL` is present, with in-memory fallback for local development or if `OPENCAUSE_DB_RATE_LIMITS=false`. Admins can review `/api/admin/abuse-monitoring` for enrollment, challenge-failure, registration, claim, submit, validation-failure, and enforcement signals. Broad public launch should still add provider/edge monitoring for high traffic.

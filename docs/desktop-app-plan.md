@@ -99,7 +99,7 @@ Run locally with:
 npm run electron:dev -w @opencause/desktop
 ```
 
-This is a prototype shell only. It is not signed, not packaged, and not suitable for public volunteers until installer/signing/update/uninstall work is complete.
+This is a prototype shell. It now has a Windows installer path for selected QA testers, but it is still unsigned and not suitable for broad public volunteers until signing, clean-machine QA, update, and uninstall verification are complete.
 
 ## Windows packaging scaffold
 
@@ -124,17 +124,18 @@ On the WSL build host, `npm run package:dir -w @opencause/desktop` succeeds and 
 wine is required, please see https://electron.build/multi-platform-build#linux
 ```
 
-For a full Windows installer artifact, run on Windows or install/configure Wine in CI. The generated unsigned Windows artifacts are still prototype-only and not acceptable for broad public release until code signing, installer QA, update, and uninstall testing are complete.
+For a full Windows installer artifact, use the GitHub Actions release workflow on `windows-latest`. The generated unsigned Windows installer is the selected-tester path and does not require volunteers to install Node/npm. It is still prototype-only and not acceptable for broad public release until code signing, installer QA, update, and uninstall testing are complete.
 
 ## Windows artifact CI
 
-A GitHub Actions workflow builds unsigned Windows prototype artifacts on `windows-latest`:
+GitHub Actions workflows build unsigned Windows prototype artifacts on `windows-latest`:
 
 ```text
 .github/workflows/desktop-windows-artifact.yml
+.github/workflows/desktop-windows-release.yml
 ```
 
-Use this instead of installing Wine locally unless local WSL builds are specifically desired. The uploaded artifact is for QA only and is not public-ready because it is unsigned.
+Use the release workflow to create GitHub Release assets for selected-tester QA. Use these instead of installing Wine locally unless local WSL builds are specifically desired. The uploaded artifact is for QA only and is not public-ready because it is unsigned.
 
 ## Model setup
 

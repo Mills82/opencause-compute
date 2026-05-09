@@ -1,132 +1,147 @@
-# OpenCause Compute V1 Release
+# OpenCause Compute
 
-OpenCause Compute is a volunteer-compute platform for AI-powered open science.
+OpenCause Compute lets volunteers contribute spare compute to AI-assisted open science.
 
-V1 release includes:
-- Next.js coordinator/dashboard (`apps/web`)
-- Worker runtime (`apps/worker`)
-- Shared schemas/signing/validation (`packages/shared`)
-- Local-LLM extraction by default (`Local LLM v1`)
-- Real literature packet ingestion from PubMed and PMC Open Access
+The project coordinates small, signed work packets from open/public scientific literature. Volunteer workers verify each packet, run an approved local extraction workflow, and return citation-backed **candidate facts** with provenance for review and consensus.
 
-## Positioning
+OpenCause Compute is **not medical advice** and does not make clinical claims. Output is research-support evidence only.
 
-Donate your idle computer to AI-powered open science.
+## For volunteers
 
-This release does **not** make medical claims.
+### Current status
 
-## User quick start
+OpenCause Compute is moving from controlled private alpha toward selected public beta.
 
-1. Install and verify:
+A Windows desktop worker installer now exists as an unsigned prototype for QA/trusted tester use. Normal volunteers should use the desktop installer path; they do **not** need to install Node.js, npm, Git, or clone this repository.
 
-```bash
-npm run setup
-```
+Broad public launch is still blocked until signing, clean-machine QA, and remaining launch checks are complete. See `docs/public-launch-checklist.md`.
 
-2. Start local LLM runtime:
+### Install the Windows worker
 
-```bash
-ollama serve
-ollama pull llama3.2:3b
-```
+1. Go to the OpenCause Compute download page:
+   - `https://opencause.appassist.ai/download`
+2. Download the Windows worker installer when a prototype/public download is available.
+3. Verify the SHA256 checksum from the linked checksum file.
+4. Install and open **OpenCause Compute Worker**.
+5. Follow first-run setup:
+   - check/install Ollama if prompted
+   - choose an approved local model, usually `llama3.2:3b`
+   - download the selected model from the worker UI
+   - set resource limits
+   - request or enter a one-time enrollment code
+6. Keep activity visible. You can pause/resume the worker and remove local worker data from the desktop app.
 
-3. Start OpenCause Compute:
+Prototype builds are for selected testers only. They may show Windows warnings until code signing is implemented.
 
-```bash
-npm run start:up
-```
+### What the worker does
 
-4. Open the dashboard at `http://localhost:3000` and use `/nodes` controls to:
-- Pause/resume processing
-- Configure idle thresholds and max CPU
-- Trigger `Run one packet now` for testing
+- Processes open/public literature work packets from the coordinator.
+- Verifies packet signatures before extraction.
+- Runs approved local model workflows only.
+- Sends back candidate facts, summary text, validation status, and provenance.
+- Stores local worker credentials and logs in the app data directory.
+- Lets you pause/resume work and control resource use.
 
-## Worker behavior
+### What the worker should not do
 
-- Processing only runs when idle thresholds pass.
-- Default extractor mode is Local LLM.
-- Mock extractor is disabled by default and only for explicit development opt-in.
+- It should not process your private files.
+- It should not hide background activity.
+- It should not provide medical advice.
+- It should not be treated as scientific acceptance of any extracted fact. Consensus and review are still required.
 
-## Storage
+## Public web surfaces
 
-- Recommended: Postgres via `DATABASE_URL`.
-- Fallback: local file DB at `apps/web/data/db.json`.
-- Hosted deployments can enable scheduled ingestion with Vercel Cron on `/api/admin/ingest/cron` using `CRON_SECRET`.
+- `/` — public landing page
+- `/about` — overview
+- `/download` — worker download links when configured
+- `/volunteer` — public volunteer enrollment when enabled
+- `/privacy`, `/terms`, `/security`, `/science-disclaimer`, `/responsible-disclosure` — trust/legal pages
+- `/api/health` — non-secret health check
 
-## Installers
+Coordinator/admin surfaces are protected behind admin authentication.
 
-Current V1 provides script installers:
-- macOS/Linux: `npm run release:install:unix`
-- Windows PowerShell: `npm run release:install:windows`
+## For operators
 
-Persistent worker service:
-- Unix/macOS:
-  - `npm run service:install:unix`
-  - `npm run service:start:unix`
-  - `npm run service:stop:unix`
-  - `npm run service:status:unix`
-  - `npm run service:uninstall:unix`
-- Windows:
-  - `npm run service:install:windows`
-  - `npm run service:start:windows`
-  - `npm run service:stop:windows`
-  - `npm run service:status:windows`
-  - `npm run service:uninstall:windows`
+Hosted deployments should set `OPENCAUSE_HOSTED=true` and use Postgres relational storage.
 
-## Scripts
-
-```bash
-npm run setup
-npm run start:up
-npm run start:web
-npm run start:worker:once
-npm run start:worker:loop
-npm run build
-npm run typecheck
-npm run test
-```
-
-## Security note
-
-V1 uses symmetric HMAC signing for packet verification as an interim mechanism. See `docs/security.md`.
-
-
-## Private alpha
-
-This repo is safe only for controlled private-alpha testing with trusted testers. See `docs/private-alpha-runbook.md`. Results are citation-backed candidate facts; format validation is not scientific validation and this is not medical advice.
-
-## Hosted private-alpha safety
-
-The hosted site is split into a public informational surface and a private coordinator surface:
-
-- Public: `/`, `/about`, `/api/health`.
-- Private coordinator UI: `/admin`, `/projects`, `/work-packets`, `/results`, `/nodes`.
-- Admin login: `/admin/login`, backed by an HTTP-only cookie from `ADMIN_UI_PASSWORD` or `ADMIN_API_KEY`.
-
-For hosted/private-alpha deployments, set `OPENCAUSE_HOSTED=true` and configure at minimum:
+Required hosted configuration includes:
 
 - `DATABASE_URL`
 - `PACKET_SIGNING_PRIVATE_KEY`
 - `PACKET_SIGNING_PUBLIC_KEY`
 - `ADMIN_API_KEY`
-- `ADMIN_UI_PASSWORD` (recommended, may fall back to `ADMIN_API_KEY`)
+- `ADMIN_UI_PASSWORD` recommended
 - `NCBI_EMAIL`
 - `CRON_SECRET` when `ENABLE_CRON_INGEST=true`
 
-Optional coordinator settings include `NCBI_API_KEY`, `DEFAULT_PACKET_EXTRACTOR`, `ALLOW_MOCK_RESULTS`, `OPENCAUSE_LOCAL_DEV`, `ENABLE_CRON_INGEST`, PubMed/PMC query and retmax settings.
+Volunteer enrollment/download configuration:
 
-Worker settings include `COORDINATOR_URL`, `EXTRACTOR_MODE`, `LOCAL_LLM_ENDPOINT`, `LOCAL_LLM_MODEL`, `IDLE_MODE`, `MIN_IDLE_SECONDS`, and `MAX_CPU_PERCENT`.
+- `ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT=true`
+- `TURNSTILE_SITE_KEY`
+- `TURNSTILE_SECRET_KEY`
+- `RESEND_API_KEY`
+- `ENROLLMENT_EMAIL_FROM`
+- `NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL`
+- `NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL`
+- `NEXT_PUBLIC_WINDOWS_WORKER_RELEASE_NOTES_URL`
+- `NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=prototype | public-beta | public`
 
-Set `NODE_ENROLLMENT_CODES` to one or more comma-separated private-alpha invite codes before exposing registration. Workers must pass a valid `enrollmentCode` during registration when codes are configured. Admins can suspend or revoke nodes through `POST /api/admin/nodes/:nodeId/status`.
+Abuse monitoring/readiness configuration:
 
-Hosted deployments require Ed25519 packet signing. `SIGNING_SECRET` is local/dev fallback only and should not be used as the only hosted signing configuration.
+- `ABUSE_ALERT_WEBHOOK_URL` or `ABUSE_ALERT_EMAIL_TO`
+- optional `ABUSE_WARN_*` thresholds described in `docs/abuse-monitoring.md`
 
-Database migration scaffolding lives in `db/migrations`. Apply SQL migrations with:
+Database migrations live in `db/migrations`:
 
 ```bash
 DATABASE_URL=... npm run db:migrate
 ```
 
-The current hosted app still uses the JSONB state implementation; see `docs/database-architecture.md` for the relational launch plan.
+## For developers
 
-OpenCause Compute remains private-alpha until the blockers in `docs/public-launch-checklist.md` are closed. Results are candidate, citation-backed extractions; format/schema validation is not scientific validation or medical advice.
+Developer setup still uses Node/npm. This is only for contributors working on the repo, not for ordinary volunteers.
+
+```bash
+npm ci
+npm run build
+npm run typecheck
+npm run test
+```
+
+Useful local commands:
+
+```bash
+npm run dev:web
+npm run start:up
+npm run start:worker:once
+npm run start:worker:loop
+npm run package:win:unsigned -w @opencause/desktop
+```
+
+Local development may use file storage and fallback signing; hosted/public deployments must use Postgres and Ed25519 packet signing.
+
+## Desktop release process
+
+Windows desktop installers are built by GitHub Actions and published to GitHub Releases. See:
+
+- `docs/desktop-release-process.md`
+- `docs/windows-release-qa-checklist.md`
+- `docs/code-signing-plan.md`
+- `docs/release-rollback.md`
+
+Current prototype releases are unsigned. Public release requires signed installer/executable, clean-machine QA, published checksums, and rollback notes.
+
+## Architecture and safety docs
+
+- `docs/architecture.md`
+- `docs/security.md`
+- `docs/model-runtime-plan.md`
+- `docs/worker-release-and-sandbox-plan.md`
+- `docs/consensus-validation.md`
+- `docs/public-volunteer-onboarding.md`
+- `docs/public-launch-status.md`
+- `docs/public-launch-checklist.md`
+
+## Scientific posture
+
+OpenCause Compute extracts structured candidate facts from literature. Format/schema validation means the output is parseable and citation-backed; it does **not** mean the fact is scientifically accepted. No extracted fact should be considered accepted solely because one worker produced valid JSON.

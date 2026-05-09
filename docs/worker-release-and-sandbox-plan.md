@@ -1,10 +1,10 @@
 # Worker release and sandbox plan
 
-OpenCause Compute is not ready for broad public volunteers until the worker has a normal-user install/uninstall experience and stronger sandbox/resource guarantees.
+OpenCause Compute now has a Windows desktop installer prototype for selected tester QA. Broad public volunteer release still requires signing, clean-machine QA, and stronger sandbox/resource verification.
 
 ## Current private-alpha worker behavior
 
-- Runs as a Node.js CLI for trusted private-alpha participants.
+- Selected Windows testers should use the desktop installer prototype rather than installing Node/npm.
 - Stores local credentials and logs under `~/.opencause-compute` by default, or `OPENCAUSE_APP_DIR` when configured.
 - Refuses obviously unsafe app data dirs such as the home directory or filesystem root.
 - Persists node credentials in `node.json` with mode `0600` where supported.
@@ -20,15 +20,15 @@ npm run start -w @opencause/worker -- status
 npm run start -w @opencause/worker -- uninstall-local-state
 ```
 
-`uninstall-local-state` removes local worker credentials/logs only. It does not remove Node.js, Ollama, downloaded models, launch agents, services, or future packaged app files.
+`uninstall-local-state` removes local worker credentials/logs only. In the desktop app this is exposed as local worker data removal. It does not remove Ollama or downloaded models.
 
 ## Public-launch worker requirements
 
 ### Installer / desktop UX
 
-- Windows installer with signed binaries where possible.
+- Windows installer with signed binaries where possible; current GitHub Release workflow produces unsigned prototype installers for QA.
 - macOS and Linux packaging plan.
-- No manual Node/npm requirement for ordinary volunteers.
+- No manual Node/npm requirement for ordinary volunteers; the Windows desktop installer is now the intended tester path.
 - Guided Ollama/local model setup or an approved bundled runtime path.
 - Tray app or small desktop UI.
 - Visible activity log.
@@ -63,9 +63,9 @@ npm run start -w @opencause/worker -- uninstall-local-state
 
 ## Go/no-go
 
-- Private alpha: CLI worker is acceptable for trusted testers.
-- Public beta: needs installer, visible activity, pause/uninstall, and clearer resource controls.
-- Broad public launch: no-go until installer, sandbox/resource model, update path, and uninstall path are complete and tested.
+- Private alpha / controlled QA: unsigned desktop prototype or CLI worker is acceptable for trusted testers.
+- Selected public beta: requires a working installer, visible activity, pause/uninstall/local-data removal, resource controls, and clean-machine QA.
+- Broad public launch: no-go until signing, sandbox/resource model, update path, and uninstall path are complete and tested.
 
 ## Implemented safety boundary foundation
 
