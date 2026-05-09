@@ -1,0 +1,116 @@
+import { NextResponse } from 'next/server';
+import { withDb } from '../../../../../lib/db';
+import { createWorkPacketsFromSources, getOrCreateProject } from '../../../../../lib/coordinator';
+import { isAdminAuthorized, isCronAuthorized } from '../../../../../lib/admin-auth';
+import { fetchPubMedRecords } from '../../../../../lib/ingestion/pubmed';
+import { ingestPmcOaFullText } from '../../../../../lib/ingestion/pmc-oa';
+
+const DEFAULT_QUERY = 'cancer biomarker response resistance';
+const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
+const DEFAULT_PROJECT_NAME = 'Cancer Knowledge Miner';
+const DEFAULT_PROJECT_DESCRIPTION =
+  'Processes open-access oncology and biomedical literature into structured, citation-backed facts.';
+
+function parseEnvInt(value: string | undefined, fallback: number, min: number, max: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function getCronConfig() {
+  const projectSlug = process.env.CRON_PROJECT_SLUG ?? DEFAULT_PROJECT_SLUG;
+  const projectName = process.env.CRON_PROJECT_NAME ?? DEFAULT_PROJECT_NAME;
+  const projectDescription = process.env.CRON_PROJECT_DESCRIPTION ?? DEFAULT_PROJECT_DESCRIPTION;
+
+  return {
+    projectSlug,
+    projectName,
+    projectDescription,
+    pubmedQuery: process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
+    pubmedRetmax: parseEnvInt(process.env.CRON_PUBMED_RETMAX, 12, 1, 100),
+    pmcQuery: process.env.CRON_PMC_OA_QUERY ?? process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
+    pmcRetmax: parseEnvInt(process.env.CRON_PMC_OA_RETMAX, 6, 1, 50)
+  };
+}
+
+async function runIngestion() {
+  const config = getCronConfig();
+
+  const [pubmedRecords, pmcSources] = await Promise.all([
+    fetchPubMedRecords({
+      query: config.pubmedQuery,
+      retmax: config.pubmedRetmax,
+      email: process.env.NCBI_EMAIL,
+      apiKey: process.env.NCBI_API_KEY
+    }),
+    ingestPmcOaFullText({
+      query: config.pmcQuery,
+      retmax: config.pmcRetmax,
+      email: process.env.NCBI_EMAIL,
+      apiKey: process.env.NCBI_API_KEY
+    })
+  ]);
+
+  const pubmedSources = pubmedRecords.map((record) => ({
+    title: record.title,
+    sourceText: record.abstractText,
+    sourceCitation: record.sourceCitation,
+    sourceUrl: record.sourceUrl,
+    sourcePublishedAt: record.sourcePublishedAt
+  }));
+
+  const output = await withDb((db) => {
+    const project = getOrCreateProject(db, {
+      slug: config.projectSlug,
+      name: config.projectName,
+      description: config.projectDescription
+    });
+
+    const pubmed = createWorkPacketsFromSources(db, {
+      projectId: project.id,
+      sources: pubmedSources,
+      extractor: 'local-llm-v1'
+    });
+
+    const pmcOa = createWorkPacketsFromSources(db, {
+      projectId: project.id,
+      sources: pmcSources,
+      extractor: 'local-llm-v1'
+    });
+
+    return {
+      project,
+      pubmedFetched: pubmedRecords.length,
+      pmcChunksFetched: pmcSources.length,
+      packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated,
+      packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped,
+      pubmed,
+      pmcOa
+    };
+  });
+
+  return output;
+}
+
+export async function GET(request: Request) {
+  if (!isCronAuthorized(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const ingest = await runIngestion();
+  return NextResponse.json({ ok: true, mode: 'cron', ingest });
+}
+
+export async function POST(request: Request) {
+  if (!isAdminAuthorized(request) && !isCronAuthorized(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const ingest = await runIngestion();
+  return NextResponse.json({ ok: true, mode: 'manual', ingest });
+}

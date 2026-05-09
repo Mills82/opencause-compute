@@ -51,6 +51,7 @@ npm run start:up
 
 - Recommended: Postgres via `DATABASE_URL`.
 - Fallback: local file DB at `apps/web/data/db.json`.
+- Hosted deployments can enable scheduled ingestion with Vercel Cron on `/api/admin/ingest/cron` using `CRON_SECRET`.
 
 ## Installers
 

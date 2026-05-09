@@ -17,3 +17,18 @@ export function isAdminAuthorized(request: Request): boolean {
 
   return false;
 }
+
+export function isCronAuthorized(request: Request): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return false;
+  }
+
+  const auth = request.headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = auth.slice('Bearer '.length).trim();
+  return token === cronSecret;
+}
