@@ -17,6 +17,7 @@ const EMPTY_DB: DatabaseState = {
   facts: [],
   ingestionRuns: [],
   auditEvents: [],
+  volunteerEnrollments: [],
   workerControl: {
     paused: false,
     idleMode: 'user-and-cpu',
@@ -65,7 +66,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const ownClient = !client;
   const c = client ?? (await getPool().connect());
   try {
-    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents] = await Promise.all([
+    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
@@ -74,7 +75,8 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
       c.query('SELECT * FROM extracted_facts ORDER BY id'),
       c.query('SELECT * FROM worker_control WHERE id = 1'),
       c.query('SELECT * FROM ingestion_runs ORDER BY started_at DESC'),
-      c.query('SELECT * FROM audit_events ORDER BY created_at DESC')
+      c.query('SELECT * FROM audit_events ORDER BY created_at DESC'),
+      c.query('SELECT * FROM volunteer_enrollments ORDER BY created_at DESC')
     ]);
 
     const controlRow = workerControl.rows[0];
@@ -183,6 +185,16 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         usedNcbiEmail: row.used_ncbi_email,
         usedNcbiApiKey: row.used_ncbi_api_key
       })),
+      volunteerEnrollments: volunteerEnrollments.rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        enrollmentCodeHash: row.enrollment_code_hash,
+        status: row.status,
+        createdAt: iso(row.created_at)!,
+        usedAt: iso(row.used_at),
+        nodeId: row.node_id ?? undefined,
+        source: row.source
+      })),
       auditEvents: auditEvents.rows.map((row) => ({
         id: row.id,
         actorType: row.actor_type,
@@ -215,6 +227,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('DELETE FROM worker_control');
     await c.query('DELETE FROM ingestion_runs');
     await c.query('DELETE FROM audit_events');
+    await c.query('DELETE FROM volunteer_enrollments');
 
     for (const project of parsed.projects) {
       await c.query('INSERT INTO projects(id, slug, name, description, status, created_at) VALUES($1,$2,$3,$4,$5,$6)', [project.id, project.slug, project.name, project.description, project.status, project.createdAt]);
@@ -238,6 +251,9 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('INSERT INTO worker_control(id,paused,idle_mode,min_idle_seconds,max_cpu_percent,run_now_token,updated_at) VALUES(1,$1,$2,$3,$4,$5,$6)', [wc.paused, wc.idleMode, wc.minIdleSeconds, wc.maxCpuPercent, wc.runNowToken, wc.updatedAt]);
     for (const run of parsed.ingestionRuns) {
       await c.query('INSERT INTO ingestion_runs(id,source_type,mode,status,query,retmax,started_at,completed_at,fetched_count,skipped_count,failed_count,failure_reasons,packets_created,packets_skipped,used_ncbi_email,used_ncbi_api_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16)', [run.id, run.sourceType, run.mode, run.status, run.query, run.retmax, run.startedAt, run.completedAt, run.fetchedCount, run.skippedCount, run.failedCount, JSON.stringify(run.failureReasons), run.packetsCreated, run.packetsSkipped, run.usedNcbiEmail, run.usedNcbiApiKey]);
+    }
+    for (const enrollment of parsed.volunteerEnrollments) {
+      await c.query('INSERT INTO volunteer_enrollments(id,email,enrollment_code_hash,status,created_at,used_at,node_id,source) VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [enrollment.id, enrollment.email, enrollment.enrollmentCodeHash, enrollment.status, enrollment.createdAt, enrollment.usedAt, enrollment.nodeId, enrollment.source]);
     }
     for (const event of parsed.auditEvents) {
       await c.query('INSERT INTO audit_events(id,actor_type,actor_id,action,target_type,target_id,metadata,created_at) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)', [event.id, event.actorType, event.actorId, event.action, event.targetType, event.targetId, JSON.stringify(event.metadata), event.createdAt]);
@@ -287,6 +303,7 @@ export async function loadDb(): Promise<DatabaseState> {
     if (!parsed.workerControl) parsed.workerControl = { ...EMPTY_DB.workerControl };
     if (!parsed.ingestionRuns) parsed.ingestionRuns = [];
     if (!parsed.auditEvents) parsed.auditEvents = [];
+    if (!parsed.volunteerEnrollments) parsed.volunteerEnrollments = [];
     return databaseSchema.parse(parsed);
   } catch {
     await saveDb(EMPTY_DB);

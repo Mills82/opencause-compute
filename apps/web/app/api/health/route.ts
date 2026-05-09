@@ -27,7 +27,8 @@ export async function GET(request: Request) {
       results: db.results.length,
       ingestionRuns: db.ingestionRuns.length,
       failedIngestionRuns: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length,
-      auditEvents: db.auditEvents.length
+      auditEvents: db.auditEvents.length,
+      volunteerEnrollments: db.volunteerEnrollments.length
     }
   });
 }

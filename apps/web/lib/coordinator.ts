@@ -45,7 +45,7 @@ const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
   status: 'active'
 };
 
-function hashEnrollmentCode(code: string): string {
+export function hashEnrollmentCode(code: string): string {
   return createHash('sha256').update(code).digest('hex');
 }
 
@@ -60,7 +60,15 @@ export function isNodeEnrollmentRequired(): boolean {
   return requiredEnrollmentCodes().length > 0;
 }
 
-function assertValidEnrollmentCode(code: string | undefined): string | undefined {
+function assertValidEnrollmentCode(db: DatabaseState, code: string | undefined): string | undefined {
+  if (code) {
+    const hash = hashEnrollmentCode(code);
+    const enrollment = db.volunteerEnrollments.find((candidate) => candidate.enrollmentCodeHash === hash);
+    if (enrollment) {
+      if (enrollment.status !== 'issued') throw new Error('enrollment_code_used_or_revoked');
+      return hash;
+    }
+  }
   const allowed = requiredEnrollmentCodes();
   if (!allowed.length) {
     if (isHostedMode()) throw new Error('enrollment_not_configured');
@@ -101,7 +109,7 @@ export function registerNode(
   input: RegisterInput
 ): VolunteerNode & { node: VolunteerNode; nodeToken: string } {
   const now = new Date().toISOString();
-  const enrollmentCodeHash = assertValidEnrollmentCode(input.enrollmentCode);
+  const enrollmentCodeHash = assertValidEnrollmentCode(db, input.enrollmentCode);
   const nodeToken = createNodeToken();
   const node: VolunteerNode & { nodeTokenHash: string } = {
     id: randomUUID(),
@@ -116,6 +124,14 @@ export function registerNode(
     enrollmentCodeHash
   };
   db.nodes.push(node);
+  const enrollment = enrollmentCodeHash
+    ? db.volunteerEnrollments.find((candidate) => candidate.enrollmentCodeHash === enrollmentCodeHash)
+    : undefined;
+  if (enrollment) {
+    enrollment.status = 'used';
+    enrollment.usedAt = now;
+    enrollment.nodeId = node.id;
+  }
   recordAuditEvent(db, {
     actorType: 'node',
     actorId: node.id,

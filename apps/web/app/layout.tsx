@@ -7,7 +7,7 @@ const links = [
   ['Home', '/'],
   ['About', '/about'],
   ['Science disclaimer', '/science-disclaimer'],
-  ['Volunteer waitlist', 'mailto:hello@appassist.ai?subject=OpenCause%20Compute%20volunteer%20interest'],
+  ['Volunteer', '/volunteer'],
   ['Admin', '/admin']
 ] as const;
 

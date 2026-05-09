@@ -16,8 +16,8 @@ export default function HomePage() {
           <a className="rounded bg-accent px-4 py-2 text-ink" href="/about">
             Learn more
           </a>
-          <a className="rounded border border-line px-4 py-2" href="mailto:hello@appassist.ai?subject=OpenCause%20Compute%20volunteer%20interest">
-            Join volunteer waitlist
+          <a className="rounded border border-line px-4 py-2" href="/volunteer">
+            Volunteer onboarding
           </a>
         </div>
       </div>

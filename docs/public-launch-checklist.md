@@ -24,10 +24,12 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Replace HMAC packet signing with coordinator private key / worker public key verification for hosted mode.
 - [x] Add key rotation documentation and tests for tampering/key mismatch.
 - [x] Add invite/enrollment-code flow for node registration.
+- [x] Add self-serve one-time volunteer enrollment-code API foundation.
 - [x] Add node statuses: active/online, offline, suspended, revoked.
 - [x] Revoked or suspended nodes cannot claim or submit.
 - [x] Add best-effort configurable rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
 - [x] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
+- [ ] Add public `/volunteer` form with Turnstile widget and email delivery/verification.
 - [ ] Replace in-process rate limiting with production-grade distributed abuse controls before broad public launch.
 
 ## Deployment/env checklist
