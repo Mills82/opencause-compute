@@ -5,6 +5,7 @@ import { submitResult } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
 import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { submitResultRelational } from '../../../../lib/relational-worker';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1),
@@ -35,7 +36,8 @@ export async function POST(request: Request) {
 
   try {
     const token = extractNodeToken(request);
-    const output = await withDb((db) => {
+    const relationalOutput = await submitResultRelational({ ...parsed.data, token });
+    const output = relationalOutput !== undefined ? relationalOutput : await withDb((db) => {
       if (!isNodeAuthorized(db, parsed.data.nodeId, token)) throw new Error('node_unauthorized');
       return submitResult(db, parsed.data);
     });
