@@ -14,6 +14,22 @@
       "to": "worker/dist"
     },
     {
+      "from": "../worker/package.json",
+      "to": "worker/package.json"
+    },
+    {
+      "from": "../../packages/shared/dist",
+      "to": "worker/node_modules/@opencause/shared/dist"
+    },
+    {
+      "from": "../../packages/shared/package.json",
+      "to": "worker/node_modules/@opencause/shared/package.json"
+    },
+    {
+      "from": "../../node_modules/zod",
+      "to": "worker/node_modules/zod"
+    },
+    {
       "from": "assets",
       "to": "assets"
     }

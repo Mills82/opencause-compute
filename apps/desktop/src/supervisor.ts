@@ -91,6 +91,10 @@ export class WorkerSupervisor {
         ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
       }
     });
+    this.child.stdout.on('data', (chunk) => { void this.appendWorkerLog(chunk.toString().trimEnd()); });
+    this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
+    this.child.on('error', (error) => { void this.appendWorkerLog(`spawn error ${error.message}`); });
+    this.child.on('close', (code) => { void this.appendWorkerLog(`worker process exited code=${code ?? 'unknown'}`); });
     return this.status();
   }
 
