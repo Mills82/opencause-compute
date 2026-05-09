@@ -1,0 +1,43 @@
+# Desktop worker app plan
+
+The public volunteer path requires a desktop app/installer. The current CLI worker is acceptable for trusted private alpha only.
+
+## Scaffold
+
+`apps/desktop` defines the public-launch desktop product contract:
+
+- welcome/science disclaimer
+- enrollment code signup/entry
+- local runtime/model check
+- visible activity log
+- resource controls
+- pause/resume
+- uninstall/data-removal help
+
+Run:
+
+```bash
+npm run package:plan -w @opencause/desktop
+```
+
+## Packaging target
+
+First target: Windows signed installer (`.msi` or `.exe`) that bundles/supervises the worker so ordinary volunteers do not install Node/npm manually.
+
+macOS notarized app and Linux packages can follow once the Windows shell/supervisor is stable.
+
+## Implementation direction
+
+Recommended next implementation layer:
+
+1. Convert worker core into an importable library or stable child-process supervisor contract.
+2. Build desktop shell around that contract (Tauri or Electron; prefer smaller footprint if Tauri can satisfy installer/signing needs).
+3. Persist desktop settings under the same app data dir.
+4. Surface worker log tail and status.
+5. Add local pause/resume and resource controls.
+6. Add installer/signing automation.
+7. Add auto-update strategy.
+
+## Go/no-go
+
+Public volunteer launch remains no-go until at least one signed Windows installer is produced, installed on a clean machine, registers with self-serve enrollment, processes work visibly, pauses/resumes, and uninstalls cleanly.

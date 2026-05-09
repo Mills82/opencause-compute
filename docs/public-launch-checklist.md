@@ -44,6 +44,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 ## Worker release checklist
 
 - [x] Worker records version, extractor version, model/runtime, prompt version/hash, schema version, validation version, timestamp, and platform capabilities.
+- [x] Add desktop app scaffold/contract for public volunteer worker UX.
 - [ ] Installer does not require normal volunteers to install Node/npm manually.
 - [x] Private-alpha worker has visible activity log, coordinator pause handling, status command, and local-state uninstall command.
 - [ ] Public volunteer worker has one-click pause/resume, uninstall, startup-on-login control, resource settings, and version display in desktop UI.

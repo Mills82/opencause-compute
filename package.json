@@ -32,9 +32,9 @@
     "demo:worker:once": "npm run dev -w @opencause/worker -- run-once --server http://localhost:3000",
     "demo:worker:loop": "npm run dev -w @opencause/worker -- loop --server http://localhost:3000 --interval-ms 5000",
     "build:vercel": "npm run build -w @opencause/shared && npm run build -w @opencause/web",
-    "build": "npm run build -w @opencause/shared && npm run build -w @opencause/web && npm run build -w @opencause/worker",
-    "typecheck": "npm run typecheck -w @opencause/shared && npm run typecheck -w @opencause/web && npm run typecheck -w @opencause/worker",
-    "test": "npm run test -w @opencause/shared && npm run test -w @opencause/web && npm run test -w @opencause/worker",
+    "build": "npm run build -w @opencause/shared && npm run build -w @opencause/web && npm run build -w @opencause/worker && npm run build -w @opencause/desktop",
+    "typecheck": "npm run typecheck -w @opencause/shared && npm run typecheck -w @opencause/web && npm run typecheck -w @opencause/worker && npm run typecheck -w @opencause/desktop",
+    "test": "npm run test -w @opencause/shared && npm run test -w @opencause/web && npm run test -w @opencause/worker && npm run test -w @opencause/desktop",
     "db:migrate": "node scripts/run-migrations.mjs"
   }
 }
