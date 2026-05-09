@@ -27,6 +27,7 @@
       .pill { display: inline-block; border: 1px solid #3b4b70; border-radius: 999px; padding: 3px 8px; font-size: 12px; color: #b8c4d9; margin-left: 8px; }
       .callout { background: #1d2438; border-left: 4px solid #7dd3fc; }
       .hidden { display: none; }
+      .step-done { color: #7ee787; } .step-action { color: #f2cc60; } .step-error { color: #ff7b72; }
     </style>
   </head>
   <body>
@@ -51,7 +52,16 @@
         <section>
           <h2>1. Runtime</h2>
           <p id="runtime-message">Checking Ollama...</p>
-          <p id="ollama-help" class="small hidden">Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a>, then click Refresh status.</p>
+          <div id="ollama-help" class="small hidden">
+            <p>Ollama is required to run local AI models.</p>
+            <ol>
+              <li>1. Click Install Ollama to open the download page.</li>
+              <li>2. Run the Ollama installer.</li>
+              <li>3. Return here; we will keep checking automatically.</li>
+            </ol>
+            <button id="install-ollama" class="primary">Install Ollama</button>
+            <p id="ollama-waiting" class="small"></p>
+          </div>
           <button id="refresh">Refresh status</button>
         </section>
 
@@ -61,6 +71,7 @@
           <select id="model-select"></select>
           <p id="model-guidance" class="small"></p>
           <button id="pull-model" class="primary">Download selected model</button>
+          <div id="download-status" class="small"></div>
         </section>
 
         <section>
@@ -131,7 +142,10 @@
       <section>
         <h2>Activity log</h2>
         <button id="log">Tail log</button>
-        <pre id="output"></pre>
+        <details class="mt-3">
+          <summary class="small">Show technical details</summary>
+          <pre id="output"></pre>
+        </details>
       </section>
     </main>
     <script>
@@ -144,6 +158,8 @@
       const modelGuidance = document.getElementById('model-guidance');
       const pullButton = document.getElementById('pull-model');
       const ollamaHelp = document.getElementById('ollama-help');
+      const ollamaWaiting = document.getElementById('ollama-waiting');
+      const downloadStatus = document.getElementById('download-status');
       const enrollmentCode = document.getElementById('enrollment-code');
       const registrationMessage = document.getElementById('registration-message');
       const versionMessage = document.getElementById('version-message');
@@ -155,6 +171,14 @@
       const startup = document.getElementById('startup');
       const battery = document.getElementById('battery');
       let latestState = null;
+      let ollamaPoll = null;
+      let modelDownloadPoll = null;
+
+      function statusLabel(status) {
+        if (status === 'ready') return ['✓ Done', 'step-done'];
+        if (status === 'blocked') return ['Needs action', 'step-error'];
+        return ['Needs action', 'step-action'];
+      }
 
       function modelLabel(model) {
         return `${model.label} (${model.id})`;
@@ -182,6 +206,34 @@
         pullButton.textContent = !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
       }
 
+      function startOllamaPolling() {
+        if (ollamaPoll) return;
+        ollamaWaiting.textContent = 'Waiting for Ollama installation...';
+        ollamaPoll = setInterval(async () => {
+          await refresh();
+          if (latestState?.modelRuntime?.available) {
+            clearInterval(ollamaPoll);
+            ollamaPoll = null;
+            ollamaWaiting.textContent = 'Ollama detected.';
+          }
+        }, 4000);
+      }
+
+      async function watchModelDownload(id) {
+        if (modelDownloadPoll) clearInterval(modelDownloadPoll);
+        modelDownloadPoll = setInterval(async () => {
+          const status = await api.modelDownloadStatus(id);
+          if (!status) return;
+          downloadStatus.innerHTML = `<p><strong>${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}</strong></p><p>${status.lastMessage || ''}</p>`;
+          output.textContent = JSON.stringify(status, null, 2);
+          if (status.status !== 'running') {
+            clearInterval(modelDownloadPoll);
+            modelDownloadPoll = null;
+            await refresh();
+          }
+        }, 1000);
+      }
+
       async function refresh() {
         if (!api) {
           const message = 'Desktop bridge failed to load. Please reinstall this build or report a packaging/preload error.';
@@ -197,7 +249,10 @@
         ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
         workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
         versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
-        screens.innerHTML = latestState.viewModel.map(screen => `<div class="card"><h3>${screen.title}<span class="pill ${screen.status}">${screen.status}</span></h3><p>${screen.message}</p></div>`).join('');
+        screens.innerHTML = latestState.viewModel.map(screen => {
+          const [label, cls] = statusLabel(screen.status);
+          return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`;
+        }).join('');
         renderModels(latestState.modelRuntime);
         coordinatorUrl.value = latestState.settings.coordinatorUrl;
         maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
@@ -215,6 +270,10 @@
       }
 
       document.getElementById('refresh').onclick = refresh;
+      document.getElementById('install-ollama').onclick = async () => {
+        await api.openExternal('https://ollama.com/download');
+        startOllamaPolling();
+      };
       document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
@@ -261,11 +320,14 @@
         }
         output.textContent = `Downloading ${model}. This can take a while...`;
         try {
-          output.textContent = JSON.stringify(await api.pullModel(model), null, 2);
+          const status = await api.startModelDownload(model);
+          downloadStatus.innerHTML = `<p><strong>Downloading model...</strong></p><p>${status.lastMessage}</p>`;
+          output.textContent = JSON.stringify(status, null, 2);
+          await watchModelDownload(status.id);
         } catch (error) {
           output.textContent = String(error?.message ?? error);
+          downloadStatus.textContent = String(error?.message ?? error);
         }
-        await refresh();
       };
       refresh();
     </script>

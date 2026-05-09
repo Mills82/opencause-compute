@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { APPROVED_LOCAL_MODELS, DEFAULT_LOCAL_MODEL, approvedModel, type ApprovedModel } from '@opencause/shared';
 
 export type ModelRuntimeStatus = {
@@ -10,6 +10,20 @@ export type ModelRuntimeStatus = {
   approvedModels: ApprovedModel[];
   message: string;
 };
+
+export type ModelDownloadStatus = {
+  id: string;
+  model: string;
+  status: 'running' | 'succeeded' | 'failed';
+  startedAt: string;
+  finishedAt?: string;
+  stdout: string;
+  stderr: string;
+  lastMessage: string;
+  code?: number | null;
+};
+
+const downloads = new Map<string, ModelDownloadStatus & { child?: ChildProcess }>();
 
 function run(command: string, args: string[], timeoutMs = 10_000): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
@@ -74,4 +88,72 @@ export function pullOllamaModel(model: string): Promise<{ code: number | null; s
   if (approved.tier === 'large') throw new Error(`large_model_requires_advanced_confirmation:${model}`);
   if (approved.tier === 'experimental') throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
   return run('ollama', ['pull', model], 30 * 60_000);
+}
+
+function trimLog(value: string, maxLength = 12_000): string {
+  return value.length <= maxLength ? value : value.slice(value.length - maxLength);
+}
+
+function lastNonEmptyLine(value: string): string {
+  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).at(-1) ?? '';
+}
+
+export function startOllamaModelDownload(model: string): ModelDownloadStatus {
+  const approved = approvedModel(model);
+  if (!approved) throw new Error(`model_not_approved:${model}`);
+  if (approved.tier === 'large') throw new Error(`large_model_requires_advanced_confirmation:${model}`);
+  if (approved.tier === 'experimental') throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
+
+  const existing = [...downloads.values()].find((download) => download.model === model && download.status === 'running');
+  if (existing) return publicDownloadStatus(existing);
+
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const status: ModelDownloadStatus & { child?: ChildProcess } = {
+    id,
+    model,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    stdout: '',
+    stderr: '',
+    lastMessage: `Starting download for ${model}...`
+  };
+  downloads.set(id, status);
+
+  const child = spawn('ollama', ['pull', model], { stdio: ['ignore', 'pipe', 'pipe'] });
+  status.child = child;
+  child.stdout.on('data', (chunk) => {
+    status.stdout = trimLog(status.stdout + chunk.toString());
+    status.lastMessage = lastNonEmptyLine(status.stdout) || status.lastMessage;
+  });
+  child.stderr.on('data', (chunk) => {
+    status.stderr = trimLog(status.stderr + chunk.toString());
+    status.lastMessage = lastNonEmptyLine(status.stderr) || status.lastMessage;
+  });
+  child.on('close', (code) => {
+    status.code = code;
+    status.status = code === 0 ? 'succeeded' : 'failed';
+    status.finishedAt = new Date().toISOString();
+    status.lastMessage = code === 0 ? `${model} installed.` : (status.lastMessage || `Download failed with code ${code}.`);
+    delete status.child;
+  });
+  child.on('error', (error) => {
+    status.code = 1;
+    status.status = 'failed';
+    status.finishedAt = new Date().toISOString();
+    status.stderr = trimLog(status.stderr + error.message);
+    status.lastMessage = error.message;
+    delete status.child;
+  });
+
+  return publicDownloadStatus(status);
+}
+
+function publicDownloadStatus(status: ModelDownloadStatus & { child?: ChildProcess }): ModelDownloadStatus {
+  const { child: _child, ...publicStatus } = status;
+  return publicStatus;
+}
+
+export function modelDownloadStatus(id: string): ModelDownloadStatus | null {
+  const status = downloads.get(id);
+  return status ? publicDownloadStatus(status) : null;
 }

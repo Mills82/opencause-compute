@@ -1,10 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDesktopViewModel } from './view-model.js';
 import { loadDesktopSettings, redactedSettings, updateDesktopSettings, type DesktopSettings } from './settings.js';
 import { WorkerSupervisor } from './supervisor.js';
-import { modelRuntimeStatus, pullOllamaModel } from './model-runtime.js';
+import { modelDownloadStatus, modelRuntimeStatus, pullOllamaModel, startOllamaModelDownload } from './model-runtime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(app.getPath('userData'), 'opencause-worker');
@@ -98,6 +98,19 @@ ipcMain.handle('desktop:register-worker', async (_event: unknown, enrollmentCode
 ipcMain.handle('desktop:pull-model', async (_event: unknown, model: unknown) => {
   if (typeof model !== 'string') throw new Error('model_required');
   return pullOllamaModel(model);
+});
+ipcMain.handle('desktop:start-model-download', async (_event: unknown, model: unknown) => {
+  if (typeof model !== 'string') throw new Error('model_required');
+  return startOllamaModelDownload(model);
+});
+ipcMain.handle('desktop:model-download-status', async (_event: unknown, id: unknown) => {
+  if (typeof id !== 'string') throw new Error('download_id_required');
+  return modelDownloadStatus(id);
+});
+ipcMain.handle('desktop:open-external', async (_event: unknown, url: unknown) => {
+  if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('invalid_url');
+  await shell.openExternal(url);
+  return { ok: true };
 });
 
 app.whenReady().then(createWindow);

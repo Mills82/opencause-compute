@@ -32,7 +32,15 @@ describe('desktop static first-run UI', () => {
   it('guides first-run users through Ollama installation and worker registration', () => {
     expect(html).toContain('Install Ollama first');
     expect(html).toContain('ollama.com/download');
+    expect(html).toContain('Waiting for Ollama installation');
     expect(html).toContain('Worker registration');
     expect(html).toContain('Register worker');
+  });
+
+  it('hides raw state behind technical details and reports model download status', () => {
+    expect(html).toContain('Show technical details');
+    expect(html).toContain('download-status');
+    expect(html).toContain('startModelDownload');
+    expect(html).toContain('modelDownloadStatus');
   });
 });
