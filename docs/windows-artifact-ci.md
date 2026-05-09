@@ -2,19 +2,19 @@
 
 The Windows worker installer should be built on Windows CI instead of requiring Wine in WSL.
 
-Prototype artifact workflow:
+Manual backup prototype artifact workflow:
 
 ```text
 .github/workflows/desktop-windows-artifact.yml
 ```
 
-GitHub Release publication workflow:
+Canonical GitHub Release publication workflow:
 
 ```text
 .github/workflows/desktop-windows-release.yml
 ```
 
-For the release process, see `docs/desktop-release-process.md`.
+The artifact workflow is manual-only and should be treated as a backup/smoke artifact builder. The release workflow is the source of truth for tester downloads and site env vars. For the release process, see `docs/desktop-release-process.md`.
 
 What it does:
 
@@ -33,7 +33,7 @@ opencause-compute-worker-windows-unsigned-prototype
 
 ## Public release caveat
 
-This workflow does **not** produce a public-ready installer. It is unsigned and intended for prototype QA only.
+The manual backup artifact workflow does **not** produce a public-ready installer. It is unsigned and intended for prototype QA only. Do not use it for canonical download URLs; use the GitHub Release workflow instead.
 
 Before broad public download:
 

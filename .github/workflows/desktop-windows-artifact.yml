@@ -1,15 +1,7 @@
-name: Desktop Windows Prototype Artifact
+name: Desktop Windows Prototype Artifact (manual backup)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'apps/desktop/**'
-      - 'apps/worker/**'
-      - 'packages/shared/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/desktop-windows-artifact.yml'
 
 jobs:
   build-windows-artifact:
