@@ -77,6 +77,21 @@ export const workClaimSchema = z.object({
   completedAt: z.string().nullable()
 });
 
+export const resultProvenanceSchema = z.object({
+  workerVersion: z.string(),
+  extractorVersion: z.string(),
+  modelName: z.string().optional(),
+  modelProvider: z.string().optional(),
+  promptVersion: z.string(),
+  promptHash: z.string(),
+  packetSchemaVersion: z.string(),
+  extractionTimestamp: z.string(),
+  localLlmEndpointType: z.string().optional(),
+  workerPlatform: z.string(),
+  workerCapabilities: z.array(z.string()),
+  resultValidationVersion: z.string()
+});
+
 export const extractionResultSchema = z.object({
   id: z.string(),
   workPacketId: z.string(),
@@ -91,7 +106,8 @@ export const extractionResultSchema = z.object({
   validationErrors: z.array(z.string()),
   warnings: z.array(z.string()),
   summary: z.string(),
-  submittedAt: z.string()
+  submittedAt: z.string(),
+  provenance: resultProvenanceSchema.optional()
 });
 
 export const extractedFactRecordSchema = extractedFactSchema.extend({
@@ -128,6 +144,7 @@ export type WorkPacketPayload = z.infer<typeof workPacketPayloadSchema>;
 export type WorkPacket = z.infer<typeof workPacketSchema>;
 export type VolunteerNode = z.infer<typeof volunteerNodeSchema>;
 export type WorkClaim = z.infer<typeof workClaimSchema>;
+export type ResultProvenance = z.infer<typeof resultProvenanceSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
 export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;

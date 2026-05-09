@@ -1,4 +1,6 @@
-import { resultPayloadSchema, type ResultPayload } from '@opencause/shared';
+import { hashText, resultPayloadSchema, type ResultPayload } from '@opencause/shared';
+
+export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
 
 export type LocalLlmConfig = {
   endpoint: string;
@@ -18,7 +20,7 @@ export function readLocalLlmConfig(): LocalLlmConfig {
   };
 }
 
-function extractionPrompt(sourceText: string): string {
+export function extractionPrompt(sourceText: string): string {
   return [
     'You extract structured biomedical facts from source text.',
     'Return ONLY valid compact JSON matching this schema exactly:',
@@ -59,6 +61,10 @@ export async function verifyLocalLlmAvailable(config: LocalLlmConfig): Promise<v
   if (!response.ok) {
     throw new Error(`local_llm_unavailable:${response.status}`);
   }
+}
+
+export function localLlmPromptHash(): string {
+  return hashText(extractionPrompt('{{sourceText}}'));
 }
 
 export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig): Promise<ResultPayload> {

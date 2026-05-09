@@ -14,6 +14,14 @@ export default async function ResultsPage() {
           <p className="text-sm">Result ID: {result.id}</p>
           <p className="text-sm text-slate-300">Extractor: {result.extractorVersion}</p>
           <p className="text-sm text-slate-300">Format validated: {String(result.formatValidated ?? result.validated)}</p>
+          {result.provenance ? (
+            <div className="rounded border border-line/70 p-2 text-xs text-slate-300">
+              <p>Worker: {result.provenance.workerVersion} on {result.provenance.workerPlatform}</p>
+              <p>Model/runtime: {result.provenance.modelProvider ?? 'unknown'} / {result.provenance.modelName ?? 'unknown'}</p>
+              <p>Prompt: {result.provenance.promptVersion} ({result.provenance.promptHash.slice(0, 12)})</p>
+              <p>Validation: {result.provenance.resultValidationVersion}</p>
+            </div>
+          ) : null}
           <p className="text-sm text-slate-300">Summary: {result.summary}</p>
           <div className="mt-3 space-y-2">
             {result.facts.map((fact) => (

@@ -63,3 +63,19 @@ Public-launch packet signing uses Ed25519 asymmetric signatures.
 4. Retire the old key after old in-flight work packets expire.
 
 Forged packets, tampered payloads, key-id mismatches, and signatures made by the wrong private key must fail worker verification.
+
+## Result provenance
+
+Every submitted result should carry enough provenance for later audit without leaking sensitive local details. Current result records support:
+
+- worker version and platform
+- extractor version
+- model name and runtime/provider, e.g. Ollama
+- prompt version and prompt hash
+- packet schema version
+- extraction timestamp
+- local LLM endpoint type only (`localhost`, `remote-http`, or `other`), not the full endpoint URL
+- worker capabilities
+- result validation version
+
+Coordinator fallback provenance is generated from node metadata if an older worker omits provenance, but public/beta workers should submit the full provenance payload.

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { resultPayloadSchema } from '@opencause/shared';
+import { resultPayloadSchema, resultProvenanceSchema } from '@opencause/shared';
 import { submitResult } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
@@ -11,7 +11,8 @@ const requestSchema = z.object({
   claimId: z.string().min(1),
   workPacketId: z.string().min(1),
   extractorVersion: z.enum(['Local LLM v1', 'Mock Extractor v1']),
-  result: resultPayloadSchema
+  result: resultPayloadSchema,
+  provenance: resultProvenanceSchema.optional()
 });
 
 const ALLOW_MOCK_RESULTS = process.env.ALLOW_MOCK_RESULTS === 'true';

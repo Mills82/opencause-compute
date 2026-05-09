@@ -6,11 +6,12 @@ import {
   verifyPayloadEd25519,
   verifyPayloadHmac,
   type ResultPayload,
+  type ResultProvenance,
   type WorkPacketPayload,
   type WorkerControlConfig
 } from '@opencause/shared';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle';
-import { readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm';
+import { LOCAL_LLM_PROMPT_VERSION, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm';
 
 type JsonValue = Record<string, unknown>;
 type ExtractorMode = 'local-llm' | 'mock';
@@ -23,6 +24,9 @@ const PACKET_SIGNING_KEY_ID = process.env.PACKET_SIGNING_KEY_ID;
 const APP_DIR = process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute');
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
 const NODE_PATH = path.join(APP_DIR, 'node.json');
+const WORKER_VERSION = process.env.WORKER_VERSION ?? '0.1.0';
+const PACKET_SCHEMA_VERSION = 'work-packet-v1';
+const RESULT_VALIDATION_VERSION = 'format-validation-v1';
 const localLlmConfig = readLocalLlmConfig();
 
 async function log(message: string): Promise<void> {
@@ -129,7 +133,7 @@ async function loadNodeCredentials(): Promise<NodeCredentials | null> {
 async function register(server: string, extractorMode: ExtractorMode): Promise<NodeCredentials> {
   const nodeName = arg('--node-name', `${os.hostname()}-worker`) as string;
   const platform = `${process.platform}-${process.arch}`;
-  const version = '0.1.0';
+  const version = WORKER_VERSION;
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
   const enrollmentCode = (arg('--enrollment-code') as string | undefined) || process.env.NODE_ENROLLMENT_CODE;
 
@@ -185,31 +189,62 @@ async function submit(
   claimId: string,
   packetId: string,
   extractorVersion: ExtractorVersion,
-  result: ResultPayload
+  result: ResultPayload,
+  provenance: ResultProvenance
 ): Promise<void> {
   const response = await post<{ result: { id: string; validated: boolean } }>(server, '/api/work/submit', {
     nodeId: credentials.nodeId,
     claimId,
     workPacketId: packetId,
     extractorVersion,
-    result
+    result,
+    provenance
   }, credentials.nodeToken);
 
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
+}
+
+function endpointType(endpoint: string): string {
+  if (endpoint.startsWith('http://127.0.0.1') || endpoint.startsWith('http://localhost')) return 'localhost';
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return 'remote-http';
+  return 'other';
+}
+
+function buildProvenance(
+  extractorVersion: ExtractorVersion,
+  extractorMode: ExtractorMode,
+  capabilities: string[]
+): ResultProvenance {
+  return {
+    workerVersion: WORKER_VERSION,
+    extractorVersion,
+    modelName: extractorMode === 'local-llm' ? localLlmConfig.model : 'mock',
+    modelProvider: extractorMode === 'local-llm' ? 'ollama' : 'mock',
+    promptVersion: extractorMode === 'local-llm' ? LOCAL_LLM_PROMPT_VERSION : 'mock-extractor-v1-prompt',
+    promptHash: extractorMode === 'local-llm' ? localLlmPromptHash() : 'mock-extractor-v1',
+    packetSchemaVersion: PACKET_SCHEMA_VERSION,
+    extractionTimestamp: new Date().toISOString(),
+    localLlmEndpointType: extractorMode === 'local-llm' ? endpointType(localLlmConfig.endpoint) : undefined,
+    workerPlatform: `${process.platform}-${process.arch}`,
+    workerCapabilities: capabilities,
+    resultValidationVersion: RESULT_VALIDATION_VERSION
+  };
 }
 
 async function extractFromPacket(
   packet: WorkPacketPayload,
   extractorMode: ExtractorMode,
   mockAllowed: boolean
-): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload }> {
+): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
+  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
   if (packet.extractor === 'mock-extractor-v1') {
     if (!mockAllowed || extractorMode !== 'mock') {
       throw new Error('mock_extractor_packet_rejected');
     }
     return {
       extractorVersion: 'Mock Extractor v1',
-      result: runMockExtractorV1(packet.sourceText)
+      result: runMockExtractorV1(packet.sourceText),
+      provenance: buildProvenance('Mock Extractor v1', extractorMode, capabilities)
     };
   }
 
@@ -220,7 +255,8 @@ async function extractFromPacket(
   const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig);
   return {
     extractorVersion: 'Local LLM v1',
-    result
+    result,
+    provenance: buildProvenance('Local LLM v1', extractorMode, capabilities)
   };
 }
 
@@ -260,7 +296,7 @@ async function runOnce(
 
   await log(`signature verified for packet ${claimed.packet.id}`);
   const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
-  await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result);
+  await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
 }
 
 async function loop(

@@ -11,6 +11,7 @@ import {
   type Project,
   type ExtractionResult,
   type ExtractedFactRecord,
+  type ResultProvenance,
   type DatabaseState,
   type WorkerControlConfig
 } from '@opencause/shared';
@@ -287,6 +288,7 @@ export function submitResult(
     workPacketId: string;
     extractorVersion: 'Local LLM v1' | 'Mock Extractor v1';
     result: ResultPayload;
+    provenance?: ResultProvenance;
   }
 ): { record: ExtractionResult; facts: ExtractedFactRecord[]; workPacket: WorkPacket } {
   const packet = db.workPackets.find((p) => p.id === input.workPacketId);
@@ -322,6 +324,11 @@ export function submitResult(
   const validation = validateResultForPacket(input.result, packetPayload);
   const submittedAt = new Date().toISOString();
 
+  const node = db.nodes.find((n) => n.id === input.nodeId);
+  if (!node) {
+    throw new Error('node_not_found');
+  }
+
   const record: ExtractionResult = {
     id: randomUUID(),
     workPacketId: packet.id,
@@ -336,7 +343,20 @@ export function submitResult(
     validationErrors: validation.errors,
     warnings: input.result.warnings,
     summary: input.result.summary,
-    submittedAt
+    submittedAt,
+    provenance:
+      input.provenance ??
+      {
+        workerVersion: node.version,
+        extractorVersion: input.extractorVersion,
+        promptVersion: 'unknown',
+        promptHash: 'unknown',
+        packetSchemaVersion: 'work-packet-v1',
+        extractionTimestamp: submittedAt,
+        workerPlatform: node.platform,
+        workerCapabilities: node.capabilities,
+        resultValidationVersion: 'format-validation-v1'
+      }
   };
 
   const facts: ExtractedFactRecord[] = input.result.facts.map((fact) => ({
