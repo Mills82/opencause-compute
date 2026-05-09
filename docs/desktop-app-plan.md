@@ -135,3 +135,7 @@ A GitHub Actions workflow builds unsigned Windows prototype artifacts on `window
 ```
 
 Use this instead of installing Wine locally unless local WSL builds are specifically desired. The uploaded artifact is for QA only and is not public-ready because it is unsigned.
+
+## Model setup
+
+The desktop installer should not bundle LLM weights. First run should guide users through runtime/model setup, defaulting to `llama3.2:3b`, with optional stronger models shown only with resource warnings. Approved model metadata is defined in `packages/shared/src/model-manifest.ts`.

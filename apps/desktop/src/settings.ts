@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { DEFAULT_LOCAL_MODEL, APPROVED_LOCAL_MODELS } from '@opencause/shared';
+
 export type DesktopSettings = {
   coordinatorUrl: string;
   enrollmentCode?: string;
@@ -20,6 +22,7 @@ export type DesktopSettings = {
     provider: 'ollama';
     endpointType: 'localhost' | 'remote-http' | 'other';
     model: string;
+    approvedModels: typeof APPROVED_LOCAL_MODELS;
   };
 };
 
@@ -38,7 +41,8 @@ export const defaultDesktopSettings: DesktopSettings = {
     extractorMode: 'local-llm',
     provider: 'ollama',
     endpointType: 'localhost',
-    model: 'llama3.1:8b'
+    model: DEFAULT_LOCAL_MODEL,
+    approvedModels: APPROVED_LOCAL_MODELS
   }
 };
 

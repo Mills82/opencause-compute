@@ -1,4 +1,4 @@
-import { hashText, resultPayloadSchema, type ResultPayload } from '@opencause/shared';
+import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadSchema, type ResultPayload } from '@opencause/shared';
 
 export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
 
@@ -9,10 +9,14 @@ export type LocalLlmConfig = {
 };
 
 const DEFAULT_ENDPOINT = process.env.LOCAL_LLM_ENDPOINT ?? 'http://127.0.0.1:11434';
-const DEFAULT_MODEL = process.env.LOCAL_LLM_MODEL ?? 'llama3.2:3b';
+const DEFAULT_MODEL = process.env.LOCAL_LLM_MODEL ?? DEFAULT_LOCAL_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS ?? '45000');
 
 export function readLocalLlmConfig(): LocalLlmConfig {
+  assertApprovedModel(DEFAULT_MODEL, {
+    allowLarge: process.env.ALLOW_LARGE_LOCAL_MODEL === 'true',
+    allowExperimental: process.env.ALLOW_EXPERIMENTAL_LOCAL_MODEL === 'true'
+  });
   return {
     endpoint: DEFAULT_ENDPOINT,
     model: DEFAULT_MODEL,
