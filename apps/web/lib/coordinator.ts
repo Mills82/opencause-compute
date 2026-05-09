@@ -21,6 +21,7 @@ import { isHostedMode } from './runtime-config';
 import { recordAuditEvent } from './audit';
 import { updateConsensusForPacket } from './consensus';
 import { createPrivateVolunteerProfileForNode } from './gamification/profiles';
+import { issueProfileSetupToken } from './gamification/profile-setup';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -108,7 +109,7 @@ const DEMO_PACKET_TEXTS = [
 export function registerNode(
   db: DatabaseState,
   input: RegisterInput
-): VolunteerNode & { node: VolunteerNode; nodeToken: string } {
+): VolunteerNode & { node: VolunteerNode; nodeToken: string; profileSetupToken: string } {
   const now = new Date().toISOString();
   const enrollmentCodeHash = assertValidEnrollmentCode(db, input.enrollmentCode);
   const nodeToken = createNodeToken();
@@ -126,6 +127,7 @@ export function registerNode(
   };
   db.nodes.push(node);
   const profile = createPrivateVolunteerProfileForNode(db, node.id, now);
+  const profileSetupToken = issueProfileSetupToken(profile, new Date(now));
   const enrollment = enrollmentCodeHash
     ? db.volunteerEnrollments.find((candidate) => candidate.enrollmentCodeHash === enrollmentCodeHash)
     : undefined;
@@ -143,7 +145,7 @@ export function registerNode(
     metadata: { platform: node.platform, version: node.version, capabilities: node.capabilities, volunteerProfileId: profile.id }
   });
   const { nodeTokenHash: _nodeTokenHash, enrollmentCodeHash: _enrollmentCodeHash, ...publicNode } = node;
-  return { ...publicNode, node: publicNode, nodeToken };
+  return { ...publicNode, node: publicNode, nodeToken, profileSetupToken };
 
 
 }

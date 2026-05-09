@@ -229,6 +229,8 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         publicProfileEnabled: row.public_profile_enabled,
         avatarColor: row.avatar_color,
         bio: row.bio ?? undefined,
+        setupTokenHash: row.setup_token_hash ?? undefined,
+        setupTokenExpiresAt: iso(row.setup_token_expires_at),
         joinedAt: iso(row.joined_at)!,
         lastActiveAt: iso(row.last_active_at),
         statsUpdatedAt: iso(row.stats_updated_at),
@@ -386,7 +388,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
       await c.query('INSERT INTO audit_events(id,actor_type,actor_id,action,target_type,target_id,metadata,created_at) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)', [event.id, event.actorType, event.actorId, event.action, event.targetType, event.targetId, JSON.stringify(event.metadata), event.createdAt]);
     }
     for (const profile of parsed.volunteerProfiles) {
-      await c.query('INSERT INTO volunteer_profiles(id,display_name,slug,privacy_mode,public_profile_enabled,avatar_color,bio,joined_at,last_active_at,stats_updated_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [profile.id, profile.displayName, profile.slug, profile.privacyMode, profile.publicProfileEnabled, profile.avatarColor, profile.bio, profile.joinedAt, profile.lastActiveAt, profile.statsUpdatedAt, profile.createdAt, profile.updatedAt]);
+      await c.query('INSERT INTO volunteer_profiles(id,display_name,slug,privacy_mode,public_profile_enabled,avatar_color,bio,setup_token_hash,setup_token_expires_at,joined_at,last_active_at,stats_updated_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)', [profile.id, profile.displayName, profile.slug, profile.privacyMode, profile.publicProfileEnabled, profile.avatarColor, profile.bio, profile.setupTokenHash, profile.setupTokenExpiresAt, profile.joinedAt, profile.lastActiveAt, profile.statsUpdatedAt, profile.createdAt, profile.updatedAt]);
     }
     for (const link of parsed.volunteerProfileNodes) {
       await c.query('INSERT INTO volunteer_profile_nodes(id,volunteer_profile_id,node_id,attached_at,detached_at) VALUES($1,$2,$3,$4,$5)', [link.id, link.volunteerProfileId, link.nodeId, link.attachedAt, link.detachedAt]);

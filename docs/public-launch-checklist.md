@@ -67,7 +67,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add public-safe `/impact` page and API with empty-state copy.
 - [x] Add privacy-aware leaderboard/profile/team route foundations.
 - [x] Add protected admin controls for profile privacy/display-name setup and team membership setup.
-- [ ] Add volunteer self-service profile privacy/display-name controls before using leaderboards as a growth surface.
+- [x] Add token-based volunteer self-service profile privacy/display-name controls for selected beta testers.
 - [ ] Add public team creation/join/leave UX with moderation controls before broad public teams.
 
 ## Legal/trust checklist

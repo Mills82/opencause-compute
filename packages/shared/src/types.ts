@@ -149,6 +149,8 @@ export const volunteerProfileSchema = z.object({
   publicProfileEnabled: z.boolean(),
   avatarColor: z.string().min(1),
   bio: z.string().optional(),
+  setupTokenHash: z.string().optional(),
+  setupTokenExpiresAt: z.string().nullable().optional(),
   joinedAt: z.string(),
   lastActiveAt: z.string().nullable().optional(),
   statsUpdatedAt: z.string().nullable().optional(),
