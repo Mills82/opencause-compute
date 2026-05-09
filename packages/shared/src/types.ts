@@ -60,7 +60,8 @@ export const volunteerNodeSchema = z.object({
   status: z.enum(['online', 'offline']),
   capabilities: z.array(z.string()),
   registeredAt: z.string(),
-  lastHeartbeatAt: z.string().nullable()
+  lastHeartbeatAt: z.string().nullable(),
+  nodeTokenHash: z.string().optional()
 });
 
 export const workClaimSchema = z.object({
@@ -81,6 +82,9 @@ export const extractionResultSchema = z.object({
   extractorVersion: z.enum(['Local LLM v1', 'Mock Extractor v1']),
   resultHash: z.string(),
   validated: z.boolean(),
+  formatValidated: z.boolean().optional(),
+  consensusStatus: z.enum(['not_started', 'pending', 'passed', 'failed']).default('not_started'),
+  reviewStatus: z.enum(['not_reviewed', 'needs_review', 'reviewed']).default('not_reviewed'),
   validationErrors: z.array(z.string()),
   warnings: z.array(z.string()),
   summary: z.string(),

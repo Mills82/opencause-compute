@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { claimWork } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
+import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1)
@@ -14,13 +15,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const claim = await withDb((db) => claimWork(db, parsed.data.nodeId));
+    const token = extractNodeToken(request);
+    const claim = await withDb((db) => {
+      if (!isNodeAuthorized(db, parsed.data.nodeId, token)) throw new Error('node_unauthorized');
+      return claimWork(db, parsed.data.nodeId);
+    });
     if (!claim) {
       return NextResponse.json({ claim: null, message: 'no_work_available' });
     }
     return NextResponse.json(claim);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'claim_failed';
+    if (message === 'node_unauthorized') {
+      return NextResponse.json({ error: message }, { status: 401 });
+    }
     if (message === 'node_not_found') {
       return NextResponse.json({ error: message }, { status: 404 });
     }

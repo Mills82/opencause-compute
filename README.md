@@ -89,3 +89,8 @@ npm run test
 ## Security note
 
 V1 uses symmetric HMAC signing for packet verification as an interim mechanism. See `docs/security.md`.
+
+
+## Private alpha
+
+This repo is safe only for controlled private-alpha testing with trusted testers. See `docs/private-alpha-runbook.md`. Results are citation-backed candidate facts; format validation is not scientific validation and this is not medical advice.

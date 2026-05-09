@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getWorkerControl, updateWorkerControl } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
+import { isAdminAuthorized } from '../../../../lib/admin-auth';
 
 const updateSchema = z.object({
   paused: z.boolean().optional(),
@@ -16,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!isAdminAuthorized(request)) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
   const parsed = updateSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

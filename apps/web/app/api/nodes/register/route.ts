@@ -16,6 +16,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const node = await withDb((db) => registerNode(db, parsed.data));
-  return NextResponse.json({ node });
+  const registration = await withDb((db) => registerNode(db, parsed.data));
+  return NextResponse.json(registration);
 }

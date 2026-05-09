@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { resultPayloadSchema } from '@opencause/shared';
 import { submitResult } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
+import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1),
@@ -28,13 +29,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const output = await withDb((db) => submitResult(db, parsed.data));
+    const token = extractNodeToken(request);
+    const output = await withDb((db) => {
+      if (!isNodeAuthorized(db, parsed.data.nodeId, token)) throw new Error('node_unauthorized');
+      return submitResult(db, parsed.data);
+    });
     return NextResponse.json({
       result: output.record,
       facts: output.facts,
       workPacket: output.workPacket
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'submit_failed' }, { status: 400 });
+    const message = error instanceof Error ? error.message : 'submit_failed';
+    return NextResponse.json({ error: message }, { status: message === 'node_unauthorized' ? 401 : 400 });
   }
 }

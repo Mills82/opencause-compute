@@ -12,7 +12,7 @@ export async function getDashboardData() {
     queuedCount: db.workPackets.filter((p) => p.status === 'queued').length,
     nodeCount: db.nodes.length,
     resultCount: db.results.length,
-    validatedCount: db.results.filter((r) => r.validated).length
+    validatedCount: db.results.filter((r) => r.formatValidated ?? r.validated).length
   };
 }
 

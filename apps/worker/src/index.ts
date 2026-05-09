@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -19,6 +19,7 @@ const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
 const APP_DIR = process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute');
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
+const NODE_PATH = path.join(APP_DIR, 'node.json');
 const localLlmConfig = readLocalLlmConfig();
 
 async function log(message: string): Promise<void> {
@@ -83,10 +84,10 @@ function toIdleConfigFromControl(config: WorkerControlConfig): IdleConfig {
   };
 }
 
-async function post<T>(server: string, route: string, body: JsonValue): Promise<T> {
+async function post<T>(server: string, route: string, body: JsonValue, nodeToken?: string): Promise<T> {
   const response = await fetch(`${server}${route}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(nodeToken ? { 'x-node-token': nodeToken } : {}) },
     body: JSON.stringify(body)
   });
 
@@ -106,29 +107,48 @@ async function getControlConfig(server: string): Promise<WorkerControlConfig> {
   return json.config;
 }
 
-async function register(server: string, extractorMode: ExtractorMode): Promise<string> {
+type NodeCredentials = { nodeId: string; nodeToken: string };
+
+async function saveNodeCredentials(credentials: NodeCredentials): Promise<void> {
+  await mkdir(APP_DIR, { recursive: true });
+  await writeFile(NODE_PATH, JSON.stringify(credentials, null, 2), { encoding: 'utf8', mode: 0o600 });
+  try { await chmod(NODE_PATH, 0o600); } catch {}
+}
+
+async function loadNodeCredentials(): Promise<NodeCredentials | null> {
+  try {
+    const parsed = JSON.parse(await readFile(NODE_PATH, 'utf8')) as NodeCredentials;
+    if (parsed.nodeId && parsed.nodeToken) return parsed;
+  } catch {}
+  return null;
+}
+
+async function register(server: string, extractorMode: ExtractorMode): Promise<NodeCredentials> {
   const nodeName = arg('--node-name', `${os.hostname()}-worker`) as string;
   const platform = `${process.platform}-${process.arch}`;
   const version = '0.1.0';
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
 
-  const response = await post<{ node: { id: string } }>(server, '/api/nodes/register', {
+  const response = await post<{ node: { id: string }; nodeToken: string }>(server, '/api/nodes/register', {
     nodeName,
     platform,
     version,
     capabilities
   });
 
+  const credentials = { nodeId: response.node.id, nodeToken: response.nodeToken };
+  await saveNodeCredentials(credentials);
   await log(`registered node ${response.node.id}`);
-  return response.node.id;
+  return credentials;
 }
 
-async function heartbeat(server: string, nodeId: string): Promise<void> {
-  await post(server, '/api/nodes/heartbeat', { nodeId });
+async function heartbeat(server: string, credentials: NodeCredentials): Promise<void> {
+  const nodeId = credentials.nodeId;
+  await post(server, '/api/nodes/heartbeat', { nodeId }, credentials.nodeToken);
   await log(`heartbeat ${nodeId}`);
 }
 
-async function claim(server: string, nodeId: string): Promise<
+async function claim(server: string, credentials: NodeCredentials): Promise<
   | {
       claimId: string;
       packet: WorkPacketPayload;
@@ -143,7 +163,7 @@ async function claim(server: string, nodeId: string): Promise<
         signature: string;
       }
     | { claim: null; message: string }
-  >(server, '/api/work/claim', { nodeId });
+  >(server, '/api/work/claim', { nodeId: credentials.nodeId }, credentials.nodeToken);
 
   if ('claim' in response) {
     await log('no work available');
@@ -156,19 +176,19 @@ async function claim(server: string, nodeId: string): Promise<
 
 async function submit(
   server: string,
-  nodeId: string,
+  credentials: NodeCredentials,
   claimId: string,
   packetId: string,
   extractorVersion: ExtractorVersion,
   result: ResultPayload
 ): Promise<void> {
   const response = await post<{ result: { id: string; validated: boolean } }>(server, '/api/work/submit', {
-    nodeId,
+    nodeId: credentials.nodeId,
     claimId,
     workPacketId: packetId,
     extractorVersion,
     result
-  });
+  }, credentials.nodeToken);
 
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
@@ -201,7 +221,7 @@ async function extractFromPacket(
 
 async function runOnce(
   server: string,
-  nodeId: string,
+  credentials: NodeCredentials,
   idleConfig: IdleConfig,
   extractorMode: ExtractorMode,
   mockAllowed: boolean,
@@ -220,7 +240,7 @@ async function runOnce(
     await log('run-now token received, bypassing idle gate for one packet');
   }
 
-  const claimed = await claim(server, nodeId);
+  const claimed = await claim(server, credentials);
   if (!claimed) {
     return;
   }
@@ -233,12 +253,12 @@ async function runOnce(
 
   await log(`signature verified for packet ${claimed.packet.id}`);
   const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
-  await submit(server, nodeId, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result);
+  await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result);
 }
 
 async function loop(
   server: string,
-  nodeId: string,
+  credentials: NodeCredentials,
   intervalMs: number,
   extractorMode: ExtractorMode,
   mockAllowed: boolean
@@ -248,7 +268,7 @@ async function loop(
 
   while (true) {
     try {
-      await heartbeat(server, nodeId);
+      await heartbeat(server, credentials);
       const controlConfig = await getControlConfig(server);
       const effectiveIdleConfig = toIdleConfigFromControl(controlConfig);
       const runNowRequested = lastRunNowToken !== null && controlConfig.runNowToken !== lastRunNowToken;
@@ -256,7 +276,7 @@ async function loop(
       if (controlConfig.paused && !runNowRequested) {
         await log('paused by coordinator control settings');
       } else {
-        await runOnce(server, nodeId, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested);
+        await runOnce(server, credentials, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested);
       }
       lastRunNowToken = controlConfig.runNowToken;
     } catch (error) {
@@ -286,28 +306,30 @@ async function main() {
   }
 
   if (command === 'heartbeat') {
+    const nodeToken = required(arg('--node-token'), '--node-token');
     const nodeId = required(arg('--node-id'), '--node-id');
-    await heartbeat(server, nodeId);
+    await heartbeat(server, { nodeId, nodeToken });
     return;
   }
 
   if (command === 'claim') {
+    const nodeToken = required(arg('--node-token'), '--node-token');
     const nodeId = required(arg('--node-id'), '--node-id');
-    await claim(server, nodeId);
+    await claim(server, { nodeId, nodeToken });
     return;
   }
 
   if (command === 'run-once') {
-    const nodeId = arg('--node-id') ?? (await register(server, extractorMode));
-    await heartbeat(server, nodeId);
-    await runOnce(server, nodeId, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
+    const credentials = arg('--node-id') && arg('--node-token') ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token') as string } : (await loadNodeCredentials()) ?? (await register(server, extractorMode));
+    await heartbeat(server, credentials);
+    await runOnce(server, credentials, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
     return;
   }
 
   if (command === 'loop') {
-    const nodeId = arg('--node-id') ?? (await register(server, extractorMode));
+    const credentials = arg('--node-id') && arg('--node-token') ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token') as string } : (await loadNodeCredentials()) ?? (await register(server, extractorMode));
     const intervalMs = Number(arg('--interval-ms', '5000'));
-    await loop(server, nodeId, intervalMs, extractorMode, mockAllowed);
+    await loop(server, credentials, intervalMs, extractorMode, mockAllowed);
     return;
   }
 

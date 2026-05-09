@@ -30,7 +30,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <ul className="mt-2 space-y-2 text-sm text-slate-200">
           {data.results.map((result) => (
             <li key={result.id}>
-              {result.id} | validated: {String(result.validated)} | hash: {result.resultHash.slice(0, 12)}...
+              {result.id} | format validated: {String(result.formatValidated ?? result.validated)} | hash: {result.resultHash.slice(0, 12)}...
             </li>
           ))}
         </ul>

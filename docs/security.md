@@ -40,3 +40,8 @@
 - Bad-node detection and reputation scoring.
 - Stricter egress controls.
 - Signed auto-update chain.
+
+
+## Private-alpha signing limitation
+
+HMAC is private-alpha-only. Production/hosted mode must set `SIGNING_SECRET`; local dev/test may use the dev fallback. Asymmetric signing is required before public volunteer release, because workers should not receive server signing secrets in the long term.

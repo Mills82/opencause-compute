@@ -8,8 +8,8 @@ export default async function HomePage() {
       <div>
         <h2 className="text-3xl font-semibold">Coordinator Dashboard</h2>
         <p className="text-slate-300">
-          OpenCause Compute V1 demonstrates vetted work-packet coordination, signed payload verification, and structured
-          mock extraction.
+          OpenCause Compute is private-alpha infrastructure for AI-assisted open science: signed work packets, local extraction,
+          and citation-backed candidate facts. Format validation is not scientific validation or medical advice.
         </p>
       </div>
 
@@ -20,7 +20,7 @@ export default async function HomePage() {
           ['Queued Packets', data.queuedCount],
           ['Nodes', data.nodeCount],
           ['Results', data.resultCount],
-          ['Validated Results', data.validatedCount]
+          ['Format-validated Results', data.validatedCount]
         ].map(([label, value]) => (
           <article key={String(label)} className="rounded-xl border border-line bg-panel px-4 py-3">
             <p className="text-sm text-slate-300">{label}</p>

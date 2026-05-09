@@ -15,6 +15,7 @@ import {
   type WorkerControlConfig
 } from '@opencause/shared';
 import { signWorkPacketPayload } from './signing';
+import { createNodeToken, hashNodeToken } from './node-auth';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -64,9 +65,13 @@ const DEMO_PACKET_TEXTS = [
   }
 ] as const;
 
-export function registerNode(db: DatabaseState, input: RegisterInput): VolunteerNode {
+export function registerNode(
+  db: DatabaseState,
+  input: RegisterInput
+): VolunteerNode & { node: VolunteerNode; nodeToken: string } {
   const now = new Date().toISOString();
-  const node: VolunteerNode = {
+  const nodeToken = createNodeToken();
+  const node: VolunteerNode & { nodeTokenHash: string } = {
     id: randomUUID(),
     nodeName: input.nodeName,
     platform: input.platform,
@@ -74,10 +79,14 @@ export function registerNode(db: DatabaseState, input: RegisterInput): Volunteer
     capabilities: input.capabilities,
     status: 'online',
     registeredAt: now,
-    lastHeartbeatAt: now
+    lastHeartbeatAt: now,
+    nodeTokenHash: hashNodeToken(nodeToken)
   };
   db.nodes.push(node);
-  return node;
+  const { nodeTokenHash: _nodeTokenHash, ...publicNode } = node;
+  return { ...publicNode, node: publicNode, nodeToken };
+
+
 }
 
 export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode {
@@ -282,6 +291,9 @@ export function submitResult(
     extractorVersion: input.extractorVersion,
     resultHash: hashJson(input.result),
     validated: validation.valid,
+    formatValidated: validation.valid,
+    consensusStatus: 'not_started',
+    reviewStatus: 'not_reviewed',
     validationErrors: validation.errors,
     warnings: input.result.warnings,
     summary: input.result.summary,
@@ -432,9 +444,14 @@ export function listProjects(db: DatabaseState): Project[] {
   return db.projects;
 }
 
-export function listWorkPackets(db: DatabaseState): WorkPacket[] {
+export function listWorkPackets(
+  db: DatabaseState
+): Array<Omit<WorkPacket, 'sourceText' | 'signature'> & { sourceTextPreview: string }> {
   reconcileCoordinatorState(db);
-  return db.workPackets;
+  return db.workPackets.map(({ sourceText, signature, ...packet }) => ({
+    ...packet,
+    sourceTextPreview: sourceText.slice(0, 240)
+  }));
 }
 
 export function listResults(db: DatabaseState): Array<ExtractionResult & { facts: ExtractedFactRecord[] }> {

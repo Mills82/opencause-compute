@@ -1,7 +1,9 @@
+import { isDevMode } from './runtime-config';
+
 export function isAdminAuthorized(request: Request): boolean {
   const requiredKey = process.env.ADMIN_API_KEY;
   if (!requiredKey) {
-    return true;
+    return isDevMode();
   }
 
   const headerKey = request.headers.get('x-admin-key');
