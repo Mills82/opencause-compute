@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { notFound } from 'next/navigation';
 import { getProjectById } from '../../../lib/queries';
+import { validationLevel } from '../../../lib/validation-labels';
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const data = await getProjectById(params.id);
@@ -32,7 +33,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <ul className="mt-2 space-y-2 text-sm text-slate-200">
           {data.results.map((result) => (
             <li key={result.id}>
-              {result.id} | format validated: {String(result.formatValidated ?? result.validated)} | hash: {result.resultHash.slice(0, 12)}...
+              {result.id} | level: {validationLevel(result)} | hash: {result.resultHash.slice(0, 12)}...
             </li>
           ))}
         </ul>

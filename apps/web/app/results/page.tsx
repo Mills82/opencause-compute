@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getResults } from '../../lib/queries';
+import { validationLevel, validationLevelDescription } from '../../lib/validation-labels';
 
 export default async function ResultsPage() {
   const results = await getResults();
@@ -14,6 +15,9 @@ export default async function ResultsPage() {
           <p className="text-sm">Result ID: {result.id}</p>
           <p className="text-sm text-slate-300">Extractor: {result.extractorVersion}</p>
           <p className="text-sm text-slate-300">Format validated: {String(result.formatValidated ?? result.validated)}</p>
+          <p className="text-sm text-accent">Validation level: {validationLevel(result)}</p>
+          <p className="text-xs text-slate-300">{validationLevelDescription(validationLevel(result))}</p>
+          <p className="text-xs text-slate-400">Raw submission only: do not treat as accepted candidate fact unless consensus or human review passes.</p>
           {result.provenance ? (
             <div className="rounded border border-line/70 p-2 text-xs text-slate-300">
               <p>Worker: {result.provenance.workerVersion} on {result.provenance.workerPlatform}</p>

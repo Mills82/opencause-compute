@@ -14,9 +14,12 @@ export default async function AdminDashboardPage() {
     ['Expired claims', data.expiredClaimCount],
     ['Nodes online/offline', `${data.onlineNodeCount}/${data.offlineNodeCount}`],
     ['Nodes suspended/revoked', `${data.suspendedNodeCount}/${data.revokedNodeCount}`],
-    ['Results', data.resultCount],
-    ['Format-validated results', data.validatedCount],
-    ['Validation failures', data.failedValidationCount],
+    ['Raw submissions', data.resultCount],
+    ['Format-validated submissions', data.formatValidatedCount],
+    ['Consensus pending', data.consensusPendingCount],
+    ['Consensus passed', data.consensusPassedCount],
+    ['Needs human review', data.humanReviewNeededCount],
+    ['Validation/consensus failures', data.failedValidationCount],
     ['Failed ingestion runs', data.failedIngestionRunCount],
     ['Audit events', data.auditEventCount]
   ] as const;

@@ -55,8 +55,9 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [ ] UI uses “candidate facts,” “citation-backed extraction,” and “format/schema validation.”
 - [ ] UI avoids medical/clinical overclaims.
-- [ ] Add consensus validation levels and separate raw submissions from consensus facts.
-- [ ] No extracted fact is labeled accepted solely because one worker produced schema-valid JSON.
+- [x] Add consensus validation levels and separate raw submissions from consensus facts in labels/docs.
+- [x] No extracted fact is labeled accepted solely because one worker produced schema-valid JSON.
+- [ ] Implement duplicate independent processing and automated consensus comparison.
 
 ## NCBI ingestion checklist
 
