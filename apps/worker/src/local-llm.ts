@@ -16,7 +16,7 @@ export type LocalLlmConfig = {
   model: string;
   timeoutMs: number;
   options: OllamaGenerationOptions;
-  qualityTier: 'low' | 'balanced' | 'high';
+  qualityTier: 'low' | 'balanced' | 'high' | 'ultra';
 };
 
 export type OllamaGenerationOptions = {
@@ -35,7 +35,8 @@ function envNumber(name: string, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function defaultQualityTier(options: OllamaGenerationOptions): 'low' | 'balanced' | 'high' {
+function defaultQualityTier(options: OllamaGenerationOptions): 'low' | 'balanced' | 'high' | 'ultra' {
+  if (options.num_ctx >= 12288 && options.temperature === 0) return 'ultra';
   if (options.num_ctx >= 8192 && options.temperature === 0) return 'high';
   if (options.num_ctx >= 4096) return 'balanced';
   return 'low';
@@ -60,7 +61,7 @@ export function readLocalLlmConfig(): LocalLlmConfig {
   };
 }
 
-export function generationQualityTier(config: LocalLlmConfig): 'low' | 'balanced' | 'high' {
+export function generationQualityTier(config: LocalLlmConfig): 'low' | 'balanced' | 'high' | 'ultra' {
   return config.qualityTier ?? defaultQualityTier(config.options);
 }
 

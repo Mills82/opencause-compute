@@ -11,13 +11,12 @@ import {
   type WorkPacket,
   type WorkPacketPayload
 } from '@opencause/shared';
+import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
-const REQUIRED_CONSENSUS_SUBMISSIONS = 2;
-
 let pool: Pool | null = null;
 
 function enabled(): boolean {
@@ -72,14 +71,30 @@ async function updateConsensusForPacket(client: PoolClient, packetId: string): P
 
   const agreement = await client.query(
     `SELECT COUNT(*)::int AS count FROM (
-      SELECT ${sqlConsensusFactKey()} AS fact_key, COUNT(DISTINCT r.node_id)::int AS node_count
+      SELECT ${sqlConsensusFactKey()} AS fact_key,
+        COUNT(DISTINCT r.node_id)::int AS node_count,
+        SUM(DISTINCT CASE COALESCE(r.provenance->>'generationQualityTier', 'balanced')
+          WHEN 'ultra' THEN 1.33
+          WHEN 'high' THEN 1.23
+          WHEN 'balanced' THEN 1.04
+          WHEN 'low' THEN 0.85
+          WHEN 'mock' THEN 0.75
+          ELSE 1.0
+        END)::float AS agreement_weight
       FROM extracted_facts f
       JOIN extraction_results r ON r.id = f.result_id
       WHERE r.work_packet_id = $1 AND r.format_validated = true
       GROUP BY fact_key
-      HAVING COUNT(DISTINCT r.node_id) >= $2
+      HAVING COUNT(DISTINCT r.node_id) >= $2 AND SUM(DISTINCT CASE COALESCE(r.provenance->>'generationQualityTier', 'balanced')
+          WHEN 'ultra' THEN 1.33
+          WHEN 'high' THEN 1.23
+          WHEN 'balanced' THEN 1.04
+          WHEN 'low' THEN 0.85
+          WHEN 'mock' THEN 0.75
+          ELSE 1.0
+        END) >= $3
     ) agreed`,
-    [packetId, REQUIRED_CONSENSUS_SUBMISSIONS]
+    [packetId, REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT]
   );
   const status = Number(agreement.rows[0]?.count ?? 0) > 0 ? 'consensus_passed' : 'consensus_failed';
   await client.query('UPDATE extraction_results SET consensus_status = $2, review_status = CASE WHEN $2 = \'consensus_failed\' THEN \'needs_human_review\' ELSE review_status END WHERE work_packet_id = $1', [packetId, status]);

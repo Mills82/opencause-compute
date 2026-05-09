@@ -22,7 +22,7 @@ export type DesktopSettings = {
     provider: 'ollama';
     endpointType: 'localhost' | 'remote-http' | 'other';
     model: string;
-    qualityMode: 'balanced' | 'high' | 'custom';
+    qualityMode: 'balanced' | 'high' | 'ultra' | 'custom';
     numCtx?: number;
     numPredict?: number;
     approvedModels: typeof APPROVED_LOCAL_MODELS;

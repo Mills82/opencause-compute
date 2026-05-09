@@ -102,11 +102,14 @@ export function recommendedModelConfig(settings: DesktopSettings) {
   const cpuCores = os.cpus().length;
   const model = settings.modelRuntime.model;
   const qualityMode = settings.modelRuntime.qualityMode;
-  const base = qualityMode === 'balanced'
-    ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const }
-    : { numCtx: 8192, numPredict: 1200, tier: 'high' as const };
+  const base = qualityMode === 'ultra'
+    ? { numCtx: 12288, numPredict: 1600, tier: 'ultra' as const }
+    : qualityMode === 'balanced'
+      ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const }
+      : { numCtx: 8192, numPredict: 1200, tier: 'high' as const };
   const constrained = totalMemoryGb < 12 || cpuCores < 6;
-  const recommended = constrained ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const } : base;
+  const highEnd = totalMemoryGb >= 32 && cpuCores >= 12;
+  const recommended = constrained ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const } : highEnd ? { numCtx: 12288, numPredict: 1600, tier: 'ultra' as const } : base;
   return {
     model,
     qualityMode,
@@ -115,6 +118,6 @@ export function recommendedModelConfig(settings: DesktopSettings) {
     recommendedNumCtx: recommended.numCtx,
     recommendedNumPredict: recommended.numPredict,
     recommendedTier: recommended.tier,
-    note: constrained ? 'Balanced defaults recommended for this machine size.' : 'High-quality defaults look reasonable for this machine.'
+    note: constrained ? 'Balanced defaults recommended for this machine size.' : highEnd ? 'Ultra context should be reasonable for this higher-end machine.' : 'High-quality defaults look reasonable for this machine.'
   };
 }
