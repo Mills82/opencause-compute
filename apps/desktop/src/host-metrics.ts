@@ -103,13 +103,13 @@ export function recommendedModelConfig(settings: DesktopSettings) {
   const model = settings.modelRuntime.model;
   const qualityMode = settings.modelRuntime.qualityMode;
   const base = qualityMode === 'ultra'
-    ? { numCtx: 12288, numPredict: 1600, tier: 'ultra' as const }
+    ? { numCtx: 32768, numPredict: 2200, tier: 'ultra' as const }
     : qualityMode === 'budget'
-      ? { numCtx: 4096, numPredict: 900, tier: 'low' as const }
-      : { numCtx: 8192, numPredict: 1200, tier: 'high' as const };
+      ? { numCtx: 8192, numPredict: 1200, tier: 'high' as const }
+      : { numCtx: 16384, numPredict: 1800, tier: 'ultra' as const };
   const constrained = totalMemoryGb < 12 || cpuCores < 6;
-  const highEnd = totalMemoryGb >= 32 && cpuCores >= 12;
-  const recommended = constrained ? { numCtx: 4096, numPredict: 900, tier: 'low' as const } : highEnd ? { numCtx: 12288, numPredict: 1600, tier: 'ultra' as const } : base;
+  const highEnd = totalMemoryGb >= 48 && cpuCores >= 12;
+  const recommended = constrained ? { numCtx: 8192, numPredict: 1200, tier: 'high' as const } : highEnd ? { numCtx: 32768, numPredict: 2200, tier: 'ultra' as const } : base;
   return {
     model,
     qualityMode,
@@ -118,6 +118,6 @@ export function recommendedModelConfig(settings: DesktopSettings) {
     recommendedNumCtx: recommended.numCtx,
     recommendedNumPredict: recommended.numPredict,
     recommendedTier: recommended.tier,
-    note: constrained ? 'Budget context recommended for this machine size.' : highEnd ? 'Ultra context should be reasonable for this higher-end machine.' : '8k balanced defaults look reasonable for this machine.'
+    note: constrained ? '8k context is the minimum recommended for biomedical papers on this machine.' : highEnd ? '32k ultra context should be reasonable for this higher-end machine.' : '16k high-quality context looks reasonable for this machine.'
   };
 }

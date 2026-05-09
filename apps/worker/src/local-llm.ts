@@ -36,7 +36,7 @@ function envNumber(name: string, fallback: number): number {
 }
 
 function defaultQualityTier(options: OllamaGenerationOptions): 'low' | 'balanced' | 'high' | 'ultra' {
-  if (options.num_ctx >= 12288 && options.temperature === 0) return 'ultra';
+  if (options.num_ctx >= 16384 && options.temperature === 0) return 'ultra';
   if (options.num_ctx >= 8192 && options.temperature === 0) return 'high';
   if (options.num_ctx >= 4096) return 'balanced';
   return 'low';
@@ -54,8 +54,8 @@ export function readLocalLlmConfig(): LocalLlmConfig {
     options: {
       temperature: envNumber('LOCAL_LLM_TEMPERATURE', 0),
       top_p: envNumber('LOCAL_LLM_TOP_P', 0.9),
-      num_ctx: envNumber('LOCAL_LLM_NUM_CTX', 8192),
-      num_predict: envNumber('LOCAL_LLM_NUM_PREDICT', 1200)
+      num_ctx: envNumber('LOCAL_LLM_NUM_CTX', 16384),
+      num_predict: envNumber('LOCAL_LLM_NUM_PREDICT', 1800)
     },
     qualityTier: process.env.LOCAL_LLM_QUALITY_TIER as LocalLlmConfig['qualityTier'] || 'high'
   };
