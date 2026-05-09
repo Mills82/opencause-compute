@@ -6,7 +6,7 @@ V1 release includes:
 - Next.js coordinator/dashboard (`apps/web`)
 - CLI worker (`apps/worker`)
 - Shared schemas, signing, extractor, validation (`packages/shared`)
-- Local file DB fallback for immediate setup (`apps/web/data/db.json`)
+- Postgres-backed coordinator state when `DATABASE_URL` is set, with local file fallback (`apps/web/data/db.json`)
 
 ## Positioning
 
@@ -24,6 +24,12 @@ Extractor status:
 
 ```bash
 npm run setup
+```
+
+1.2 Configure coordinator storage (recommended):
+
+```bash
+export DATABASE_URL='postgres://user:pass@localhost:5432/opencause'
 ```
 
 1.5 Install and run a local model backend (Ollama example):
@@ -149,6 +155,11 @@ This repo currently ships script installers and runtime commands, with native si
 - `GET /api/worker/control`
 - `POST /api/worker/control`
 - `POST /api/worker/run-now`
+
+## Storage
+
+- Default for release: set `DATABASE_URL` and coordinator persists state in Postgres (`opencause_state` table).
+- Fallback for local-only use: file DB at `apps/web/data/db.json` when `DATABASE_URL` is unset.
 
 ## Scripts
 

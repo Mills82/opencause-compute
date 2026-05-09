@@ -8,7 +8,8 @@
 
 ## Coordinator (web app)
 
-- Uses file-backed JSON database (`apps/web/data/db.json`) for immediate local fallback.
+- Uses Postgres state storage when `DATABASE_URL` is configured.
+- Falls back to file-backed JSON database (`apps/web/data/db.json`) for immediate local usage.
 - Exposes coordinator APIs for node lifecycle and packet workflow.
 - Seeds Cancer Knowledge Miner project with demo packets.
 - Maintains entities:

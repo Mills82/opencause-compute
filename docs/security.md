@@ -25,7 +25,8 @@
 ## Known V1 limits
 
 - Symmetric HMAC requires shared secret distribution to worker.
-- File DB fallback has no row-level ACLs, no transactional locking, no at-rest encryption.
+- File DB fallback has no row-level ACLs or at-rest encryption.
+- Postgres state persistence is transactional for coordinator updates but still stores a single JSONB state row in V1.
 - Validation does not yet include duplicate-packet consensus adjudication.
 - Node trust model is basic; no reputation or anomaly scoring.
 
