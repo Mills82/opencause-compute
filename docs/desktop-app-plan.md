@@ -113,3 +113,15 @@ npm run package:win:unsigned -w @opencause/desktop
 ```
 
 The Windows target intentionally sets `signAndEditExecutable=false`. This creates a reproducible prototype artifact path only. Public release still requires code-signing certificates, installer QA on a clean Windows machine, and an update/uninstall strategy.
+
+## Packaging smoke test results
+
+On the WSL build host, `npm run package:dir -w @opencause/desktop` succeeds and produces `apps/desktop/release/linux-unpacked`.
+
+`npm run package:win:unsigned -w @opencause/desktop` successfully downloads/builds the Windows Electron payload and produces `apps/desktop/release/win-unpacked`, including `OpenCause Compute Worker.exe`, but NSIS installer finalization is blocked on this Linux/WSL host because Wine is missing:
+
+```text
+wine is required, please see https://electron.build/multi-platform-build#linux
+```
+
+For a full Windows installer artifact, run on Windows or install/configure Wine in CI. The generated unsigned Windows artifacts are still prototype-only and not acceptable for broad public release until code signing, installer QA, update, and uninstall testing are complete.

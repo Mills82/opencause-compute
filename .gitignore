@@ -12,3 +12,6 @@ apps/web/data/*.db
 
 # Local generated secrets
 .secrets/
+
+# Desktop packaging artifacts
+apps/desktop/release/
