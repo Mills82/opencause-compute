@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OpenCause Compute icon">
+  <defs>
+    <linearGradient id="g" x1="92" y1="70" x2="420" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38BDF8"/>
+      <stop offset="0.52" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#22C55E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Transparent background intentionally omitted -->
+
+  <path d="M383 117C440 174 458 261 429 336C400 411 329 462 248 462C141 462 54 375 54 268C54 187 104 115 179 86C235 64 298 71 348 101"
+        stroke="url(#g)" stroke-width="28" stroke-linecap="round"/>
+  <path d="M371 96L387 145L337 132" stroke="url(#g)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g stroke="#94A3B8" stroke-width="8" stroke-linecap="round" opacity="0.72">
+    <path d="M256 119L365 182"/>
+    <path d="M365 182V308"/>
+    <path d="M365 308L256 371"/>
+    <path d="M256 371L147 308"/>
+    <path d="M147 308V182"/>
+    <path d="M147 182L256 119"/>
+    <path d="M147 182L365 308"/>
+    <path d="M365 182L147 308"/>
+    <path d="M256 119V371"/>
+  </g>
+
+  <circle cx="256" cy="246" r="72" fill="white" fill-opacity="0.9"/>
+  <path d="M185 250H216L233 209L268 319L294 247H333"
+        stroke="url(#g)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="256" cy="119" r="26" fill="#F8FAFC" stroke="#38BDF8" stroke-width="14"/>
+  <circle cx="365" cy="182" r="26" fill="#F8FAFC" stroke="#2DD4BF" stroke-width="14"/>
+  <circle cx="365" cy="308" r="26" fill="#F8FAFC" stroke="#22C55E" stroke-width="14"/>
+  <circle cx="256" cy="371" r="26" fill="#F8FAFC" stroke="#2DD4BF" stroke-width="14"/>
+  <circle cx="147" cy="308" r="26" fill="#F8FAFC" stroke="#38BDF8" stroke-width="14"/>
+  <circle cx="147" cy="182" r="26" fill="#F8FAFC" stroke="#22C55E" stroke-width="14"/>
+</svg>

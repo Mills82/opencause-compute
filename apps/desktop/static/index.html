@@ -23,6 +23,7 @@
         <button id="start">Start worker</button>
         <button id="stop">Stop worker</button>
         <button id="log">Tail log</button>
+        <button id="pull-default">Download default model</button>
       </section>
       <pre id="output"></pre>
     </main>
@@ -39,6 +40,7 @@
       document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('pull-default').onclick = async () => { output.textContent = JSON.stringify(await api.pullModel('llama3.2:3b'), null, 2); };
       refresh();
     </script>
   </body>

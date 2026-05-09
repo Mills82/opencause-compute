@@ -15,6 +15,12 @@ export {
   type DesktopViewModelInput,
   type ScreenViewModel
 } from './view-model.js';
+export {
+  listInstalledOllamaModels,
+  modelRuntimeStatus,
+  pullOllamaModel,
+  type ModelRuntimeStatus
+} from './model-runtime.js';
 
 export type DesktopScreenId =
   | 'welcome'

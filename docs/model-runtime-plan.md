@@ -38,3 +38,15 @@ Do not enable those flags by default in public worker builds.
 ## Why not bundle models?
 
 Bundling model weights would make the installer huge, slow updates, complicate licensing/provenance, and force every volunteer into one resource profile. Separate runtime/model setup keeps the installer lightweight and lets volunteers choose a model appropriate for their machine.
+
+## Desktop runtime setup foundation
+
+`apps/desktop/src/model-runtime.ts` now provides the first-run runtime/model setup contract:
+
+- detect whether `ollama` is available
+- list installed Ollama models
+- report whether the selected approved model is installed
+- pull approved non-large/non-experimental models on explicit user action
+- reject unapproved, large, or experimental pulls unless a future advanced confirmation flow is implemented
+
+The Electron prototype exposes a `pullModel` IPC action and a prototype button for downloading the default `llama3.2:3b` model. This should become a polished first-run screen before public release.
