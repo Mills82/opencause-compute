@@ -19,6 +19,7 @@ import { signWorkPacketPayload } from './signing';
 import { createNodeToken, hashNodeToken } from './node-auth';
 import { isHostedMode } from './runtime-config';
 import { recordAuditEvent } from './audit';
+import { updateConsensusForPacket } from './consensus';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -263,7 +264,7 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
     }
   }
 
-  const packet = db.workPackets.find((p) => p.status === 'queued');
+  const packet = db.workPackets.find((p) => p.status === 'queued' && !db.claims.some((claim) => claim.workPacketId === p.id && claim.nodeId === nodeId && claim.status === 'completed'));
   if (!packet) {
     return null;
   }
@@ -392,11 +393,12 @@ export function submitResult(
   claim.status = 'completed';
   claim.completedAt = submittedAt;
 
-  packet.status = 'completed';
-  packet.updatedAt = submittedAt;
-
   db.results.push(record);
   db.facts.push(...facts);
+
+  const consensusStatus = updateConsensusForPacket(db, packet.id);
+  packet.status = consensusStatus === 'consensus_passed' || consensusStatus === 'consensus_failed' ? 'completed' : 'queued';
+  packet.updatedAt = submittedAt;
   recordAuditEvent(db, {
     actorType: 'node',
     actorId: input.nodeId,

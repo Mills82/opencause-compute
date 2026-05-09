@@ -16,6 +16,7 @@ import { hashNodeToken } from './node-auth';
 const DATABASE_URL = process.env.DATABASE_URL;
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
+const REQUIRED_CONSENSUS_SUBMISSIONS = 2;
 
 let pool: Pool | null = null;
 
@@ -56,6 +57,33 @@ function packetFromRow(row: any): WorkPacket {
     status: row.status,
     updatedAt: iso(row.updated_at)!
   };
+}
+
+function sqlConsensusFactKey(): string {
+  return `lower(trim(coalesce(relationship_type,'') || '|' || coalesce(cancer_type,'') || '|' || coalesce(gene_or_biomarker,'') || '|' || coalesce(drug_or_compound,'')))`;
+}
+
+async function updateConsensusForPacket(client: PoolClient, packetId: string): Promise<'consensus_pending' | 'consensus_passed' | 'consensus_failed'> {
+  const count = await client.query('SELECT COUNT(DISTINCT node_id)::int AS count FROM extraction_results WHERE work_packet_id = $1 AND format_validated = true', [packetId]);
+  if (Number(count.rows[0]?.count ?? 0) < REQUIRED_CONSENSUS_SUBMISSIONS) {
+    await client.query("UPDATE extraction_results SET consensus_status = 'consensus_pending' WHERE work_packet_id = $1", [packetId]);
+    return 'consensus_pending';
+  }
+
+  const agreement = await client.query(
+    `SELECT COUNT(*)::int AS count FROM (
+      SELECT ${sqlConsensusFactKey()} AS fact_key, COUNT(DISTINCT r.node_id)::int AS node_count
+      FROM extracted_facts f
+      JOIN extraction_results r ON r.id = f.result_id
+      WHERE r.work_packet_id = $1 AND r.format_validated = true
+      GROUP BY fact_key
+      HAVING COUNT(DISTINCT r.node_id) >= $2
+    ) agreed`,
+    [packetId, REQUIRED_CONSENSUS_SUBMISSIONS]
+  );
+  const status = Number(agreement.rows[0]?.count ?? 0) > 0 ? 'consensus_passed' : 'consensus_failed';
+  await client.query('UPDATE extraction_results SET consensus_status = $2, review_status = CASE WHEN $2 = \'consensus_failed\' THEN \'needs_human_review\' ELSE review_status END WHERE work_packet_id = $1', [packetId, status]);
+  return status;
 }
 
 async function recordAuditEvent(client: PoolClient, input: {
@@ -117,9 +145,16 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
     const packetResult = await client.query(
       `SELECT * FROM work_packets
        WHERE status = 'queued'
+       AND NOT EXISTS (
+         SELECT 1 FROM work_claims prior
+         WHERE prior.work_packet_id = work_packets.id
+         AND prior.node_id = $1
+         AND prior.status = 'completed'
+       )
        ORDER BY created_at
        LIMIT 1
-       FOR UPDATE SKIP LOCKED`
+       FOR UPDATE SKIP LOCKED`,
+      [nodeId]
     );
     const packet = packetResult.rows[0];
     if (!packet) {
@@ -210,8 +245,10 @@ export async function submitResultRelational(input: {
       await client.query('INSERT INTO extracted_facts(id,result_id,cancer_type,gene_or_biomarker,drug_or_compound,relationship_type,evidence_sentence,confidence,source_citation,source_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [fact.id, fact.resultId, fact.cancerType, fact.geneOrBiomarker, fact.drugOrCompound, fact.relationshipType, fact.evidenceSentence, fact.confidence, fact.sourceCitation, fact.sourceUrl]);
     }
     await client.query("UPDATE work_claims SET status = 'completed', completed_at = $2 WHERE id = $1", [input.claimId, submittedAt]);
-    await client.query("UPDATE work_packets SET status = 'completed', updated_at = $2 WHERE id = $1", [packet.id, submittedAt]);
-    packet.status = 'completed';
+    const consensusStatus = await updateConsensusForPacket(client, packet.id);
+    const packetStatus = consensusStatus === 'consensus_passed' || consensusStatus === 'consensus_failed' ? 'completed' : 'queued';
+    await client.query('UPDATE work_packets SET status = $2, updated_at = $3 WHERE id = $1', [packet.id, packetStatus, submittedAt]);
+    packet.status = packetStatus;
     packet.updatedAt = submittedAt;
     await recordAuditEvent(client, { actorType: 'node', actorId: input.nodeId, action: 'work.submit.completed', targetType: 'work_packet', targetId: packet.id, metadata: { claimId: input.claimId, resultId, formatValidated: record.formatValidated, validationErrors: record.validationErrors.length } });
     await client.query('COMMIT');

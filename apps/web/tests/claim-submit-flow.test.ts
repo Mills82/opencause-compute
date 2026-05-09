@@ -240,3 +240,62 @@ describe('claim/submit flow', () => {
     expect(afterRunNow.runNowToken).toBe(1);
   });
 });
+
+  it('keeps first valid submission consensus pending and requeues for independent duplicate work', () => {
+    const db = emptyDb();
+    seedDemoData(db);
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+
+    const firstClaim = claimWork(db, nodeA.id);
+    if (!firstClaim) throw new Error('Expected first claim');
+    const firstResult = submitResult(db, {
+      nodeId: nodeA.id,
+      claimId: firstClaim.claimId,
+      workPacketId: firstClaim.packet.id,
+      extractorVersion: 'Local LLM v1',
+      result: runMockExtractorV1(firstClaim.packet.sourceText)
+    });
+
+    expect(firstResult.record.consensusStatus).toBe('consensus_pending');
+    expect(firstResult.workPacket.status).toBe('queued');
+
+    const repeatSameNode = claimWork(db, nodeA.id);
+    expect(repeatSameNode?.packet.id).not.toBe(firstClaim.packet.id);
+
+    const secondClaim = claimWork(db, nodeB.id);
+    expect(secondClaim?.packet.id).toBe(firstClaim.packet.id);
+  });
+
+  it('marks matching independent duplicate submissions consensus passed', () => {
+    const db = emptyDb();
+    seedDemoData(db);
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+
+    const firstClaim = claimWork(db, nodeA.id);
+    if (!firstClaim) throw new Error('Expected first claim');
+    submitResult(db, {
+      nodeId: nodeA.id,
+      claimId: firstClaim.claimId,
+      workPacketId: firstClaim.packet.id,
+      extractorVersion: 'Local LLM v1',
+      result: runMockExtractorV1(firstClaim.packet.sourceText)
+    });
+
+    const secondClaim = claimWork(db, nodeB.id);
+    if (!secondClaim) throw new Error('Expected second claim');
+    const secondResult = submitResult(db, {
+      nodeId: nodeB.id,
+      claimId: secondClaim.claimId,
+      workPacketId: secondClaim.packet.id,
+      extractorVersion: 'Local LLM v1',
+      result: runMockExtractorV1(secondClaim.packet.sourceText)
+    });
+
+    expect(secondResult.workPacket.status).toBe('completed');
+    expect(db.results.filter((result) => result.workPacketId === firstClaim.packet.id).map((result) => result.consensusStatus)).toEqual([
+      'consensus_passed',
+      'consensus_passed'
+    ]);
+  });

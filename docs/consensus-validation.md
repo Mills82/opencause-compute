@@ -32,3 +32,11 @@ Before broad public launch:
 4. Mark disagreements as `consensus_failed` or `needs_human_review`.
 5. Keep provenance and source evidence attached at every stage.
 6. Separate raw submissions from consensus facts in UI and export.
+
+## First consensus mechanics
+
+The worker submit path now keeps a format-valid packet queued until at least two distinct nodes submit results for it. The same node is not assigned the same completed-submission packet again while consensus is pending.
+
+When two or more distinct nodes submit format-valid results, OpenCause computes a conservative structural consensus key from relationship type, cancer type, biomarker, and drug/compound. If at least one normalized fact key appears from two independent nodes, the packet's submissions are marked `consensus_passed`. If enough independent submissions exist but no fact key agrees, submissions are marked `consensus_failed` and require human review.
+
+This is a foundation, not final scientific consensus. Public launch still needs semantic comparison, configurable thresholds, consensus fact exports, reviewer tooling, and clear provenance per accepted candidate fact.
