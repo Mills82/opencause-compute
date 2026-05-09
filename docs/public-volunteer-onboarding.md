@@ -30,3 +30,10 @@ Private-alpha `NODE_ENROLLMENT_CODES` are static operator-issued invite codes. P
 3. Enable for a small public beta.
 4. Monitor enrollments, node registrations, claims, submissions, and audit events.
 5. Move to broad public launch only after installer, sandbox, distributed abuse controls, and reviewer/consensus workflows are ready.
+
+## Admin management
+
+- `GET /api/admin/volunteer-enrollments` lists recent enrollments without exposing enrollment code hashes.
+- `POST /api/admin/volunteer-enrollments/:enrollmentId/status` can set an unused enrollment to `issued` or `revoked`.
+- Used enrollments cannot be moved back to issued; revoke/suspend the linked node instead.
+- The admin dashboard shows enrollment counts and recent enrollment activity.

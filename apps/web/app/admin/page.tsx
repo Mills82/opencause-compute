@@ -21,6 +21,9 @@ export default async function AdminDashboardPage() {
     ['Needs human review', data.humanReviewNeededCount],
     ['Validation/consensus failures', data.failedValidationCount],
     ['Failed ingestion runs', data.failedIngestionRunCount],
+    ['Volunteer enrollments', data.volunteerEnrollmentCount],
+    ['Enrollments issued/used', `${data.issuedVolunteerEnrollmentCount}/${data.usedVolunteerEnrollmentCount}`],
+    ['Enrollments revoked', data.revokedVolunteerEnrollmentCount],
     ['Audit events', data.auditEventCount]
   ] as const;
 
@@ -112,6 +115,30 @@ export default async function AdminDashboardPage() {
           </div>
         ) : (
           <p className="mt-4 text-sm text-slate-300">No ingestion runs recorded yet.</p>
+        )}
+      </article>
+
+      <article className="rounded-xl border border-line bg-panel p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-medium">Recent volunteer enrollments</h3>
+            <p className="text-sm text-slate-300">Self-serve signup visibility for issued, used, and revoked enrollment codes.</p>
+          </div>
+          <a className="rounded border border-line px-3 py-2 text-sm" href="/api/admin/volunteer-enrollments">
+            JSON
+          </a>
+        </div>
+        {data.recentVolunteerEnrollments.length ? (
+          <ul className="mt-4 space-y-2 text-sm text-slate-300">
+            {data.recentVolunteerEnrollments.map((enrollment) => (
+              <li key={enrollment.id} className="rounded border border-line/70 p-2">
+                <span className="text-white">{enrollment.status}</span> · {enrollment.email} · {enrollment.createdAt}
+                {enrollment.nodeId ? <span> · node:{enrollment.nodeId}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-slate-300">No volunteer enrollments recorded yet.</p>
         )}
       </article>
 

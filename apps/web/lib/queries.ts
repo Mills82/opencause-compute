@@ -30,7 +30,12 @@ export async function getDashboardData() {
     failedIngestionRunCount: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length,
     recentIngestionRuns: db.ingestionRuns.slice(0, 5),
     auditEventCount: db.auditEvents.length,
-    recentAuditEvents: db.auditEvents.slice(0, 5)
+    recentAuditEvents: db.auditEvents.slice(0, 5),
+    volunteerEnrollmentCount: db.volunteerEnrollments.length,
+    issuedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'issued').length,
+    usedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'used').length,
+    revokedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'revoked').length,
+    recentVolunteerEnrollments: db.volunteerEnrollments.slice(0, 5)
   };
 }
 
