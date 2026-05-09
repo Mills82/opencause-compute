@@ -37,3 +37,15 @@ Private-alpha `NODE_ENROLLMENT_CODES` are static operator-issued invite codes. P
 - `POST /api/admin/volunteer-enrollments/:enrollmentId/status` can set an unused enrollment to `issued` or `revoked`.
 - Used enrollments cannot be moved back to issued; revoke/suspend the linked node instead.
 - The admin dashboard shows enrollment counts and recent enrollment activity.
+
+## Email delivery
+
+`POST /api/volunteer/enroll` can email one-time enrollment codes when these are configured:
+
+```bash
+RESEND_API_KEY=
+ENROLLMENT_EMAIL_FROM=OpenCause Compute <hello@appassist.ai>
+SHOW_ENROLLMENT_CODE_IN_BROWSER=false
+```
+
+If email delivery is unavailable, the API falls back to showing the code in-browser. For broad public launch, configure email delivery and keep browser display disabled.

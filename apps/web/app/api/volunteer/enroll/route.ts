@@ -6,6 +6,7 @@ import { recordAuditEvent } from '../../../../lib/audit';
 import { hashEnrollmentCode } from '../../../../lib/coordinator';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 import { clientIp, verifyTurnstile } from '../../../../lib/turnstile';
+import { sendEmail } from '../../../../lib/email';
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -73,6 +74,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'too_many_open_enrollments' }, { status: 429 });
   }
 
+  const emailResult = await sendEmail({
+    to: email,
+    subject: 'Your OpenCause Compute worker enrollment code',
+    text: `Your one-time OpenCause Compute worker enrollment code is:
+
+${enrollmentCode}
+
+Use it only on a machine you control. OpenCause Compute is for AI-assisted open science and is not medical advice.`
+  });
+
+  const showCode = process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent;
+
   return NextResponse.json({
     enrollment: {
       id: enrollment.id,
@@ -80,7 +93,10 @@ export async function POST(request: Request) {
       status: enrollment.status,
       createdAt: enrollment.createdAt
     },
-    enrollmentCode,
-    instructions: 'Use this one-time code as NODE_ENROLLMENT_CODE or pass --enrollment-code when registering the worker.'
+    delivery: emailResult,
+    ...(showCode ? { enrollmentCode } : {}),
+    instructions: showCode
+      ? 'Use this one-time code as NODE_ENROLLMENT_CODE or pass --enrollment-code when registering the worker.'
+      : 'Check your email for the one-time worker enrollment code.'
   });
 }
