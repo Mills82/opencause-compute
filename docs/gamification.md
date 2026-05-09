@@ -75,9 +75,21 @@ The recognition layer should not count:
 
 Future abuse signals should flag high failure rates, excessive claim pressure with low submission rate, repeated identical outputs, suspicious registration bursts, and unusually bursty contribution patterns.
 
+## Admin controls
+
+Protected admin APIs can review and configure the recognition layer before public self-service exists:
+
+- `GET /api/admin/gamification`
+- `PATCH /api/admin/gamification/profiles/:profileId`
+- `POST /api/admin/gamification/teams`
+- `POST /api/admin/gamification/teams/:teamId/members`
+- `POST /api/admin/gamification/recompute`
+
+The admin dashboard links to `/admin/gamification` for a protected setup/status view. These endpoints are intended for operator setup and QA, not public volunteer account management.
+
 ## Current V1 limitations
 
-- Self-service volunteer profile and team management is intentionally deferred unless/ until a proper volunteer auth model exists.
+- Public self-service volunteer profile and team management is intentionally deferred unless/ until a proper volunteer auth model exists.
 - Email digests are not sent in V1.
 - Idle-minute donation is schema/scoring-ready but remains zero until trustworthy worker telemetry exists.
 - Weekly/monthly windows are schema-ready but all-time is the first implemented public window.

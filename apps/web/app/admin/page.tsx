@@ -24,7 +24,11 @@ export default async function AdminDashboardPage() {
     ['Volunteer enrollments', data.volunteerEnrollmentCount],
     ['Enrollments issued/used', `${data.issuedVolunteerEnrollmentCount}/${data.usedVolunteerEnrollmentCount}`],
     ['Enrollments revoked', data.revokedVolunteerEnrollmentCount],
-    ['Audit events', data.auditEventCount]
+    ['Audit events', data.auditEventCount],
+    ['Volunteer profiles', data.volunteerProfileCount],
+    ['Public profiles', data.publicVolunteerProfileCount],
+    ['Teams', data.teamCount],
+    ['Badges awarded', data.volunteerBadgeCount]
   ] as const;
 
   return (
@@ -172,7 +176,8 @@ export default async function AdminDashboardPage() {
           ['Work packets', '/work-packets'],
           ['Results', '/results'],
           ['Nodes and controls', '/nodes'],
-          ['Launch readiness', '/readiness']
+          ['Launch readiness', '/readiness'],
+          ['Gamification', '/admin/gamification']
         ].map(([label, href]) => (
           <a key={href} className="rounded border border-line bg-panel px-4 py-3" href={href}>
             {label}

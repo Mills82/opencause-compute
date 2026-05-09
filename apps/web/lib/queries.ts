@@ -35,7 +35,11 @@ export async function getDashboardData() {
     issuedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'issued').length,
     usedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'used').length,
     revokedVolunteerEnrollmentCount: db.volunteerEnrollments.filter((enrollment) => enrollment.status === 'revoked').length,
-    recentVolunteerEnrollments: db.volunteerEnrollments.slice(0, 5)
+    recentVolunteerEnrollments: db.volunteerEnrollments.slice(0, 5),
+    volunteerProfileCount: db.volunteerProfiles.length,
+    publicVolunteerProfileCount: db.volunteerProfiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private').length,
+    teamCount: db.teams.length,
+    volunteerBadgeCount: db.volunteerBadges.length
   };
 }
 
