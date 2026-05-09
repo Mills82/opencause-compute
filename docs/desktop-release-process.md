@@ -35,7 +35,7 @@ The workflow:
 
 ## Site download env vars
 
-After a release is reviewed, configure the web deployment with the URLs shown in the generated release notes:
+After a release is reviewed and published, configure the web deployment with the stable tag-based URLs shown in the generated release notes:
 
 ```bash
 NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL=https://github.com/Mills82/opencause-compute/releases/download/<tag>/<installer>.exe
@@ -43,6 +43,8 @@ NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL=https://github.com/Mills82/opencause-com
 NEXT_PUBLIC_WINDOWS_WORKER_RELEASE_NOTES_URL=https://github.com/Mills82/opencause-compute/releases/download/<tag>/RELEASE-NOTES.md
 NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=prototype
 ```
+
+GitHub draft releases may show temporary asset URLs under `/releases/download/untagged-*`. Do not use those URLs for site env vars; they are draft-only placeholders. Publish the release first, then use `/releases/download/<tag>/...` URLs.
 
 Use `NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=public` only after signing and public-release QA are complete.
 

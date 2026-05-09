@@ -120,7 +120,9 @@ jobs:
           - worker registration, pause/resume, logs, resource controls, revocation behavior, and rollback are verified
           - release notes and checksums are published with final public-facing copy
 
-          ## Site env vars after release publication
+          ## Site env vars after publishing this release
+
+          If this release is still a GitHub draft, asset URLs on the release page may temporarily use an `untagged-*` path. Do not use those temporary draft URLs in production env vars. Publish the release first, then use the stable tag-based URLs below:
 
           ```bash
           NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL=https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/$safeInstaller
