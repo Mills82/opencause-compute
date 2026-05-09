@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export type WorkerSupervisorConfig = {
@@ -85,6 +85,7 @@ export class WorkerSupervisor {
     this.child = spawn(process.execPath, [entry, ...args], {
       env: {
         ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
         OPENCAUSE_APP_DIR: this.config.appDir,
         ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
       }
@@ -100,11 +101,20 @@ export class WorkerSupervisor {
     }
   }
 
+  async writeRegistrationDebugLog(data: { code: number | null; stdout: string; stderr: string; message: string; error?: string }): Promise<void> {
+    await mkdir(this.config.appDir, { recursive: true });
+    await writeFile(
+      path.join(this.config.appDir, 'registration-debug.log'),
+      JSON.stringify({ ...data, workerEntry: this.config.workerEntry, coordinatorUrl: this.config.coordinatorUrl, at: new Date().toISOString() }, null, 2),
+      'utf8'
+    ).catch(() => undefined);
+  }
+
   register(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string; message: string; profileSetupUrl?: string }> {
     const [entry, ...args] = this.buildArgs({ kind: 'register', enrollmentCode });
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [entry, ...args], {
-        env: { ...process.env, OPENCAUSE_APP_DIR: this.config.appDir },
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OPENCAUSE_APP_DIR: this.config.appDir },
         stdio: ['ignore', 'pipe', 'pipe']
       });
       let stdout = '';
@@ -124,9 +134,14 @@ export class WorkerSupervisor {
         } else if (text.trim()) {
           message = text.trim().split(/\r?\n/).at(-1) ?? message;
         }
+        await this.writeRegistrationDebugLog({ code, stdout, stderr, message });
         resolve({ code, stdout, stderr, message, profileSetupUrl: credentials?.profileSetupUrl });
       });
-      child.on('error', (error) => resolve({ code: 1, stdout, stderr: error.message, message: error.message }));
+      child.on('error', async (error) => {
+        const message = `Registration worker could not start: ${error.message}`;
+        await this.writeRegistrationDebugLog({ code: 1, stdout, stderr, message, error: error.message });
+        resolve({ code: 1, stdout, stderr: error.message, message });
+      });
     });
   }
 
