@@ -55,7 +55,8 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [ ] Complete Windows release QA checklist in `docs/windows-release-qa-checklist.md`.
 - [ ] Implement code signing plan in `docs/code-signing-plan.md`.
 - [x] Worker release/sandbox target model is documented in `docs/worker-release-and-sandbox-plan.md`.
-- [ ] Worker sandbox/resource model is implemented and tested for public release.
+- [x] Add approved extractor manifest and localhost/app-dir safety checks.
+- [ ] Worker sandbox/resource model is fully implemented and tested for public release.
 
 ## Legal/trust checklist
 

@@ -65,3 +65,21 @@ npm run start -w @opencause/worker -- uninstall-local-state
 - Private alpha: CLI worker is acceptable for trusted testers.
 - Public beta: needs installer, visible activity, pause/uninstall, and clearer resource controls.
 - Broad public launch: no-go until installer, sandbox/resource model, update path, and uninstall path are complete and tested.
+
+## Implemented safety boundary foundation
+
+The worker now has an approved extractor manifest in `apps/worker/src/extractor-manifest.ts`.
+
+Current enforcement:
+
+- `local-llm-v1` is the only approved production extractor mode.
+- `mock-extractor-v1` is test-only and requires explicit mock allowance.
+- local LLM endpoints must be localhost/loopback.
+- worker credential/log paths are asserted to remain inside the configured app data directory.
+
+Still needed before broad public launch:
+
+- OS-level sandbox/entitlements where available.
+- stronger runtime process isolation.
+- model download hash verification if the desktop app manages models.
+- memory/GPU/battery/temperature controls.

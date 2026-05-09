@@ -10,6 +10,7 @@ import {
   type WorkPacketPayload,
   type WorkerControlConfig
 } from '@opencause/shared';
+import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
 import { LOCAL_LLM_PROMPT_VERSION, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
 
@@ -34,6 +35,8 @@ function assertSafeAppDir(): void {
   if (APP_DIR === home || APP_DIR === path.parse(APP_DIR).root) {
     throw new Error('unsafe_app_dir');
   }
+  assertPathInside(APP_DIR, LOG_PATH);
+  assertPathInside(APP_DIR, NODE_PATH);
 }
 
 async function log(message: string): Promise<void> {
@@ -68,9 +71,8 @@ function allowMockExtractor(): boolean {
 }
 
 function enforceExtractorPolicy(mode: ExtractorMode, mockAllowed: boolean): void {
-  if (mode === 'mock' && !mockAllowed) {
-    throw new Error('mock_extractor_disabled');
-  }
+  assertApprovedExtractor(mode, { allowMock: mockAllowed });
+  if (mode === 'local-llm') assertLocalhostEndpoint(localLlmConfig.endpoint);
 }
 
 function readIdleConfig(): IdleConfig {
