@@ -8,7 +8,19 @@ import { modelRuntimeStatus, pullOllamaModel } from './model-runtime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(app.getPath('userData'), 'opencause-worker');
-const workerEntry = path.resolve(__dirname, '../../worker/dist/index.js');
+
+function resolveWorkerEntry(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'worker', 'dist', 'index.js');
+  }
+  return path.resolve(__dirname, '../../worker/dist/index.js');
+}
+
+function resolveStaticIndex(): string {
+  return path.join(__dirname, 'static', 'index.html');
+}
+
+const workerEntry = resolveWorkerEntry();
 
 async function createWindow() {
   const win = new BrowserWindow({
@@ -22,7 +34,7 @@ async function createWindow() {
     }
   });
 
-  await win.loadFile(path.resolve(__dirname, '../static/index.html'));
+  await win.loadFile(resolveStaticIndex());
 }
 
 async function supervisor() {

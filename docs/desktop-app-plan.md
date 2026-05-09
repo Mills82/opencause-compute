@@ -139,3 +139,7 @@ Use this instead of installing Wine locally unless local WSL builds are specific
 ## Model setup
 
 The desktop installer should not bundle LLM weights. First run should guide users through runtime/model setup, defaulting to `llama3.2:3b`, with optional stronger models shown only with resource warnings. Approved model metadata is defined in `packages/shared/src/model-manifest.ts`.
+
+## Blank window troubleshooting
+
+If the packaged desktop app opens to a blank/white window with only the native menu visible, check that `electron-main` is loading `dist/static/index.html` inside the packaged app. The static UI is copied into `dist/static` during `npm run build -w @opencause/desktop`; packaged apps should not try to load `../static/index.html` outside `dist`.
