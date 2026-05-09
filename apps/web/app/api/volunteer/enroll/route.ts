@@ -6,7 +6,7 @@ import { recordAuditEvent } from '../../../../lib/audit';
 import { hashEnrollmentCode } from '../../../../lib/coordinator';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 import { clientIp, verifyTurnstile } from '../../../../lib/turnstile';
-import { enrollmentEmail, sendEmail } from '../../../../lib/email';
+import { enrollmentEmail, enrollmentEmailConfigured, sendEmail } from '../../../../lib/email';
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -15,6 +15,10 @@ const requestSchema = z.object({
 
 function publicEnrollmentEnabled(): boolean {
   return process.env.ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT === 'true';
+}
+
+function isHostedOrProduction(): boolean {
+  return process.env.NODE_ENV === 'production' || process.env.OPENCAUSE_HOSTED === 'true';
 }
 
 export async function POST(request: Request) {
@@ -28,6 +32,10 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  if (isHostedOrProduction() && !enrollmentEmailConfigured()) {
+    return NextResponse.json({ error: 'enrollment_email_not_configured' }, { status: 503 });
   }
 
   const turnstileOk = await verifyTurnstile(parsed.data.turnstileToken, clientIp(request));
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
     ...enrollmentEmail(enrollmentCode)
   });
 
-  const showCode = process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent;
+  const showCode = !isHostedOrProduction() && (process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent);
 
   await withDb((db) => {
     recordAuditEvent(db, {

@@ -5,7 +5,8 @@ Goal: move from private invite codes to self-serve public volunteer enrollment w
 ## Current foundation
 
 - `POST /api/volunteer/enroll` can issue a one-time enrollment code when `ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT=true`.
-- Hosted/public enrollment should be protected with Cloudflare Turnstile via `TURNSTILE_SECRET_KEY`.
+- Hosted/public enrollment is protected with Cloudflare Turnstile via `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY`.
+- Hosted/public enrollment requires configured email delivery (`RESEND_API_KEY` and `ENROLLMENT_EMAIL_FROM`) before codes are issued.
 - The worker uses the one-time code through `NODE_ENROLLMENT_CODE` or `--enrollment-code` during registration.
 - Registration consumes the code and links it to the created node.
 - Admins can suspend/revoke nodes after registration.
@@ -16,10 +17,8 @@ Private-alpha `NODE_ENROLLMENT_CODES` are static operator-issued invite codes. P
 
 ## Still needed before turning it on publicly
 
-- Add a real UI form on `/volunteer` with Turnstile widget.
-- Decide whether the enrollment code is shown immediately, emailed, or both.
-- Add email verification/delivery if codes should not be displayed directly.
-- Add stronger per-email/per-IP limits backed by durable/distributed storage.
+- Exercise the `/volunteer` Turnstile and email flow in hosted preview before enabling public enrollment.
+- Add stronger suspicious-activity monitoring and alerting around enrollment spikes, repeated failures, and disposable-domain abuse.
 - Add admin view for enrollments and suspicious activity.
 - Ship the desktop worker app/installer so volunteers are not asked to run Node/npm.
 
@@ -48,4 +47,4 @@ ENROLLMENT_EMAIL_FROM=Alan <alan@appassist.ai>
 SHOW_ENROLLMENT_CODE_IN_BROWSER=false
 ```
 
-If email delivery is unavailable, the API falls back to showing the code in-browser. For broad public launch, configure email delivery and keep browser display disabled.
+In local development, the API can fall back to console/browser code display for testing. In hosted or production mode, enrollment fails closed with `enrollment_email_not_configured` unless email delivery is configured, so public codes are not displayed directly in the browser.

@@ -5,11 +5,15 @@ export type EmailMessage = {
   html?: string;
 };
 
+export function enrollmentEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY && process.env.ENROLLMENT_EMAIL_FROM);
+}
+
 export async function sendEmail(message: EmailMessage): Promise<{ sent: boolean; provider: 'console' | 'resend' | 'disabled' }> {
   const resendKey = process.env.RESEND_API_KEY;
   const from = process.env.ENROLLMENT_EMAIL_FROM;
 
-  if (!resendKey || !from) {
+  if (!enrollmentEmailConfigured()) {
     if (process.env.NODE_ENV !== 'production') {
       console.log('[email:console]', JSON.stringify(message));
       return { sent: true, provider: 'console' };

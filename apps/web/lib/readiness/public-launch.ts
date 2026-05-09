@@ -26,6 +26,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
   const signingMode = process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY ? 'ed25519' : 'hmac-fallback';
   const publicEnrollmentEnabled = process.env.ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT === 'true';
   const hasTurnstile = Boolean(process.env.TURNSTILE_SECRET_KEY && process.env.TURNSTILE_SITE_KEY);
+  const hasEnrollmentEmail = Boolean(process.env.RESEND_API_KEY && process.env.ENROLLMENT_EMAIL_FROM);
   const hasDownload = Boolean(process.env.NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL);
   const downloadStage = process.env.NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE ?? 'prototype';
 
@@ -34,7 +35,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
     item('storage', 'Relational hosted storage', storageMode === 'postgres-relational' ? 'pass' : 'fail', `Current storage mode: ${storageMode}.`),
     item('signing', 'Asymmetric packet signing', signingMode === 'ed25519' ? 'pass' : 'fail', `Current signing mode: ${signingMode}.`),
     item('admin_surface', 'Admin/coordinator surface protected', 'pass', 'Admin UI and coordinator read APIs require auth in current route configuration.'),
-    item('volunteer_enrollment', 'Self-serve volunteer enrollment', publicEnrollmentEnabled && hasTurnstile ? 'warn' : 'fail', publicEnrollmentEnabled ? (hasTurnstile ? 'Enabled behind Turnstile; monitor abuse before public beta.' : 'Enabled without complete Turnstile config.') : 'Disabled; public volunteers cannot self-serve yet.'),
+    item('volunteer_enrollment', 'Self-serve volunteer enrollment', publicEnrollmentEnabled && hasTurnstile && hasEnrollmentEmail ? 'warn' : 'fail', publicEnrollmentEnabled ? (hasTurnstile && hasEnrollmentEmail ? 'Enabled behind Turnstile with email delivery; monitor abuse before public beta.' : `Incomplete public enrollment config: ${[!hasTurnstile ? 'Turnstile' : null, !hasEnrollmentEmail ? 'email delivery' : null].filter(Boolean).join(', ')}.`) : 'Disabled; public volunteers cannot self-serve yet.'),
     item('download', 'Desktop worker download', hasDownload ? (downloadStage === 'public' ? 'pass' : 'warn') : 'fail', hasDownload ? `Download configured at stage=${downloadStage}.` : 'No public/prototype worker download URL is configured.'),
     item('desktop_signing', 'Signed installer', 'fail', 'Windows artifact path exists, but signing is not implemented/verified.'),
     item('desktop_qa', 'Clean-machine desktop QA', 'fail', 'Windows release QA checklist has not been completed.'),

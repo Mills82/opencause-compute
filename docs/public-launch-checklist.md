@@ -29,7 +29,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Revoked or suspended nodes cannot claim or submit.
 - [x] Add best-effort configurable rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
 - [x] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
-- [ ] Add public `/volunteer` form with Turnstile widget and email delivery/verification.
+- [x] Add public `/volunteer` form with Turnstile widget and email delivery for one-time enrollment codes.
 - [x] Add Postgres-backed rate-limit buckets for hosted/serverless-safe abuse control.
 - [ ] Add edge/provider abuse monitoring and alerting before broad high-traffic launch.
 
@@ -88,7 +88,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Admin dashboard shows baseline queue, claim, node, worker-control, and ingestion health without database spelunking.
 - [x] Baseline private-alpha incident response path is documented in `docs/incident-response.md`.
 - [x] Add baseline structured audit events for admin actions, registration/revocation, claims, submissions, ingestion, and validation decisions in current state model.
-- [ ] Move audit events to durable relational `audit_events` table during storage cutover.
+- [x] Move audit events to durable relational `audit_events` table during storage cutover.
 
 ## Final go/no-go
 

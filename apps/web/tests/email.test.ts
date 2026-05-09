@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { enrollmentEmail, sendEmail } from '../lib/email';
+import { enrollmentEmail, enrollmentEmailConfigured, sendEmail } from '../lib/email';
 
 describe('email helper', () => {
   it('renders polished enrollment text and html without omitting safety language', () => {
@@ -9,6 +9,17 @@ describe('email helper', () => {
     expect(rendered.text).toContain('not medical advice');
     expect(rendered.html).toContain('occ_test_code');
     expect(rendered.html).toContain('OpenCause Compute is not medical advice');
+  });
+
+  it('reports whether enrollment email delivery is configured', () => {
+    const oldEnv = { ...process.env };
+    delete process.env.RESEND_API_KEY;
+    delete process.env.ENROLLMENT_EMAIL_FROM;
+    expect(enrollmentEmailConfigured()).toBe(false);
+    process.env.RESEND_API_KEY = 'key';
+    process.env.ENROLLMENT_EMAIL_FROM = 'OpenCause <hello@example.com>';
+    expect(enrollmentEmailConfigured()).toBe(true);
+    process.env = oldEnv;
   });
 
   it('is disabled in production when provider env is missing', async () => {
