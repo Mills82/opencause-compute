@@ -116,4 +116,6 @@ Optional coordinator settings include `NCBI_API_KEY`, `DEFAULT_PACKET_EXTRACTOR`
 
 Worker settings include `COORDINATOR_URL`, `EXTRACTOR_MODE`, `LOCAL_LLM_ENDPOINT`, `LOCAL_LLM_MODEL`, `IDLE_MODE`, `MIN_IDLE_SECONDS`, and `MAX_CPU_PERCENT`.
 
+Set `NODE_ENROLLMENT_CODES` to one or more comma-separated private-alpha invite codes before exposing registration. Workers must pass a valid `enrollmentCode` during registration when codes are configured. Admins can suspend or revoke nodes through `POST /api/admin/nodes/:nodeId/status`.
+
 OpenCause Compute remains private-alpha until the blockers in `docs/public-launch-checklist.md` are closed. Results are candidate, citation-backed extractions; format/schema validation is not scientific validation or medical advice.

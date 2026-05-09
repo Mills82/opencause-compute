@@ -26,6 +26,6 @@ export function isNodeAuthorized(db: DatabaseState, nodeId: string, token: strin
   const node = db.nodes.find((n: VolunteerNode & { nodeTokenHash?: string }) => n.id === nodeId) as
     | (VolunteerNode & { nodeTokenHash?: string })
     | undefined;
-  if (!node?.nodeTokenHash) return false;
+  if (!node?.nodeTokenHash || node.status === 'revoked' || node.status === 'suspended') return false;
   return safeEqualHex(hashNodeToken(token), node.nodeTokenHash);
 }

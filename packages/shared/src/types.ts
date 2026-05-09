@@ -57,11 +57,14 @@ export const volunteerNodeSchema = z.object({
   nodeName: z.string().min(1),
   platform: z.string().min(1),
   version: z.string().min(1),
-  status: z.enum(['online', 'offline']),
+  status: z.enum(['online', 'offline', 'suspended', 'revoked']),
   capabilities: z.array(z.string()),
   registeredAt: z.string(),
   lastHeartbeatAt: z.string().nullable(),
-  nodeTokenHash: z.string().optional()
+  nodeTokenHash: z.string().optional(),
+  enrollmentCodeHash: z.string().optional(),
+  revokedAt: z.string().nullable().optional(),
+  suspendedAt: z.string().nullable().optional()
 });
 
 export const workClaimSchema = z.object({

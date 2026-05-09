@@ -4,6 +4,7 @@ import { resultPayloadSchema } from '@opencause/shared';
 import { submitResult } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1),
@@ -20,6 +21,9 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
+
+  const limit = checkRateLimit(request, 'work-submit', { limit: 30, windowMs: 60_000, identity: parsed.data.nodeId });
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
   if (parsed.data.extractorVersion === 'Mock Extractor v1' && !ALLOW_MOCK_RESULTS) {
     return NextResponse.json(
@@ -41,6 +45,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'submit_failed';
+    if (message === 'node_revoked' || message === 'node_suspended') {
+      return NextResponse.json({ error: message }, { status: 403 });
+    }
     return NextResponse.json({ error: message }, { status: message === 'node_unauthorized' ? 401 : 400 });
   }
 }

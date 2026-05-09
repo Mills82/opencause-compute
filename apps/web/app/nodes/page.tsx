@@ -18,6 +18,10 @@ export default async function NodesPage() {
             <p>Version: {node.version}</p>
             <p>Status: {node.status}</p>
             <p>Last heartbeat: {node.lastHeartbeatAt ?? 'never'}</p>
+            <p className="text-slate-400">
+              Manage via admin API: <code>POST /api/admin/nodes/{node.id}/status</code> with status online, offline,
+              suspended, or revoked.
+            </p>
           </article>
         ))}
       </div>

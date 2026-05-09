@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   hashJson,
   hashText,
@@ -23,7 +23,7 @@ const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local
   | 'local-llm-v1'
   | 'mock-extractor-v1';
 
-type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'>;
+type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'> & { enrollmentCode?: string };
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 type IngestSource = {
   title: string;
@@ -40,6 +40,30 @@ const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
     'Processes open-access oncology/biomedical text into structured, citation-backed research facts using Local LLM v1.',
   status: 'active'
 };
+
+function hashEnrollmentCode(code: string): string {
+  return createHash('sha256').update(code).digest('hex');
+}
+
+function requiredEnrollmentCodes(): string[] {
+  return (process.env.NODE_ENROLLMENT_CODES || process.env.NODE_ENROLLMENT_CODE || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean);
+}
+
+export function isNodeEnrollmentRequired(): boolean {
+  return requiredEnrollmentCodes().length > 0;
+}
+
+function assertValidEnrollmentCode(code: string | undefined): string | undefined {
+  const allowed = requiredEnrollmentCodes();
+  if (!allowed.length) return undefined;
+  if (!code || !allowed.includes(code)) {
+    throw new Error('invalid_enrollment_code');
+  }
+  return hashEnrollmentCode(code);
+}
 
 const DEMO_PACKET_TEXTS = [
   {
@@ -70,6 +94,7 @@ export function registerNode(
   input: RegisterInput
 ): VolunteerNode & { node: VolunteerNode; nodeToken: string } {
   const now = new Date().toISOString();
+  const enrollmentCodeHash = assertValidEnrollmentCode(input.enrollmentCode);
   const nodeToken = createNodeToken();
   const node: VolunteerNode & { nodeTokenHash: string } = {
     id: randomUUID(),
@@ -80,10 +105,11 @@ export function registerNode(
     status: 'online',
     registeredAt: now,
     lastHeartbeatAt: now,
-    nodeTokenHash: hashNodeToken(nodeToken)
+    nodeTokenHash: hashNodeToken(nodeToken),
+    enrollmentCodeHash
   };
   db.nodes.push(node);
-  const { nodeTokenHash: _nodeTokenHash, ...publicNode } = node;
+  const { nodeTokenHash: _nodeTokenHash, enrollmentCodeHash: _enrollmentCodeHash, ...publicNode } = node;
   return { ...publicNode, node: publicNode, nodeToken };
 
 
@@ -96,6 +122,9 @@ export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode 
   const node = db.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error('node_not_found');
+  }
+  if (node.status === 'revoked' || node.status === 'suspended') {
+    throw new Error(`node_${node.status}`);
   }
   node.lastHeartbeatAt = now.toISOString();
   node.status = 'online';
@@ -152,6 +181,9 @@ function reclaimExpiredClaims(db: DatabaseState, now: Date): void {
 function markStaleNodes(db: DatabaseState, now: Date): void {
   const staleCutoffMs = now.getTime() - NODE_STALE_MINUTES * 60_000;
   for (const node of db.nodes) {
+    if (node.status === 'revoked' || node.status === 'suspended') {
+      continue;
+    }
     const heartbeatMs = node.lastHeartbeatAt ? new Date(node.lastHeartbeatAt).getTime() : 0;
     node.status = heartbeatMs >= staleCutoffMs ? 'online' : 'offline';
   }
@@ -195,6 +227,9 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
   const node = db.nodes.find((n) => n.id === nodeId);
   if (!node) {
     throw new Error('node_not_found');
+  }
+  if (node.status === 'revoked' || node.status === 'suspended') {
+    throw new Error(`node_${node.status}`);
   }
   if (node.status === 'offline') {
     throw new Error('node_offline');

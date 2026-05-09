@@ -128,12 +128,14 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
   const platform = `${process.platform}-${process.arch}`;
   const version = '0.1.0';
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
+  const enrollmentCode = (arg('--enrollment-code') as string | undefined) || process.env.NODE_ENROLLMENT_CODE;
 
   const response = await post<{ node: { id: string }; nodeToken: string }>(server, '/api/nodes/register', {
     nodeName,
     platform,
     version,
-    capabilities
+    capabilities,
+    ...(enrollmentCode ? { enrollmentCode } : {})
   });
 
   const credentials = { nodeId: response.node.id, nodeToken: response.nodeToken };

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { heartbeatNode } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
+import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1)
@@ -14,6 +15,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
+  const limit = checkRateLimit(request, 'node-heartbeat', { limit: 60, windowMs: 60_000, identity: parsed.data.nodeId });
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+
   try {
     const token = extractNodeToken(request);
     const node = await withDb((db) => {
@@ -24,6 +28,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'node_not_found';
     if (message === 'node_unauthorized') return NextResponse.json({ error: 'node_unauthorized' }, { status: 401 });
+    if (message === 'node_revoked' || message === 'node_suspended') return NextResponse.json({ error: message }, { status: 403 });
     return NextResponse.json({ error: 'node_not_found' }, { status: 404 });
   }
 }
