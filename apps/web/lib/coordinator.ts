@@ -16,6 +16,7 @@ import {
 } from '@opencause/shared';
 import { signWorkPacketPayload } from './signing';
 import { createNodeToken, hashNodeToken } from './node-auth';
+import { isHostedMode } from './runtime-config';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -58,7 +59,10 @@ export function isNodeEnrollmentRequired(): boolean {
 
 function assertValidEnrollmentCode(code: string | undefined): string | undefined {
   const allowed = requiredEnrollmentCodes();
-  if (!allowed.length) return undefined;
+  if (!allowed.length) {
+    if (isHostedMode()) throw new Error('enrollment_not_configured');
+    return undefined;
+  }
   if (!code || !allowed.includes(code)) {
     throw new Error('invalid_enrollment_code');
   }

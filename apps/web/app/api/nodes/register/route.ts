@@ -26,13 +26,13 @@ export async function POST(request: Request) {
     return NextResponse.json(registration);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'registration_failed';
-    if (message === 'invalid_enrollment_code') {
+    if (message === 'invalid_enrollment_code' || message === 'enrollment_not_configured') {
       return NextResponse.json(
         {
           error: message,
           message: isNodeEnrollmentRequired()
             ? 'A valid private-alpha enrollment code is required to register this worker.'
-            : 'Worker enrollment is not configured.'
+            : 'Worker enrollment is not configured for this hosted deployment.'
         },
         { status: 403 }
       );
