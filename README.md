@@ -4,21 +4,18 @@ OpenCause Compute is a volunteer-compute platform for AI-powered open science.
 
 V1 release includes:
 - Next.js coordinator/dashboard (`apps/web`)
-- CLI worker (`apps/worker`)
-- Shared schemas, signing, extractor, validation (`packages/shared`)
-- Postgres-backed coordinator state when `DATABASE_URL` is set, with local file fallback (`apps/web/data/db.json`)
+- Worker runtime (`apps/worker`)
+- Shared schemas/signing/validation (`packages/shared`)
+- Local-LLM extraction by default (`Local LLM v1`)
+- Real literature packet ingestion from PubMed and PMC Open Access
 
 ## Positioning
 
 Donate your idle computer to AI-powered open science.
 
-V1 does **not** make medical claims.
+This release does **not** make medical claims.
 
-Extractor status:
-- Default release path: `Local LLM v1` (required by default)
-- `Mock Extractor v1` is disabled by default and only available with explicit opt-in (`ALLOW_MOCK_EXTRACTOR=true` and `EXTRACTOR_MODE=mock`) for development/testing
-
-## Quick start (release mode)
+## User quick start
 
 1. Install and verify:
 
@@ -26,104 +23,42 @@ Extractor status:
 npm run setup
 ```
 
-Environment template is available in `.env.example`.
-
-1.2 Configure coordinator storage (recommended):
-
-```bash
-export DATABASE_URL='postgres://user:pass@localhost:5432/opencause'
-```
-
-1.5 Install and run a local model backend (Ollama example):
+2. Start local LLM runtime:
 
 ```bash
 ollama serve
 ollama pull llama3.2:3b
 ```
 
-2. Start the full stack in one command (web + seed + worker loop):
+3. Start OpenCause Compute:
 
 ```bash
 npm run start:up
 ```
 
-3. Open dashboard routes in browser:
-- `/`
-- `/projects`
-- `/projects/[id]`
-- `/work-packets`
-- `/results`
-- `/nodes`
-- `/about`
+4. Open the dashboard at `http://localhost:3000` and use `/nodes` controls to:
+- Pause/resume processing
+- Configure idle thresholds and max CPU
+- Trigger `Run one packet now` for testing
 
-4. Stop everything with `Ctrl+C`.
+## Worker behavior
 
-## Manual start (separate terminals)
+- Processing only runs when idle thresholds pass.
+- Default extractor mode is Local LLM.
+- Mock extractor is disabled by default and only for explicit development opt-in.
 
-1. Start web coordinator:
+## Storage
 
-```bash
-npm run start:web
-```
+- Recommended: Postgres via `DATABASE_URL`.
+- Fallback: local file DB at `apps/web/data/db.json`.
 
-2. Seed demo project/packets:
+## Installers
 
-```bash
-npm run demo:seed
-```
-
-3. Run worker:
-
-```bash
-npm run start:worker:once
-# or continuous loop:
-npm run start:worker:loop
-```
-
-4. Use `/nodes` Worker Controls to:
-- Pause/resume worker processing
-- Set idle mode, idle delay, and max CPU
-- Trigger `Run one packet now` for manual testing without waiting for idle
-
-## Idle behavior
-
-The worker only processes packets when idle thresholds pass:
-- `IDLE_MODE=user-and-cpu` (default): requires user-idle signal + CPU threshold
-- `IDLE_MODE=cpu-only`: CPU threshold only
-- `MIN_IDLE_SECONDS` default `120`
-- `MAX_CPU_PERCENT` default `35`
-
-Examples:
-
-```bash
-IDLE_MODE=cpu-only MAX_CPU_PERCENT=30 npm run start:worker:loop
-```
-
-```bash
-npm run start:worker:loop -- --idle-mode user-and-cpu --min-idle-seconds 180
-```
-
-## Local LLM configuration
-
-Worker defaults:
-- `EXTRACTOR_MODE=local-llm`
-- `LOCAL_LLM_ENDPOINT=http://127.0.0.1:11434`
-- `LOCAL_LLM_MODEL=llama3.2:3b`
-- `ALLOW_MOCK_EXTRACTOR=false`
-
-Example:
-
-```bash
-LOCAL_LLM_MODEL=llama3.2:3b npm run start:worker:loop
-```
-
-## Installers and packaging
-
-Current V1 provides script-based installers:
+Current V1 provides script installers:
 - macOS/Linux: `npm run release:install:unix`
 - Windows PowerShell: `npm run release:install:windows`
 
-Persistent worker service management:
+Persistent worker service:
 - Unix/macOS:
   - `npm run service:install:unix`
   - `npm run service:start:unix`
@@ -137,57 +72,7 @@ Persistent worker service management:
   - `npm run service:status:windows`
   - `npm run service:uninstall:windows`
 
-Best file type for broad user install:
-- Windows-first audience: signed `.exe` or `.msi`
-- macOS: signed `.pkg`
-- Linux: `.deb`/`.rpm` or AppImage
-
-This repo currently ships script installers and runtime commands, with native signed installers planned as the next packaging step.
-
-## API endpoints
-
-- `POST /api/nodes/register`
-- `POST /api/nodes/heartbeat`
-- `POST /api/work/claim`
-- `POST /api/work/submit`
-- `GET /api/projects`
-- `GET /api/work-packets`
-- `GET /api/results`
-- `POST /api/admin/seed-demo-data`
-- `GET /api/worker/control`
-- `POST /api/worker/control`
-- `POST /api/worker/run-now`
-- `POST /api/admin/ingest/pubmed`
-
-## Storage
-
-- Default for release: set `DATABASE_URL` and coordinator persists state in Postgres (`opencause_state` table).
-- Fallback for local-only use: file DB at `apps/web/data/db.json` when `DATABASE_URL` is unset.
-
-## Deployment
-
-- Recommended hosted start: Vercel + Neon
-- See [docs/deployment-neon-vercel.md](/home/mattm/.openclaw/workspace/external/opencause-compute/docs/deployment-neon-vercel.md)
-
-## Literature ingestion
-
-Coordinator can ingest real PubMed abstracts into work packets:
-
-```bash
-curl -X POST http://localhost:3000/api/admin/ingest/pubmed \\\n+  -H 'content-type: application/json' \\\n+  -d '{\"query\":\"EGFR NSCLC resistance\",\"retmax\":20}'\n+```
-
-Recommended env vars on coordinator:
-- `NCBI_EMAIL=you@example.com`
-- `NCBI_API_KEY=...` (raises E-utilities throughput limits)
-
-Current ingest scope in V1:
-- PubMed metadata + abstract text via NCBI E-utilities
-- If PMCID is present, source URL points to PMC article page
-- Full-text PMC OA bulk ingestion is not yet implemented in this commit
-
 ## Scripts
-
-From repo root:
 
 ```bash
 npm run setup
@@ -195,21 +80,6 @@ npm run start:up
 npm run start:web
 npm run start:worker:once
 npm run start:worker:loop
-npm run release:install:unix
-npm run release:install:windows
-npm run service:install:unix
-npm run service:start:unix
-npm run service:stop:unix
-npm run service:status:unix
-npm run service:uninstall:unix
-npm run service:install:windows
-npm run service:start:windows
-npm run service:stop:windows
-npm run service:status:windows
-npm run service:uninstall:windows
-npm run demo:up
-npm run demo:web
-npm run demo:seed
 npm run build
 npm run typecheck
 npm run test
@@ -217,4 +87,4 @@ npm run test
 
 ## Security note
 
-V1 uses symmetric HMAC signing for packet verification as an interim mechanism. See `docs/security.md` for limits and hardening roadmap.
+V1 uses symmetric HMAC signing for packet verification as an interim mechanism. See `docs/security.md`.
