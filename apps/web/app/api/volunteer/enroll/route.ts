@@ -6,7 +6,7 @@ import { recordAuditEvent } from '../../../../lib/audit';
 import { hashEnrollmentCode } from '../../../../lib/coordinator';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 import { clientIp, verifyTurnstile } from '../../../../lib/turnstile';
-import { sendEmail } from '../../../../lib/email';
+import { enrollmentEmail, sendEmail } from '../../../../lib/email';
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -76,12 +76,7 @@ export async function POST(request: Request) {
 
   const emailResult = await sendEmail({
     to: email,
-    subject: 'Your OpenCause Compute worker enrollment code',
-    text: `Your one-time OpenCause Compute worker enrollment code is:
-
-${enrollmentCode}
-
-Use it only on a machine you control. OpenCause Compute is for AI-assisted open science and is not medical advice.`
+    ...enrollmentEmail(enrollmentCode)
   });
 
   const showCode = process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent;
