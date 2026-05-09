@@ -54,12 +54,13 @@
 ## Data flow
 
 1. Admin seeds project and work packets.
-2. Node registers and heartbeats.
-3. Worker claims a queued packet.
-4. Worker verifies packet signature and extracts facts.
-5. Worker submits structured result.
-6. Coordinator validates and stores result/facts.
-7. Dashboard renders state from coordinator DB.
+2. Coordinator can ingest PubMed abstracts into signed queued work packets.
+3. Node registers and heartbeats.
+4. Worker claims a queued packet.
+5. Worker verifies packet signature and extracts facts.
+6. Worker submits structured result.
+7. Coordinator validates and stores result/facts.
+8. Dashboard renders state from coordinator DB.
 
 ## Claim leasing behavior
 

@@ -24,6 +24,13 @@ const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'>;
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
+type IngestSource = {
+  title: string;
+  sourceText: string;
+  sourceCitation: string;
+  sourceUrl: string;
+  sourcePublishedAt?: string;
+};
 
 const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
   slug: 'cancer-knowledge-miner',
@@ -354,6 +361,70 @@ export function seedDemoData(db: DatabaseState): { project: Project; packetsCrea
   }
 
   return { project, packetsCreated };
+}
+
+export function getOrCreateProject(
+  db: DatabaseState,
+  input: { slug: string; name: string; description: string; status?: string }
+): Project {
+  const existing = db.projects.find((project) => project.slug === input.slug);
+  if (existing) {
+    return existing;
+  }
+
+  const project: Project = {
+    id: randomUUID(),
+    slug: input.slug,
+    name: input.name,
+    description: input.description,
+    status: input.status ?? 'active',
+    createdAt: new Date().toISOString()
+  };
+  db.projects.push(project);
+  return project;
+}
+
+export function createWorkPacketsFromSources(
+  db: DatabaseState,
+  input: { projectId: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'mock-extractor-v1' }
+): { packetsCreated: number; packetsSkipped: number } {
+  const now = new Date().toISOString();
+  let packetsCreated = 0;
+  let packetsSkipped = 0;
+  const extractor = input.extractor ?? DEFAULT_PACKET_EXTRACTOR;
+
+  for (const source of input.sources) {
+    const exists = db.workPackets.find((packet) => packet.projectId === input.projectId && packet.sourceUrl === source.sourceUrl);
+    if (exists) {
+      packetsSkipped += 1;
+      continue;
+    }
+
+    const packetPayload: WorkPacketPayload = {
+      id: randomUUID(),
+      projectId: input.projectId,
+      title: source.title,
+      sourceText: source.sourceText,
+      sourceCitation: source.sourceCitation,
+      sourceUrl: source.sourceUrl,
+      sourcePublishedAt: source.sourcePublishedAt,
+      inputHash: hashText(source.sourceText),
+      extractor,
+      createdAt: now
+    };
+
+    const packet: WorkPacket = {
+      ...packetPayload,
+      signature: signWorkPacketPayload(packetPayload),
+      status: 'queued',
+      updatedAt: now
+    };
+
+    db.workPackets.push(packet);
+    packetsCreated += 1;
+  }
+
+  return { packetsCreated, packetsSkipped };
 }
 
 export function listProjects(db: DatabaseState): Project[] {

@@ -26,6 +26,8 @@ Extractor status:
 npm run setup
 ```
 
+Environment template is available in `.env.example`.
+
 1.2 Configure coordinator storage (recommended):
 
 ```bash
@@ -155,11 +157,33 @@ This repo currently ships script installers and runtime commands, with native si
 - `GET /api/worker/control`
 - `POST /api/worker/control`
 - `POST /api/worker/run-now`
+- `POST /api/admin/ingest/pubmed`
 
 ## Storage
 
 - Default for release: set `DATABASE_URL` and coordinator persists state in Postgres (`opencause_state` table).
 - Fallback for local-only use: file DB at `apps/web/data/db.json` when `DATABASE_URL` is unset.
+
+## Deployment
+
+- Recommended hosted start: Vercel + Neon
+- See [docs/deployment-neon-vercel.md](/home/mattm/.openclaw/workspace/external/opencause-compute/docs/deployment-neon-vercel.md)
+
+## Literature ingestion
+
+Coordinator can ingest real PubMed abstracts into work packets:
+
+```bash
+curl -X POST http://localhost:3000/api/admin/ingest/pubmed \\\n+  -H 'content-type: application/json' \\\n+  -d '{\"query\":\"EGFR NSCLC resistance\",\"retmax\":20}'\n+```
+
+Recommended env vars on coordinator:
+- `NCBI_EMAIL=you@example.com`
+- `NCBI_API_KEY=...` (raises E-utilities throughput limits)
+
+Current ingest scope in V1:
+- PubMed metadata + abstract text via NCBI E-utilities
+- If PMCID is present, source URL points to PMC article page
+- Full-text PMC OA bulk ingestion is not yet implemented in this commit
 
 ## Scripts
 
