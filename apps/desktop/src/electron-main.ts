@@ -55,10 +55,12 @@ ipcMain.handle('desktop:get-state', async () => {
   const settings = await loadDesktopSettings(appDir);
   const sup = await supervisor();
   const runtime = sup.status();
+  const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   return {
     settings: redactedSettings(settings),
     runtime,
+    profileSetupUrl: credentials?.profileSetupUrl,
     modelRuntime,
     viewModel: buildDesktopViewModel({
       settings,

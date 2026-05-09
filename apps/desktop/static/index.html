@@ -106,6 +106,13 @@
             <p id="registration-message" class="small"></p>
           </section>
 
+          <section id="profile-step">
+            <h2>Profile and impact sharing</h2>
+            <p class="small">Set your display name, privacy, team, and impact-sharing preferences. Profiles default to private.</p>
+            <button id="open-profile" type="button">Open profile setup</button>
+            <p id="profile-message" class="small"></p>
+          </section>
+
           <section id="settings-step">
             <h2>4. Resource settings</h2>
             <div class="grid">
@@ -188,6 +195,8 @@
       const downloadStatus = document.getElementById('download-status');
       const enrollmentCode = document.getElementById('enrollment-code');
       const registrationMessage = document.getElementById('registration-message');
+      const profileMessage = document.getElementById('profile-message');
+      const openProfile = document.getElementById('open-profile');
       const versionMessage = document.getElementById('version-message');
       const settingsMessage = document.getElementById('settings-message');
       const coordinatorUrl = document.getElementById('coordinator-url');
@@ -305,6 +314,9 @@
           ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
           if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
           workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
+          profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
+          openProfile.disabled = !profileSetupUrl;
+          profileMessage.textContent = profileSetupUrl ? 'Profile setup link is available for this registered worker.' : (registered() ? 'No profile setup link found. Re-register or request a fresh profile setup link.' : 'Register this worker to receive a profile setup link.');
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
           renderModels(latestState.modelRuntime);
@@ -338,6 +350,7 @@
 
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };
+      openProfile.onclick = async () => { if (profileSetupUrl) await api.openExternal(profileSetupUrl); };
       document.getElementById('start').onclick = async () => { workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
