@@ -331,7 +331,11 @@ async function loop(
       if (controlConfig.paused && !runNowRequested) {
         await log('paused by coordinator control settings');
       } else {
+      try {
         await runOnce(server, credentials, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested);
+      } catch (error) {
+        await log(`run failed ${error instanceof Error ? error.message : String(error)}`);
+      }
       }
       lastRunNowToken = controlConfig.runNowToken;
     } catch (error) {

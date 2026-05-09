@@ -1,5 +1,14 @@
 import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadSchema, type ResultPayload } from '@opencause/shared';
 
+const ALLOWED_RELATIONSHIPS = new Set([
+  'associated_with_response',
+  'associated_with_resistance',
+  'associated_with_risk',
+  'associated_with_progression',
+  'studied_with',
+  'unclear'
+]);
+
 export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
 
 export type LocalLlmConfig = {
@@ -50,6 +59,48 @@ export function extractJsonBlock(raw: string): string {
   return raw.slice(first, last + 1);
 }
 
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function requiredString(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function confidence(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 0.5;
+  return Math.max(0, Math.min(1, numeric));
+}
+
+export function normalizeLocalLlmPayload(rawPayload: unknown): ResultPayload {
+  const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
+  const factsSource = Array.isArray(source.facts) ? source.facts : [];
+  const facts = factsSource
+    .filter((fact): fact is Record<string, unknown> => Boolean(fact && typeof fact === 'object'))
+    .map((fact) => {
+      const relationship = typeof fact.relationshipType === 'string' && ALLOWED_RELATIONSHIPS.has(fact.relationshipType)
+        ? fact.relationshipType
+        : 'unclear';
+      return {
+        cancerType: optionalString(fact.cancerType),
+        geneOrBiomarker: optionalString(fact.geneOrBiomarker),
+        drugOrCompound: optionalString(fact.drugOrCompound),
+        relationshipType: relationship,
+        evidenceSentence: requiredString(fact.evidenceSentence, 'No exact evidence sentence returned by local model.'),
+        confidence: confidence(fact.confidence)
+      };
+    });
+  const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : [];
+  if (!Array.isArray(source.warnings)) warnings.push('local_model_missing_warnings_array');
+  if (!facts.length) warnings.push('local_model_returned_no_facts');
+  return resultPayloadSchema.parse({
+    facts,
+    summary: requiredString(source.summary, facts.length ? `Extracted ${facts.length} candidate fact${facts.length === 1 ? '' : 's'} from local model output.` : 'No candidate facts extracted from local model output.'),
+    warnings
+  });
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,5 +145,5 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
   const json = (await response.json()) as { response?: string };
   const raw = json.response ?? '';
   const payload = JSON.parse(extractJsonBlock(raw));
-  return resultPayloadSchema.parse(payload);
+  return normalizeLocalLlmPayload(payload);
 }
