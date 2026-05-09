@@ -86,6 +86,16 @@ Use it only on a machine you control. OpenCause Compute is for AI-assisted open 
 
   const showCode = process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent;
 
+  await withDb((db) => {
+    recordAuditEvent(db, {
+      actorType: 'system',
+      action: 'volunteer_enrollment.delivery',
+      targetType: 'volunteer_enrollment',
+      targetId: enrollment.id,
+      metadata: { email, delivery: emailResult, shownInBrowser: showCode }
+    });
+  });
+
   return NextResponse.json({
     enrollment: {
       id: enrollment.id,
