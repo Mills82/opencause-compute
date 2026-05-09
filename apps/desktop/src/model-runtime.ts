@@ -10,6 +10,7 @@ export type ModelRuntimeStatus = {
   selectedModel: string;
   selectedModelApproved: boolean;
   selectedModelInstalled: boolean;
+  installedModels: string[];
   approvedModels: ApprovedModel[];
   message: string;
 };
@@ -112,6 +113,7 @@ export async function modelRuntimeStatus(selectedModel = DEFAULT_LOCAL_MODEL): P
       selectedModel,
       selectedModelApproved: Boolean(approved),
       selectedModelInstalled: false,
+      installedModels: [],
       approvedModels: APPROVED_LOCAL_MODELS,
       message: 'Ollama is not available. Install Ollama, then click Check again. If you just installed it, OpenCause will keep checking automatically.'
     };
@@ -125,6 +127,7 @@ export async function modelRuntimeStatus(selectedModel = DEFAULT_LOCAL_MODEL): P
     selectedModel,
     selectedModelApproved: Boolean(approved),
     selectedModelInstalled,
+    installedModels: installed,
     approvedModels: APPROVED_LOCAL_MODELS,
     message: selectedModelInstalled ? `${selectedModel} is installed.` : `${selectedModel} is approved but not installed yet.`
   };

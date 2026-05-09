@@ -202,7 +202,7 @@
       function modelLabel(model) { return `${model.label} (${model.id})`; }
 
       function selectedModelInstalled() {
-        return Boolean(latestState?.modelRuntime?.selectedModelInstalled);
+        return Boolean(latestState?.modelRuntime?.installedModels?.includes(modelSelect.value) || (modelSelect.value === latestState?.modelRuntime?.selectedModel && latestState?.modelRuntime?.selectedModelInstalled));
       }
 
       function registered() {
@@ -257,8 +257,9 @@
         if (!model) { modelGuidance.textContent = 'This model is not approved.'; pullButton.disabled = true; return; }
         modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
         const runtimeAvailable = Boolean(latestState.modelRuntime.available);
-        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental' || latestState.modelRuntime.selectedModelInstalled;
-        pullButton.textContent = latestState.modelRuntime.selectedModelInstalled ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
+        const installed = selectedModelInstalled();
+        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental' || installed;
+        pullButton.textContent = installed ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
       }
 
       function startOllamaPolling(message = 'Checking for Ollama installation...') {
@@ -349,7 +350,11 @@
       document.getElementById('save-settings').onclick = saveSettings;
       document.getElementById('save-start').onclick = async () => { await saveSettings(); output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
-      modelSelect.onchange = renderSelectedModelGuidance;
+      modelSelect.onchange = async () => {
+        renderSelectedModelGuidance();
+        await api.updateSettings({ modelRuntime: { model: modelSelect.value } });
+        await refresh();
+      };
       pullButton.onclick = async () => {
         const model = modelSelect.value;
         if (!latestState?.modelRuntime?.available) { output.textContent = 'Install Ollama first, then click Check again before downloading a model.'; return; }
