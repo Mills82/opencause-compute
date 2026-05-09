@@ -1,3 +1,5 @@
+export { WorkerSupervisor, type WorkerCommand, type WorkerRuntimeStatus, type WorkerSupervisorConfig } from './supervisor.js';
+
 export type DesktopScreenId =
   | 'welcome'
   | 'enrollment'
@@ -100,7 +102,7 @@ export function packagePlan() {
     ready: publicLaunchDesktopReady(),
     screens: desktopScreens,
     targets: packagingTargets,
-    next: 'Implement the Windows desktop shell and worker supervisor, then add signing/installer automation.'
+    next: 'Implement the Windows desktop shell UI around the worker supervisor, then add signing/installer automation.'
   };
 }
 

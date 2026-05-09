@@ -41,3 +41,16 @@ Recommended next implementation layer:
 ## Go/no-go
 
 Public volunteer launch remains no-go until at least one signed Windows installer is produced, installed on a clean machine, registers with self-serve enrollment, processes work visibly, pauses/resumes, and uninstalls cleanly.
+
+## Worker supervisor contract
+
+`apps/desktop/src/supervisor.ts` defines the desktop-to-worker boundary:
+
+- build worker commands for registration, run-once, loop, status, and local-state uninstall
+- start/stop a worker child process
+- report configured/running status
+- tail the visible worker log
+- pass app data dir through `OPENCAUSE_APP_DIR`
+- pass one-time enrollment code through registration args/env
+
+This is intentionally a thin boundary so a future Tauri/Electron shell can own UI, installer integration, OS startup, and local settings while reusing the existing worker runtime.
