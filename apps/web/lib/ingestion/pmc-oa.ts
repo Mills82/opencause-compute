@@ -1,6 +1,7 @@
 import tar from 'tar-stream';
 import { gunzipSync } from 'node:zlib';
 import { fetchPubMedRecords } from './pubmed';
+import { fetchNcbi, ncbiDelayMs, sleep } from './ncbi-client';
 
 const PMC_OA_BASE = 'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi';
 
@@ -142,8 +143,11 @@ async function extractNxmlFromTgz(buffer: Buffer): Promise<string> {
   });
 }
 
-async function fetchPmcOaArchiveHref(pmcid: string): Promise<string> {
-  const response = await fetch(`${PMC_OA_BASE}?id=${encodeURIComponent(pmcid)}`);
+async function fetchPmcOaArchiveHref(pmcid: string, options: { email?: string; apiKey?: string } = {}): Promise<string> {
+  const params = new URLSearchParams({ id: pmcid });
+  if (options.email) params.set('email', options.email);
+  if (options.apiKey) params.set('api_key', options.apiKey);
+  const response = await fetchNcbi(`${PMC_OA_BASE}?${params.toString()}`, options);
   if (!response.ok) {
     throw new Error(`pmc_oa_lookup_failed:${response.status}`);
   }
@@ -155,9 +159,9 @@ async function fetchPmcOaArchiveHref(pmcid: string): Promise<string> {
   return href;
 }
 
-async function fetchPmcOaFullText(pmcid: string): Promise<string> {
-  const href = await fetchPmcOaArchiveHref(pmcid);
-  const response = await fetch(href);
+async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiKey?: string } = {}): Promise<string> {
+  const href = await fetchPmcOaArchiveHref(pmcid, options);
+  const response = await fetchNcbi(href, options);
   if (!response.ok) {
     throw new Error(`pmc_oa_archive_fetch_failed:${response.status}`);
   }
@@ -165,10 +169,6 @@ async function fetchPmcOaFullText(pmcid: string): Promise<string> {
   const arrayBuffer = await response.arrayBuffer();
   const xml = await extractNxmlFromTgz(Buffer.from(arrayBuffer));
   return stripXmlToText(xml);
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function ingestPmcOaFullTextWithReport(options: {
@@ -188,14 +188,14 @@ export async function ingestPmcOaFullTextWithReport(options: {
   const pmcRecords = records.filter((record) => Boolean(record.pmcid));
   const out: PmcOaSource[] = [];
   const failures: PmcOaFailure[] = [];
-  const delayMs = options.perRecordDelayMs ?? 400;
+  const delayMs = options.perRecordDelayMs ?? ncbiDelayMs(options);
 
   for (const record of pmcRecords) {
     const pmcid = record.pmcid;
     if (!pmcid) continue;
 
     try {
-      const fullText = await fetchPmcOaFullText(pmcid);
+      const fullText = await fetchPmcOaFullText(pmcid, options);
       const chunks = chunkArticleText(fullText, 3500);
 
       for (let index = 0; index < chunks.length; index += 1) {

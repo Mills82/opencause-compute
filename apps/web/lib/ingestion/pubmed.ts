@@ -1,5 +1,6 @@
+import { appendNcbiParams, fetchNcbi, ncbiDelayMs, sleep } from './ncbi-client';
+
 const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-const DEFAULT_TOOL = 'opencause-compute';
 
 export type PubMedSourceRecord = {
   pmid: string;
@@ -88,34 +89,23 @@ export function parsePubMedXml(xml: string): PubMedSourceRecord[] {
 }
 
 function buildSearchParams(options: PubMedIngestOptions): URLSearchParams {
-  const params = new URLSearchParams({
-    db: 'pubmed',
-    term: options.query,
-    retmode: 'json',
-    retmax: String(options.retmax),
-    sort: 'relevance',
-    tool: DEFAULT_TOOL
-  });
-
-  if (options.email) {
-    params.set('email', options.email);
-  }
-  if (options.apiKey) {
-    params.set('api_key', options.apiKey);
-  }
-
-  return params;
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  return appendNcbiParams(
+    new URLSearchParams({
+      db: 'pubmed',
+      term: options.query,
+      retmode: 'json',
+      retmax: String(options.retmax),
+      sort: 'relevance'
+    }),
+    options
+  );
 }
 
 export async function fetchPubMedRecords(options: PubMedIngestOptions): Promise<PubMedSourceRecord[]> {
-  const delayMs = options.requestDelayMs ?? (options.apiKey ? 120 : 350);
+  const delayMs = ncbiDelayMs(options);
 
   const searchUrl = `${EUTILS_BASE}/esearch.fcgi?${buildSearchParams(options).toString()}`;
-  const searchResponse = await fetch(searchUrl);
+  const searchResponse = await fetchNcbi(searchUrl, options);
   if (!searchResponse.ok) {
     throw new Error(`pubmed_esearch_failed:${searchResponse.status}`);
   }
@@ -131,23 +121,18 @@ export async function fetchPubMedRecords(options: PubMedIngestOptions): Promise<
 
   await sleep(delayMs);
 
-  const fetchParams = new URLSearchParams({
-    db: 'pubmed',
-    id: pmids.join(','),
-    rettype: 'abstract',
-    retmode: 'xml',
-    tool: DEFAULT_TOOL
-  });
-
-  if (options.email) {
-    fetchParams.set('email', options.email);
-  }
-  if (options.apiKey) {
-    fetchParams.set('api_key', options.apiKey);
-  }
+  const fetchParams = appendNcbiParams(
+    new URLSearchParams({
+      db: 'pubmed',
+      id: pmids.join(','),
+      rettype: 'abstract',
+      retmode: 'xml'
+    }),
+    options
+  );
 
   const fetchUrl = `${EUTILS_BASE}/efetch.fcgi?${fetchParams.toString()}`;
-  const fetchResponse = await fetch(fetchUrl);
+  const fetchResponse = await fetchNcbi(fetchUrl, options);
   if (!fetchResponse.ok) {
     throw new Error(`pubmed_efetch_failed:${fetchResponse.status}`);
   }

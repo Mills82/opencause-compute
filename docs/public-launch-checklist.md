@@ -68,7 +68,8 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [x] Include registered email/API key config on NCBI requests.
 - [x] Honor conservative request pacing in current ingestion paths.
-- [ ] Add backoff/retry and batching/history for larger jobs.
+- [x] Add bounded backoff/retry for transient NCBI failures.
+- [ ] Add batching/history for larger jobs.
 - [x] Track ingestion runs with fetched/skipped/failed counts, failure reasons, source type, query, retmax, and timestamps.
 
 ## Observability and incident checklist
