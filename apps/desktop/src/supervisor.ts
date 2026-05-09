@@ -80,9 +80,9 @@ export class WorkerSupervisor {
     return args;
   }
 
-  startLoop(): WorkerRuntimeStatus {
+  startLoop(options: { forceNow?: boolean } = {}): WorkerRuntimeStatus {
     if (this.child && !this.child.killed) return this.status();
-    const [entry, ...args] = this.buildArgs({ kind: 'loop' });
+    const [entry, ...args] = this.buildArgs(options.forceNow ? { kind: 'run-once', forceNow: true } : { kind: 'loop' });
     this.child = spawn(process.execPath, [entry, ...args], {
       env: {
         ...process.env,

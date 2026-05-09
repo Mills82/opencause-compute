@@ -84,6 +84,10 @@ ipcMain.handle('desktop:start-worker', async () => {
   }
   return (await supervisor()).startLoop();
 });
+ipcMain.handle('desktop:run-now', async () => {
+  await updateDesktopSettings(appDir, { localPaused: false });
+  return (await supervisor()).startLoop({ forceNow: true });
+});
 ipcMain.handle('desktop:pause-worker', async () => {
   await updateDesktopSettings(appDir, { localPaused: true });
   return (await supervisor()).stop();

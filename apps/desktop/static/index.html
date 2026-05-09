@@ -142,8 +142,9 @@
             <p id="worker-message">Checking worker...</p>
             <p id="version-message" class="small"></p>
             <div class="dashboard-actions">
-              <button id="start" class="primary">Resume / start worker</button>
-              <button id="pause">Pause worker</button>
+          <button id="start" class="primary">Resume / start worker</button>
+          <button id="run-now">Run once now</button>
+          <button id="pause">Pause worker</button>
               <button id="stop">Stop process</button>
               <button id="log">Tail log</button>
             </div>
@@ -201,6 +202,7 @@
       let latestState = null;
       let ollamaPoll = null;
       let modelDownloadPoll = null;
+      let profileSetupUrl = null;
 
       function modelLabel(model) { return `${model.label} (${model.id})`; }
 
@@ -336,7 +338,7 @@
 
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };
-      document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('start').onclick = async () => { workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
@@ -349,14 +351,22 @@
         registrationMessage.textContent = 'Registering worker...';
         try {
           const result = await api.registerWorker(enrollmentCode.value);
-          registrationMessage.textContent = result.code === 0 ? `Worker registered. Your code is hidden now.${result.profileSetupUrl ? ' Profile setup link: ' + result.profileSetupUrl : ''}` : `Registration failed: ${result.message || result.stderr || result.stdout || result.code}`;
+          profileSetupUrl = result.profileSetupUrl || profileSetupUrl;
+          if (result.code === 0) {
+            registrationMessage.innerHTML = `Worker registered. Your code is hidden now.${profileSetupUrl ? '<br><button id="open-profile-setup" type="button">Open profile setup</button> <span class="small">Choose display name, privacy, team, and impact sharing.</span>' : ''}`;
+            const profileButton = document.getElementById('open-profile-setup');
+            if (profileButton && profileSetupUrl) profileButton.onclick = () => api.openExternal(profileSetupUrl);
+          } else {
+            registrationMessage.textContent = `Registration failed: ${result.message || result.stderr || result.stdout || result.code}`;
+          }
           if (result.code === 0) enrollmentCode.value = '';
           output.textContent = JSON.stringify(result, null, 2);
           await refresh();
         } catch (error) { registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`; output.textContent = registrationMessage.textContent; }
       };
       document.getElementById('save-settings').onclick = saveSettings;
-      document.getElementById('save-start').onclick = async () => { await saveSettings(); output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('save-start').onclick = async () => { await saveSettings(); workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now...'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
       modelSelect.onchange = async () => {
         renderSelectedModelGuidance();
