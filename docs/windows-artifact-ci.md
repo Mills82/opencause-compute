@@ -35,3 +35,12 @@ Before broad public download:
 - verify install, register, run, pause, log visibility, uninstall
 - add update strategy
 - publish checksums and release notes
+
+## Checksums and prototype notes
+
+The workflow generates and uploads:
+
+- `SHA256SUMS.txt`
+- `PROTOTYPE-RELEASE-NOTES.md`
+
+The notes include commit SHA, workflow name, and run id. The checksum file should be retained with any prototype artifact used for QA.

@@ -71,3 +71,10 @@ Use a clean Windows VM or physical machine with no repo checkout and no develope
 - Private alpha artifact: may be unsigned if distributed only to trusted testers with explicit warning.
 - Public beta: installer and executable should be signed; install/uninstall/pause/log/resource tests must pass.
 - Broad public launch: signed installer, update path, clean-machine QA, sandbox/resource tests, and incident rollback plan are mandatory.
+
+## Prototype artifact intake
+
+- [ ] Download `PROTOTYPE-RELEASE-NOTES.md` from the workflow artifact.
+- [ ] Confirm commit SHA matches the intended source commit.
+- [ ] Download `SHA256SUMS.txt`.
+- [ ] Verify installer/executable checksums before testing.

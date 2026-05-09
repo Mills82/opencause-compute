@@ -42,6 +42,37 @@ jobs:
       - name: Build unsigned Windows installer prototype
         run: npm run package:win:unsigned -w @opencause/desktop
 
+      - name: Generate checksums and prototype release notes
+        shell: pwsh
+        run: |
+          $releaseDir = 'apps/desktop/release'
+          $files = Get-ChildItem $releaseDir -Recurse -File | Where-Object { $_.Name -match '\\.(exe|zip|7z)$' -or $_.FullName -match 'win-unpacked' }
+          $checksumPath = Join-Path $releaseDir 'SHA256SUMS.txt'
+          Remove-Item $checksumPath -ErrorAction SilentlyContinue
+          foreach ($file in $files) {
+            $hash = Get-FileHash $file.FullName -Algorithm SHA256
+            $relative = Resolve-Path -Relative $file.FullName
+            Add-Content -Path $checksumPath -Value "$($hash.Hash.ToLower())  $relative"
+          }
+          $notesPath = Join-Path $releaseDir 'PROTOTYPE-RELEASE-NOTES.md'
+          @"
+          # OpenCause Compute Worker unsigned prototype
+
+          Commit: $env:GITHUB_SHA
+          Workflow: $env:GITHUB_WORKFLOW
+          Run: $env:GITHUB_RUN_ID
+
+          This artifact is unsigned and for prototype QA only. Do not distribute as a public release.
+
+          Required before public release:
+
+          - code-sign installer and executable
+          - verify checksums
+          - run clean Windows install/uninstall QA
+          - verify worker registration, pause/resume, logs, resource controls, and revocation behavior
+          - publish final release notes and rollback instructions
+          "@ | Set-Content -Path $notesPath
+
       - name: Upload unsigned prototype artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -49,5 +80,7 @@ jobs:
           path: |
             apps/desktop/release/*.exe
             apps/desktop/release/win-unpacked/**
+            apps/desktop/release/SHA256SUMS.txt
+            apps/desktop/release/PROTOTYPE-RELEASE-NOTES.md
           if-no-files-found: error
           retention-days: 14
