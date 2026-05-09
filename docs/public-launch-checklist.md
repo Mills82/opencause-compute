@@ -35,6 +35,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 ## Deployment/env checklist
 
 - [x] Add dependency audit triage and document remaining framework upgrade blocker.
+- [x] Add admin-gated private-alpha test-state reset path.
 - [ ] Resolve or formally accept remaining moderate Next/PostCSS audit findings before broad public launch.
 - [x] Add relational database architecture plan and migration scaffolding.
 - [x] `.env.example` includes coordinator, worker, hosted, optional ingestion, and rate-limit settings.
