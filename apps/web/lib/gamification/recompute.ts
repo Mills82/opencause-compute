@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BADGE_DEFINITIONS, calculateContributionScore, type DatabaseState, type VolunteerStatsSnapshot, type TeamStatsSnapshot } from '@opencause/shared';
+import { BADGE_DEFINITIONS, calculateContributionScore, type DatabaseState, type ImpactDigest, type VolunteerStatsSnapshot, type TeamStatsSnapshot } from '@opencause/shared';
 
 function activeProfileIdForNode(db: DatabaseState, nodeId: string): string | undefined {
   return db.volunteerProfileNodes.find((link) => link.nodeId === nodeId && !link.detachedAt)?.volunteerProfileId;
@@ -38,6 +38,23 @@ function valueForCriteria(stats: VolunteerStatsSnapshot, kind: string, extra: { 
   return Number(extra[kind as keyof typeof extra] ?? 0);
 }
 
+function startOfWeek(now: Date): Date {
+  const day = now.getUTCDay();
+  const diff = (day + 6) % 7;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diff, 0, 0, 0, 0));
+}
+
+function digestPreview(input: Pick<ImpactDigest, 'sectionsProcessed' | 'formatValidatedSubmissions' | 'consensusPassedContributions' | 'idleMinutesDonated' | 'badgesAwarded'>): string {
+  if (!input.sectionsProcessed && !input.formatValidatedSubmissions && !input.consensusPassedContributions && !input.badgesAwarded) {
+    return 'Your impact digest will appear after your worker completes eligible contributions.';
+  }
+  const parts = [`This week your idle computer helped process ${input.sectionsProcessed.toLocaleString()} open-access paper section${input.sectionsProcessed === 1 ? '' : 's'}`];
+  parts.push(`${input.formatValidatedSubmissions.toLocaleString()} submission${input.formatValidatedSubmissions === 1 ? '' : 's'} passed format validation`);
+  parts.push(`${input.consensusPassedContributions.toLocaleString()} contributed to consensus-passed candidate fact${input.consensusPassedContributions === 1 ? '' : 's'}`);
+  if (input.badgesAwarded) parts.push(`you earned ${input.badgesAwarded.toLocaleString()} badge${input.badgesAwarded === 1 ? '' : 's'}`);
+  return `${parts.join(', ')}.`;
+}
+
 export function seedBadgeDefinitions(db: DatabaseState, nowIso = new Date().toISOString()): number {
   let added = 0;
   for (const definition of BADGE_DEFINITIONS) {
@@ -66,6 +83,9 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
 
   db.volunteerStatsSnapshots = db.volunteerStatsSnapshots.filter((snapshot) => snapshot.window !== 'all_time');
   db.teamStatsSnapshots = db.teamStatsSnapshots.filter((snapshot) => snapshot.window !== 'all_time');
+  const weekStart = startOfWeek(now);
+  const weekEnd = now;
+  db.impactDigests = db.impactDigests.filter((digest) => digest.periodStart !== weekStart.toISOString() || digest.periodEnd !== weekEnd.toISOString());
 
   let badgesAwarded = 0;
   for (const profile of db.volunteerProfiles) {
@@ -117,6 +137,25 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
     }
     stats.badgesCount = db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id).length;
     db.volunteerStatsSnapshots.push(stats);
+    const weeklyResults = results.filter((result) => new Date(result.submittedAt).getTime() >= weekStart.getTime() && new Date(result.submittedAt).getTime() <= weekEnd.getTime());
+    const weeklyBadges = db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id && new Date(badge.awardedAt).getTime() >= weekStart.getTime() && new Date(badge.awardedAt).getTime() <= weekEnd.getTime()).length;
+    const digest: ImpactDigest = {
+      id: randomUUID(),
+      volunteerProfileId: profile.id,
+      periodStart: weekStart.toISOString(),
+      periodEnd: weekEnd.toISOString(),
+      sectionsProcessed: weeklyResults.length,
+      formatValidatedSubmissions: weeklyResults.filter((result) => result.formatValidated ?? result.validated).length,
+      consensusPassedContributions: weeklyResults.filter((result) => result.consensusStatus === 'consensus_passed').length,
+      idleMinutesDonated: 0,
+      badgesAwarded: weeklyBadges,
+      teamRank: null,
+      previewText: '',
+      createdAt: nowIso,
+      deliveredAt: null
+    };
+    digest.previewText = digestPreview(digest);
+    db.impactDigests.push(digest);
     profile.lastActiveAt = results.length ? results.map((result) => result.submittedAt).sort().at(-1) ?? profile.lastActiveAt : profile.lastActiveAt;
     profile.statsUpdatedAt = nowIso;
     profile.updatedAt = nowIso;

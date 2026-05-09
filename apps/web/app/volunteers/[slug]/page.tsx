@@ -9,6 +9,7 @@ export default async function VolunteerProfilePage({ params }: { params: Promise
   if (!profile || !canShowVolunteerProfile(profile)) notFound();
   const stats = latestVolunteerStats(db, profile.id);
   const badges = db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id);
+  const latestDigest = db.impactDigests.filter((digest) => digest.volunteerProfileId === profile.id).sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0];
   return (
     <section className="space-y-6">
       <div className="rounded-xl border border-line bg-panel p-6">
@@ -24,6 +25,7 @@ export default async function VolunteerProfilePage({ params }: { params: Promise
         <div className="rounded-xl border border-line bg-panel p-5"><p className="text-2xl font-semibold">{(stats?.consensusPassedContributions ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Consensus-passed candidate facts</p></div>
       </div>
       <div className="rounded-xl border border-line bg-panel p-5"><h2 className="text-xl font-semibold">Badges</h2>{badges.length ? <ul className="mt-3 flex flex-wrap gap-2 text-sm text-slate-300">{badges.map((badge) => <li key={badge.badgeSlug} className="rounded-full border border-line px-3 py-1">{badge.badgeSlug}</li>)}</ul> : <p className="mt-2 text-sm text-slate-300">Badges will appear after eligible contributions.</p>}</div>
+      <div className="rounded-xl border border-line bg-panel p-5"><h2 className="text-xl font-semibold">Recent impact</h2><p className="mt-2 text-sm text-slate-300">{latestDigest?.previewText ?? 'Recent impact will appear after eligible contributions.'}</p></div>
     </section>
   );
 }

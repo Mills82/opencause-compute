@@ -7,7 +7,7 @@ function emptyDb(): DatabaseState {
   return {
     projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [],
     volunteerProfiles: [], volunteerProfileNodes: [], teams: [], teamMemberships: [], badgeDefinitions: [], volunteerBadges: [], volunteerStatsSnapshots: [], teamStatsSnapshots: [],
-    workerControl: { paused: false, idleMode: 'user-and-cpu', minIdleSeconds: 120, maxCpuPercent: 35, runNowToken: 0, updatedAt: '2026-01-01T00:00:00.000Z' }
+    impactDigests: [], workerControl: { paused: false, idleMode: 'user-and-cpu', minIdleSeconds: 120, maxCpuPercent: 35, runNowToken: 0, updatedAt: '2026-01-01T00:00:00.000Z' }
   };
 }
 
@@ -18,6 +18,7 @@ describe('recomputeGamification', () => {
     expect(summary.profilesUpdated).toBe(0);
     expect(db.badgeDefinitions.length).toBeGreaterThan(0);
     expect(buildImpactSummary(db).sectionsProcessed).toBe(0);
+    expect(db.impactDigests).toEqual([]);
   });
 
   it('excludes private volunteers from public leaderboards', () => {

@@ -26,6 +26,7 @@ const EMPTY_DB: DatabaseState = {
   volunteerBadges: [],
   volunteerStatsSnapshots: [],
   teamStatsSnapshots: [],
+  impactDigests: [],
   workerControl: {
     paused: false,
     idleMode: 'user-and-cpu',
@@ -74,7 +75,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const ownClient = !client;
   const c = client ?? (await getPool().connect());
   try {
-    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots] = await Promise.all([
+    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
@@ -92,7 +93,8 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
       c.query('SELECT * FROM badge_definitions ORDER BY created_at, slug'),
       c.query('SELECT * FROM volunteer_badges ORDER BY awarded_at'),
       c.query('SELECT * FROM volunteer_stats_snapshots ORDER BY computed_at DESC'),
-      c.query('SELECT * FROM team_stats_snapshots ORDER BY computed_at DESC')
+      c.query('SELECT * FROM team_stats_snapshots ORDER BY computed_at DESC'),
+      c.query('SELECT * FROM impact_digests ORDER BY period_start DESC')
     ]);
 
     const controlRow = workerControl.rows[0];
@@ -326,6 +328,21 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         activeMemberCount: Number(row.active_member_count),
         computedAt: iso(row.computed_at)!
       })),
+      impactDigests: impactDigests.rows.map((row) => ({
+        id: row.id,
+        volunteerProfileId: row.volunteer_profile_id,
+        periodStart: iso(row.period_start)!,
+        periodEnd: iso(row.period_end)!,
+        sectionsProcessed: Number(row.sections_processed),
+        formatValidatedSubmissions: Number(row.format_validated_submissions),
+        consensusPassedContributions: Number(row.consensus_passed_contributions),
+        idleMinutesDonated: Number(row.idle_minutes_donated),
+        badgesAwarded: Number(row.badges_awarded),
+        teamRank: row.team_rank === null || row.team_rank === undefined ? null : Number(row.team_rank),
+        previewText: row.preview_text,
+        createdAt: iso(row.created_at)!,
+        deliveredAt: iso(row.delivered_at)
+      })),
       workerControl: control
     });
   } finally {
@@ -350,6 +367,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('DELETE FROM ingestion_runs');
     await c.query('DELETE FROM audit_events');
     await c.query('DELETE FROM volunteer_enrollments');
+    await c.query('DELETE FROM impact_digests');
     await c.query('DELETE FROM team_stats_snapshots');
     await c.query('DELETE FROM volunteer_stats_snapshots');
     await c.query('DELETE FROM volunteer_badges');
@@ -411,6 +429,9 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     for (const stats of parsed.teamStatsSnapshots) {
       await c.query('INSERT INTO team_stats_snapshots(id,team_id,stats_window,window_start,window_end,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,member_count,active_member_count,computed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)', [stats.id, stats.teamId, stats.window, stats.windowStart, stats.windowEnd, stats.contributionScore, stats.sectionsProcessed, stats.packetsSubmitted, stats.formatValidatedSubmissions, stats.formatRejectedSubmissions, stats.consensusPassedContributions, stats.consensusFailedContributions, stats.humanReviewedAcceptedContributions, stats.idleMinutesDonated, stats.distinctActiveDays, stats.currentStreakDays, stats.longestStreakDays, stats.memberCount, stats.activeMemberCount, stats.computedAt]);
     }
+    for (const digest of parsed.impactDigests) {
+      await c.query('INSERT INTO impact_digests(id,volunteer_profile_id,period_start,period_end,sections_processed,format_validated_submissions,consensus_passed_contributions,idle_minutes_donated,badges_awarded,team_rank,preview_text,created_at,delivered_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (volunteer_profile_id,period_start,period_end) DO UPDATE SET sections_processed=EXCLUDED.sections_processed, format_validated_submissions=EXCLUDED.format_validated_submissions, consensus_passed_contributions=EXCLUDED.consensus_passed_contributions, idle_minutes_donated=EXCLUDED.idle_minutes_donated, badges_awarded=EXCLUDED.badges_awarded, team_rank=EXCLUDED.team_rank, preview_text=EXCLUDED.preview_text, created_at=EXCLUDED.created_at, delivered_at=EXCLUDED.delivered_at', [digest.id, digest.volunteerProfileId, digest.periodStart, digest.periodEnd, digest.sectionsProcessed, digest.formatValidatedSubmissions, digest.consensusPassedContributions, digest.idleMinutesDonated, digest.badgesAwarded, digest.teamRank, digest.previewText, digest.createdAt, digest.deliveredAt]);
+    }
     if (ownClient) await c.query('COMMIT');
   } catch (error) {
     if (ownClient) await c.query('ROLLBACK');
@@ -465,6 +486,7 @@ export async function loadDb(): Promise<DatabaseState> {
     if (!parsed.volunteerBadges) parsed.volunteerBadges = [];
     if (!parsed.volunteerStatsSnapshots) parsed.volunteerStatsSnapshots = [];
     if (!parsed.teamStatsSnapshots) parsed.teamStatsSnapshots = [];
+    if (!parsed.impactDigests) parsed.impactDigests = [];
     return databaseSchema.parse(parsed);
   } catch {
     await saveDb(EMPTY_DB);

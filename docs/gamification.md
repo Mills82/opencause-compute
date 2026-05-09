@@ -90,6 +90,6 @@ The admin dashboard links to `/admin/gamification` for a protected setup/status 
 ## Current V1 limitations
 
 - Volunteer profile setup uses a registration-issued setup token rather than a full account system. This is suitable for selected beta testers, but broader public launch should still add account/session recovery, token rotation, and abuse/moderation UX.
-- Email digests are not sent in V1.
+- Weekly impact digest previews are generated for profile/setup surfaces, but email digests are not sent in V1.
 - Idle-minute donation is schema/scoring-ready but remains zero until trustworthy worker telemetry exists.
 - Weekly/monthly windows are schema-ready but all-time is the first implemented public window.

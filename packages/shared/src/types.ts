@@ -239,6 +239,22 @@ export const teamStatsSnapshotSchema = volunteerStatsSnapshotSchema.omit({ volun
   activeMemberCount: z.number().int().min(0)
 });
 
+export const impactDigestSchema = z.object({
+  id: z.string(),
+  volunteerProfileId: z.string(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  sectionsProcessed: z.number().int().min(0),
+  formatValidatedSubmissions: z.number().int().min(0),
+  consensusPassedContributions: z.number().int().min(0),
+  idleMinutesDonated: z.number().int().min(0),
+  badgesAwarded: z.number().int().min(0),
+  teamRank: z.number().int().min(1).nullable().optional(),
+  previewText: z.string(),
+  createdAt: z.string(),
+  deliveredAt: z.string().nullable().optional()
+});
+
 export const ingestionRunSchema = z.object({
   id: z.string(),
   sourceType: z.enum(['pubmed_abstract', 'pmc_oa_full_text', 'combined']),
@@ -285,6 +301,7 @@ export const databaseSchema = z.object({
   volunteerBadges: z.array(volunteerBadgeSchema).default([]),
   volunteerStatsSnapshots: z.array(volunteerStatsSnapshotSchema).default([]),
   teamStatsSnapshots: z.array(teamStatsSnapshotSchema).default([]),
+  impactDigests: z.array(impactDigestSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -310,6 +327,7 @@ export type BadgeDefinitionRecord = z.infer<typeof badgeDefinitionRecordSchema>;
 export type VolunteerBadge = z.infer<typeof volunteerBadgeSchema>;
 export type VolunteerStatsSnapshot = z.infer<typeof volunteerStatsSnapshotSchema>;
 export type TeamStatsSnapshot = z.infer<typeof teamStatsSnapshotSchema>;
+export type ImpactDigest = z.infer<typeof impactDigestSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;
