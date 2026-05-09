@@ -15,3 +15,6 @@ apps/web/data/*.db
 
 # Desktop packaging artifacts
 apps/desktop/release/
+
+# Windows alternate data stream metadata copied from WSL/Windows
+*:Zone.Identifier

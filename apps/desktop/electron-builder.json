@@ -12,16 +12,23 @@
     {
       "from": "../worker/dist",
       "to": "worker/dist"
+    },
+    {
+      "from": "assets",
+      "to": "assets"
     }
   ],
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
-    "signAndEditExecutable": false
+    "signAndEditExecutable": false,
+    "icon": "assets/icon.png"
   },
   "nsis": {
     "oneClick": false,
@@ -33,10 +40,14 @@
     "shortcutName": "OpenCause Compute Worker"
   },
   "mac": {
-    "target": ["dir"],
+    "target": [
+      "dir"
+    ],
     "identity": null
   },
   "linux": {
-    "target": ["dir"]
+    "target": [
+      "dir"
+    ]
   }
 }

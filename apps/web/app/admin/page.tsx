@@ -166,12 +166,13 @@ export default async function AdminDashboardPage() {
         )}
       </article>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
           ['Projects', '/projects'],
           ['Work packets', '/work-packets'],
           ['Results', '/results'],
-          ['Nodes and controls', '/nodes']
+          ['Nodes and controls', '/nodes'],
+          ['Launch readiness', '/readiness']
         ].map(([label, href]) => (
           <a key={href} className="rounded border border-line bg-panel px-4 py-3" href={href}>
             {label}
