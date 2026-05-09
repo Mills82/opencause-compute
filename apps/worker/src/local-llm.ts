@@ -15,11 +15,31 @@ export type LocalLlmConfig = {
   endpoint: string;
   model: string;
   timeoutMs: number;
+  options: OllamaGenerationOptions;
+  qualityTier: 'low' | 'balanced' | 'high';
+};
+
+export type OllamaGenerationOptions = {
+  temperature: number;
+  top_p: number;
+  num_ctx: number;
+  num_predict: number;
 };
 
 const DEFAULT_ENDPOINT = process.env.LOCAL_LLM_ENDPOINT ?? 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = process.env.LOCAL_LLM_MODEL ?? DEFAULT_LOCAL_MODEL;
 const DEFAULT_TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS ?? '45000');
+
+function envNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function defaultQualityTier(options: OllamaGenerationOptions): 'low' | 'balanced' | 'high' {
+  if (options.num_ctx >= 8192 && options.temperature === 0) return 'high';
+  if (options.num_ctx >= 4096) return 'balanced';
+  return 'low';
+}
 
 export function readLocalLlmConfig(): LocalLlmConfig {
   assertApprovedModel(DEFAULT_MODEL, {
@@ -29,8 +49,19 @@ export function readLocalLlmConfig(): LocalLlmConfig {
   return {
     endpoint: DEFAULT_ENDPOINT,
     model: DEFAULT_MODEL,
-    timeoutMs: Number.isFinite(DEFAULT_TIMEOUT_MS) ? DEFAULT_TIMEOUT_MS : 45000
+    timeoutMs: Number.isFinite(DEFAULT_TIMEOUT_MS) ? DEFAULT_TIMEOUT_MS : 45000,
+    options: {
+      temperature: envNumber('LOCAL_LLM_TEMPERATURE', 0),
+      top_p: envNumber('LOCAL_LLM_TOP_P', 0.9),
+      num_ctx: envNumber('LOCAL_LLM_NUM_CTX', 8192),
+      num_predict: envNumber('LOCAL_LLM_NUM_PREDICT', 1200)
+    },
+    qualityTier: process.env.LOCAL_LLM_QUALITY_TIER as LocalLlmConfig['qualityTier'] || 'high'
   };
+}
+
+export function generationQualityTier(config: LocalLlmConfig): 'low' | 'balanced' | 'high' {
+  return config.qualityTier ?? defaultQualityTier(config.options);
 }
 
 export function extractionPrompt(sourceText: string): string {
@@ -45,7 +76,8 @@ export function extractionPrompt(sourceText: string): string {
     '- if you cannot copy an exact evidence sentence, omit that fact',
     '- omit cancerType, geneOrBiomarker, and drugOrCompound when unknown; never use null or placeholder text',
     '- confidence must be between 0 and 1',
-    '- include at least one fact when possible',
+    '- return at most 3 high-confidence facts',
+    '- returning zero facts is acceptable when evidence is weak or not exact',
     '- do not add markdown or commentary, output JSON only',
     'Source text follows:',
     sourceText
@@ -137,7 +169,8 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
         model: config.model,
         prompt: extractionPrompt(sourceText),
         stream: false,
-        format: 'json'
+        format: 'json',
+        options: config.options
       })
     },
     config.timeoutMs

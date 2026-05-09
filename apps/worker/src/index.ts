@@ -12,7 +12,7 @@ import {
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
-import { LOCAL_LLM_PROMPT_VERSION, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
+import { LOCAL_LLM_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
 
 type JsonValue = Record<string, unknown>;
 type ExtractorMode = 'local-llm' | 'mock';
@@ -236,6 +236,8 @@ function buildProvenance(
     packetSchemaVersion: PACKET_SCHEMA_VERSION,
     extractionTimestamp: new Date().toISOString(),
     localLlmEndpointType: extractorMode === 'local-llm' ? endpointType(localLlmConfig.endpoint) : undefined,
+    generationOptions: extractorMode === 'local-llm' ? localLlmConfig.options : undefined,
+    generationQualityTier: extractorMode === 'local-llm' ? generationQualityTier(localLlmConfig) : 'mock',
     workerPlatform: `${process.platform}-${process.arch}`,
     workerCapabilities: capabilities,
     resultValidationVersion: RESULT_VALIDATION_VERSION

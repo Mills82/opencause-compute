@@ -87,6 +87,8 @@ export const resultProvenanceSchema = z.object({
   packetSchemaVersion: z.string(),
   extractionTimestamp: z.string(),
   localLlmEndpointType: z.string().optional(),
+  generationOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  generationQualityTier: z.enum(['mock', 'low', 'balanced', 'high']).optional(),
   workerPlatform: z.string(),
   workerCapabilities: z.array(z.string()),
   resultValidationVersion: z.string()
