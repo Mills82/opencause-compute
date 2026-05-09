@@ -166,6 +166,15 @@
       }
 
       async function refresh() {
+        if (!api) {
+          const message = 'Desktop bridge failed to load. Please reinstall this build or report a packaging/preload error.';
+          runtimeMessage.innerHTML = `<span class="blocked">${message}</span>`;
+          workerMessage.innerHTML = `<span class="blocked">${message}</span>`;
+          output.textContent = message;
+          return;
+        }
+
+        try {
         latestState = await api.getState();
         runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
         workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
@@ -179,6 +188,12 @@
         startup.checked = latestState.settings.startupOnLogin;
         battery.checked = latestState.settings.resourceControls.runOnBattery;
         output.textContent = JSON.stringify(latestState, null, 2);
+        } catch (error) {
+          const message = `Desktop state check failed: ${error?.message ?? error}`;
+          runtimeMessage.innerHTML = `<span class="blocked">${message}</span>`;
+          workerMessage.innerHTML = `<span class="blocked">${message}</span>`;
+          output.textContent = message;
+        }
       }
 
       document.getElementById('refresh').onclick = refresh;

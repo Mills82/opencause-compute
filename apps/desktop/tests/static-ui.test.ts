@@ -23,4 +23,9 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('App version:');
     expect(html).toContain('Remove local worker data');
   });
+
+  it('shows a clear error when the packaged desktop bridge fails to load', () => {
+    expect(html).toContain('Desktop bridge failed to load');
+    expect(html).toContain('Desktop state check failed');
+  });
 });
