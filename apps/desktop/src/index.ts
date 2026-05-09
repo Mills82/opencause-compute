@@ -8,6 +8,13 @@ export {
   updateDesktopSettings,
   type DesktopSettings
 } from './settings.js';
+export {
+  buildDesktopViewModel,
+  publicLaunchUiReady,
+  type DesktopAction,
+  type DesktopViewModelInput,
+  type ScreenViewModel
+} from './view-model.js';
 
 export type DesktopScreenId =
   | 'welcome'

@@ -69,3 +69,18 @@ Current settings cover:
 - model runtime/provider settings
 
 Secrets such as enrollment codes and node tokens must be redacted before displaying settings in UI/status output.
+
+## Desktop view model
+
+`apps/desktop/src/view-model.ts` defines UI-ready screen state and action mapping for the future desktop shell.
+
+It tracks whether the UI should block or warn on:
+
+- disclaimer not accepted
+- worker not enrolled
+- runtime unavailable
+- worker not running
+- local pause enabled
+- battery/resource settings
+
+This keeps product/safety logic outside a specific UI framework and makes the eventual Tauri/Electron layer thinner.
