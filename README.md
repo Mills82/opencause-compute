@@ -94,3 +94,26 @@ V1 uses symmetric HMAC signing for packet verification as an interim mechanism. 
 ## Private alpha
 
 This repo is safe only for controlled private-alpha testing with trusted testers. See `docs/private-alpha-runbook.md`. Results are citation-backed candidate facts; format validation is not scientific validation and this is not medical advice.
+
+## Hosted private-alpha safety
+
+The hosted site is split into a public informational surface and a private coordinator surface:
+
+- Public: `/`, `/about`, `/api/health`.
+- Private coordinator UI: `/admin`, `/projects`, `/work-packets`, `/results`, `/nodes`.
+- Admin login: `/admin/login`, backed by an HTTP-only cookie from `ADMIN_UI_PASSWORD` or `ADMIN_API_KEY`.
+
+For hosted/private-alpha deployments, set `OPENCAUSE_HOSTED=true` and configure at minimum:
+
+- `DATABASE_URL`
+- `SIGNING_SECRET`
+- `ADMIN_API_KEY`
+- `ADMIN_UI_PASSWORD` (recommended, may fall back to `ADMIN_API_KEY`)
+- `NCBI_EMAIL`
+- `CRON_SECRET` when `ENABLE_CRON_INGEST=true`
+
+Optional coordinator settings include `NCBI_API_KEY`, `DEFAULT_PACKET_EXTRACTOR`, `ALLOW_MOCK_RESULTS`, `OPENCAUSE_LOCAL_DEV`, `ENABLE_CRON_INGEST`, PubMed/PMC query and retmax settings.
+
+Worker settings include `COORDINATOR_URL`, `EXTRACTOR_MODE`, `LOCAL_LLM_ENDPOINT`, `LOCAL_LLM_MODEL`, `IDLE_MODE`, `MIN_IDLE_SECONDS`, and `MAX_CPU_PERCENT`.
+
+OpenCause Compute remains private-alpha until the blockers in `docs/public-launch-checklist.md` are closed. Results are candidate, citation-backed extractions; format/schema validation is not scientific validation or medical advice.

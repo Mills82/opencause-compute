@@ -4,12 +4,17 @@ export function isDevMode(): boolean {
 }
 
 export function isHostedMode(): boolean {
-  return !isDevMode() || process.env.OPENCAUSE_HOSTED === 'true' || process.env.VERCEL === '1';
+  return process.env.OPENCAUSE_HOSTED === 'true' || process.env.VERCEL === '1';
+}
+
+export function productionEnvStatus(): { ok: boolean; missing: string[] } {
+  if (!isHostedMode()) return { ok: true, missing: [] };
+  const missing = ['DATABASE_URL', 'SIGNING_SECRET', 'ADMIN_API_KEY', 'NCBI_EMAIL'].filter((key) => !process.env[key]);
+  if (process.env.ENABLE_CRON_INGEST === 'true' && !process.env.CRON_SECRET) missing.push('CRON_SECRET');
+  return { ok: missing.length === 0, missing };
 }
 
 export function requireProductionEnv(): void {
-  if (!isHostedMode()) return;
-  const missing = ['DATABASE_URL', 'SIGNING_SECRET', 'ADMIN_API_KEY'].filter((key) => !process.env[key]);
-  if (process.env.ENABLE_CRON_INGEST === 'true' && !process.env.CRON_SECRET) missing.push('CRON_SECRET');
-  if (missing.length) throw new Error(`missing_required_env:${missing.join(',')}`);
+  const status = productionEnvStatus();
+  if (!status.ok) throw new Error(`missing_required_env:${status.missing.join(',')}`);
 }

@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react';
 import './globals.css';
 
+import { requireProductionEnv } from '../lib/runtime-config';
+
 const links = [
   ['Home', '/'],
-  ['Projects', '/projects'],
-  ['Work Packets', '/work-packets'],
-  ['Results', '/results'],
-  ['Nodes', '/nodes'],
-  ['About', '/about']
+  ['About', '/about'],
+  ['Volunteer waitlist', 'mailto:hello@appassist.ai?subject=OpenCause%20Compute%20volunteer%20interest'],
+  ['Admin', '/admin']
 ] as const;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  requireProductionEnv();
+
   return (
     <html lang="en">
       <body>
