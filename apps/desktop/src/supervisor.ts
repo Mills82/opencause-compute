@@ -92,7 +92,15 @@ export class WorkerSupervisor {
     return this.status();
   }
 
-  register(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  async readCredentials(): Promise<{ nodeId?: string; nodeToken?: string; profileSetupUrl?: string } | null> {
+    try {
+      return JSON.parse(await readFile(path.join(this.config.appDir, 'node.json'), 'utf8')) as { nodeId?: string; nodeToken?: string; profileSetupUrl?: string };
+    } catch {
+      return null;
+    }
+  }
+
+  register(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string; message: string; profileSetupUrl?: string }> {
     const [entry, ...args] = this.buildArgs({ kind: 'register', enrollmentCode });
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [entry, ...args], {
@@ -103,8 +111,22 @@ export class WorkerSupervisor {
       let stderr = '';
       child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
       child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-      child.on('close', (code) => resolve({ code, stdout, stderr }));
-      child.on('error', (error) => resolve({ code: 1, stdout, stderr: error.message }));
+      child.on('close', async (code) => {
+        const credentials = await this.readCredentials();
+        const text = `${stderr}\n${stdout}`;
+        const match = text.match(/http_(\d+):({.*})/s);
+        let message = code === 0 ? 'Worker registered.' : `Registration failed with exit code ${code ?? 'unknown'}.`;
+        if (match) {
+          try {
+            const body = JSON.parse(match[2]) as { error?: string; message?: string };
+            message = body.message || body.error || message;
+          } catch {}
+        } else if (text.trim()) {
+          message = text.trim().split(/\r?\n/).at(-1) ?? message;
+        }
+        resolve({ code, stdout, stderr, message, profileSetupUrl: credentials?.profileSetupUrl });
+      });
+      child.on('error', (error) => resolve({ code: 1, stdout, stderr: error.message, message: error.message }));
     });
   }
 

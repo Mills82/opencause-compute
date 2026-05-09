@@ -123,7 +123,7 @@ async function getControlConfig(server: string): Promise<WorkerControlConfig> {
   return json.config;
 }
 
-type NodeCredentials = { nodeId: string; nodeToken: string };
+type NodeCredentials = { nodeId: string; nodeToken: string; profileSetupToken?: string; profileSetupUrl?: string };
 
 async function saveNodeCredentials(credentials: NodeCredentials): Promise<void> {
   await mkdir(APP_DIR, { recursive: true });
@@ -146,7 +146,7 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
   const enrollmentCode = (arg('--enrollment-code') as string | undefined) || process.env.NODE_ENROLLMENT_CODE;
 
-  const response = await post<{ node: { id: string }; nodeToken: string }>(server, '/api/nodes/register', {
+  const response = await post<{ node: { id: string }; nodeToken: string; profileSetupToken?: string }>(server, '/api/nodes/register', {
     nodeName,
     platform,
     version,
@@ -154,9 +154,11 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
     ...(enrollmentCode ? { enrollmentCode } : {})
   });
 
-  const credentials = { nodeId: response.node.id, nodeToken: response.nodeToken };
+  const profileSetupUrl = response.profileSetupToken ? `${server.replace(/\/$/, '')}/volunteer/profile?token=${encodeURIComponent(response.profileSetupToken)}` : undefined;
+  const credentials = { nodeId: response.node.id, nodeToken: response.nodeToken, profileSetupToken: response.profileSetupToken, profileSetupUrl };
   await saveNodeCredentials(credentials);
   await log(`registered node ${response.node.id}`);
+  if (profileSetupUrl) await log(`profile setup ${profileSetupUrl}`);
   return credentials;
 }
 

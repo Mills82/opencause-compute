@@ -8,11 +8,11 @@ describe('desktop model runtime', () => {
   });
 
   it('rejects unapproved model pulls', async () => {
-    await expect(() => pullOllamaModel('unknown:model')).toThrow('model_not_approved');
+    await expect(pullOllamaModel('unknown:model')).rejects.toThrow('model_not_approved');
   });
 
   it('requires advanced confirmation for large or experimental pulls', async () => {
-    await expect(() => pullOllamaModel('llama3.3:70b')).toThrow('large_model_requires_advanced_confirmation');
-    await expect(() => pullOllamaModel('llama4:scout')).toThrow('experimental_model_requires_advanced_confirmation');
+    await expect(pullOllamaModel('llama3.3:70b')).rejects.toThrow('large_model_requires_advanced_confirmation');
+    await expect(pullOllamaModel('llama4:scout')).rejects.toThrow('experimental_model_requires_advanced_confirmation');
   });
 });

@@ -261,9 +261,9 @@
         pullButton.textContent = latestState.modelRuntime.selectedModelInstalled ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
       }
 
-      function startOllamaPolling() {
+      function startOllamaPolling(message = 'Checking for Ollama installation...') {
         if (ollamaPoll) return;
-        ollamaWaiting.textContent = 'Waiting for Ollama installation...';
+        ollamaWaiting.textContent = message;
         ollamaPoll = setInterval(async () => {
           await refresh();
           if (latestState?.modelRuntime?.available) {
@@ -277,7 +277,7 @@
         modelDownloadPoll = setInterval(async () => {
           const status = await api.modelDownloadStatus(id);
           if (!status) return;
-          downloadStatus.innerHTML = `<p><strong>${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}</strong></p><p>${status.lastMessage || ''}</p>`;
+          downloadStatus.textContent = `${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}\n${status.lastMessage || ''}`;
           output.textContent = JSON.stringify(status, null, 2);
           if (status.status !== 'running') {
             clearInterval(modelDownloadPoll); modelDownloadPoll = null; await refresh();
@@ -297,6 +297,7 @@
           latestState = await api.getState();
           runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
           ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
+          if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
           workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
@@ -330,7 +331,7 @@
       }
 
       document.getElementById('refresh').onclick = refresh;
-      document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling(); };
+      document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };
       document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
@@ -339,7 +340,7 @@
         registrationMessage.textContent = 'Registering worker...';
         try {
           const result = await api.registerWorker(enrollmentCode.value);
-          registrationMessage.textContent = result.code === 0 ? 'Worker registered. Your code is hidden now.' : `Registration failed: ${result.stderr || result.stdout || result.code}`;
+          registrationMessage.textContent = result.code === 0 ? `Worker registered. Your code is hidden now.${result.profileSetupUrl ? ' Profile setup link: ' + result.profileSetupUrl : ''}` : `Registration failed: ${result.message || result.stderr || result.stdout || result.code}`;
           if (result.code === 0) enrollmentCode.value = '';
           output.textContent = JSON.stringify(result, null, 2);
           await refresh();
@@ -355,7 +356,7 @@
         downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
         try {
           const status = await api.startModelDownload(model);
-          downloadStatus.innerHTML = `<p><strong>Downloading model...</strong></p><p>${status.lastMessage}</p>`;
+          downloadStatus.textContent = `Downloading model...\n${status.lastMessage || ''}`;
           output.textContent = JSON.stringify(status, null, 2);
           await watchModelDownload(status.id);
         } catch (error) { output.textContent = String(error?.message ?? error); downloadStatus.textContent = String(error?.message ?? error); }
