@@ -265,6 +265,7 @@
       let latestState = null;
       let ollamaPoll = null;
       let modelDownloadPoll = null;
+      let dashboardPoll = null;
       let profileSetupUrl = null;
       let activeTab = 'overview';
 
@@ -414,6 +415,14 @@
         }
       }
 
+      function startDashboardPolling() {
+        if (dashboardPoll) return;
+        dashboardPoll = setInterval(async () => {
+          if (document.hidden) return;
+          await refresh();
+        }, 3000);
+      }
+
       async function saveSettings() {
         settingsMessage.textContent = 'Saving settings...';
         const saved = await api.updateSettings({
@@ -482,7 +491,7 @@
           await watchModelDownload(status.id);
         } catch (error) { output.textContent = String(error?.message ?? error); downloadStatus.textContent = String(error?.message ?? error); }
       };
-      refresh();
+      refresh().then(startDashboardPolling);
     </script>
   </body>
 </html>
