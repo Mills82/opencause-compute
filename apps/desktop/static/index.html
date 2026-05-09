@@ -97,7 +97,10 @@
             <p class="small">Enter the one-time enrollment code from your invite or enrollment email. Codes are used only on computers you control.</p>
             <label>
               Enrollment code
-              <input id="enrollment-code" type="password" placeholder="occ_..." autocomplete="off" />
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input id="enrollment-code" type="password" placeholder="occ_..." autocomplete="off" style="flex:1;" />
+                <button id="toggle-enrollment-code" type="button">Show</button>
+              </div>
             </label>
             <button id="register-worker" class="primary">Register worker</button>
             <p id="registration-message" class="small"></p>
@@ -337,6 +340,11 @@
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('toggle-enrollment-code').onclick = () => {
+        const showing = enrollmentCode.type === 'text';
+        enrollmentCode.type = showing ? 'password' : 'text';
+        document.getElementById('toggle-enrollment-code').textContent = showing ? 'Show' : 'Hide';
+      };
       document.getElementById('register-worker').onclick = async () => {
         registrationMessage.textContent = 'Registering worker...';
         try {

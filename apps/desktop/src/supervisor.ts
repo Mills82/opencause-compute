@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 export type WorkerSupervisorConfig = {
@@ -101,6 +102,16 @@ export class WorkerSupervisor {
     }
   }
 
+  async saveCredentials(credentials: { nodeId: string; nodeToken: string; profileSetupToken?: string; profileSetupUrl?: string }): Promise<void> {
+    await mkdir(this.config.appDir, { recursive: true });
+    await writeFile(path.join(this.config.appDir, 'node.json'), JSON.stringify(credentials, null, 2), { encoding: 'utf8', mode: 0o600 });
+  }
+
+  async appendWorkerLog(message: string): Promise<void> {
+    await mkdir(this.config.appDir, { recursive: true });
+    await writeFile(path.join(this.config.appDir, 'worker.log'), `[${new Date().toISOString()}] ${message}\n`, { flag: 'a', encoding: 'utf8' }).catch(() => undefined);
+  }
+
   async writeRegistrationDebugLog(data: { code: number | null; stdout: string; stderr: string; message: string; error?: string }): Promise<void> {
     await mkdir(this.config.appDir, { recursive: true });
     await writeFile(
@@ -111,6 +122,45 @@ export class WorkerSupervisor {
   }
 
   register(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string; message: string; profileSetupUrl?: string }> {
+    return this.registerDirect(enrollmentCode);
+  }
+
+  async registerDirect(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string; message: string; profileSetupUrl?: string }> {
+    try {
+      const response = await fetch(`${this.config.coordinatorUrl.replace(/\/$/, '')}/api/nodes/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          nodeName: `${os.hostname()}-worker`,
+          platform: `${process.platform}-${process.arch}`,
+          version: process.env.WORKER_VERSION ?? '0.1.0',
+          capabilities: ['local-llm-v1'],
+          enrollmentCode
+        })
+      });
+      const text = await response.text();
+      let body: { node?: { id?: string }; nodeToken?: string; profileSetupToken?: string; error?: string; message?: string } = {};
+      try { body = JSON.parse(text); } catch {}
+      if (!response.ok || !body.node?.id || !body.nodeToken) {
+        const message = body.message || body.error || `Registration failed with HTTP ${response.status}.`;
+        await this.writeRegistrationDebugLog({ code: response.status, stdout: text, stderr: '', message });
+        return { code: response.status, stdout: text, stderr: '', message };
+      }
+      const profileSetupUrl = body.profileSetupToken ? `${this.config.coordinatorUrl.replace(/\/$/, '')}/volunteer/profile?token=${encodeURIComponent(body.profileSetupToken)}` : undefined;
+      await this.saveCredentials({ nodeId: body.node.id, nodeToken: body.nodeToken, profileSetupToken: body.profileSetupToken, profileSetupUrl });
+      await this.appendWorkerLog(`registered node ${body.node.id}`);
+      if (profileSetupUrl) await this.appendWorkerLog(`profile setup ${profileSetupUrl}`);
+      const message = 'Worker registered.';
+      await this.writeRegistrationDebugLog({ code: 0, stdout: text, stderr: '', message });
+      return { code: 0, stdout: text, stderr: '', message, profileSetupUrl };
+    } catch (error) {
+      const message = `Registration failed before contacting coordinator: ${error instanceof Error ? error.message : String(error)}`;
+      await this.writeRegistrationDebugLog({ code: 1, stdout: '', stderr: String(error), message });
+      return { code: 1, stdout: '', stderr: String(error), message };
+    }
+  }
+
+  registerViaWorkerProcess(enrollmentCode: string): Promise<{ code: number | null; stdout: string; stderr: string; message: string; profileSetupUrl?: string }> {
     const [entry, ...args] = this.buildArgs({ kind: 'register', enrollmentCode });
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [entry, ...args], {
