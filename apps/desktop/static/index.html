@@ -7,12 +7,13 @@
     <style>
       :root { color-scheme: dark; }
       body { margin: 0; font-family: Inter, Segoe UI, system-ui, sans-serif; background: #0b1020; color: #e5eefc; }
-      main { max-width: 980px; margin: 0 auto; padding: 32px; }
+      main { max-width: 1100px; margin: 0 auto; padding: 32px; }
       header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
       header img { width: 44px; height: 44px; border-radius: 10px; }
       h1, h2, h3 { margin: 0; }
       p { color: #b8c4d9; line-height: 1.55; }
       section, .card { border: 1px solid #26324d; border-radius: 14px; padding: 18px; margin: 14px 0; background: #11182a; }
+      .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
       .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
       button, select, input { margin-top: 8px; padding: 9px 12px; border-radius: 9px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
@@ -20,14 +21,21 @@
       button.danger { border-color: #ff7b72; color: #ffb4ad; }
       button:disabled { opacity: .55; cursor: not-allowed; }
       label { display: block; color: #d7e1f4; font-size: 14px; margin-bottom: 6px; }
-      input[type="number"], input[type="url"] { width: calc(100% - 26px); }
+      input[type="number"], input[type="url"], input[type="password"] { width: calc(100% - 26px); }
       input[type="checkbox"] { width: auto; margin-right: 8px; }
       pre { white-space: pre-wrap; background: #070b14; padding: 12px; border-radius: 8px; overflow: auto; max-height: 280px; }
       .small { font-size: 13px; color: #94a3b8; }
       .pill { display: inline-block; border: 1px solid #3b4b70; border-radius: 999px; padding: 3px 8px; font-size: 12px; color: #b8c4d9; margin-left: 8px; }
       .callout { background: #1d2438; border-left: 4px solid #7dd3fc; }
-      .hidden { display: none; }
+      .hidden { display: none !important; }
+      .step { display: flex; gap: 10px; padding: 12px; border-radius: 12px; border: 1px solid #25314d; background: #0d1425; margin-bottom: 10px; }
+      .step.active { border-color: #7dd3fc; background: #13213b; }
       .step-done { color: #7ee787; } .step-action { color: #f2cc60; } .step-error { color: #ff7b72; }
+      .step-number { width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; background: #18233d; flex: 0 0 auto; }
+      .progress { height: 10px; border-radius: 999px; background: #070b14; overflow: hidden; margin: 12px 0; border: 1px solid #25314d; }
+      .progress > div { height: 100%; width: 0%; background: #7dd3fc; transition: width .25s ease; }
+      .dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -40,113 +48,127 @@
         </div>
       </header>
 
-      <section class="callout">
+      <section id="setup-intro" class="callout">
         <h2>First-run setup</h2>
         <p>
-          OpenCause Compute downloads models only after you choose them. Start with the recommended small model, then switch to
-          stronger models later if your machine can handle the extra resource use.
+          We’ll walk through Ollama, the recommended model, worker registration, and safe resource defaults. OpenCause Compute
+          is research support, not medical advice, and you can pause the worker at any time.
         </p>
       </section>
 
-      <div class="grid">
-        <section>
-          <h2>1. Runtime</h2>
-          <p id="runtime-message">Checking Ollama...</p>
-          <div id="ollama-help" class="small hidden">
-            <p>Ollama is required to run local AI models.</p>
-            <ol>
-              <li>1. Click Install Ollama to open the download page.</li>
-              <li>2. Run the Ollama installer.</li>
-              <li>3. Return here; we will keep checking automatically.</li>
-            </ol>
-            <button id="install-ollama" class="primary">Install Ollama</button>
-            <p id="ollama-waiting" class="small"></p>
-          </div>
-          <button id="refresh">Refresh status</button>
-        </section>
+      <div class="layout">
+        <aside>
+          <section>
+            <h2>Setup progress</h2>
+            <div id="progress-steps"></div>
+            <div class="progress"><div id="setup-progress-bar"></div></div>
+            <p id="setup-summary" class="small"></p>
+          </section>
+        </aside>
 
-        <section>
-          <h2>2. Model</h2>
-          <label for="model-select">Approved local model</label>
-          <select id="model-select"></select>
-          <p id="model-guidance" class="small"></p>
-          <button id="pull-model" class="primary">Download selected model</button>
-          <div id="download-status" class="small"></div>
-        </section>
+        <div>
+          <section id="runtime-step">
+            <h2>1. Install Ollama</h2>
+            <p id="runtime-message">Checking Ollama...</p>
+            <div id="ollama-help" class="small hidden">
+              <p>Ollama is required to run local AI models.</p>
+              <ol>
+                <li>Click Install Ollama to open the download page.</li>
+                <li>Run the Ollama installer.</li>
+                <li>Return here; we will keep checking automatically.</li>
+              </ol>
+              <button id="install-ollama" class="primary">Install Ollama</button>
+              <p id="ollama-waiting" class="small"></p>
+            </div>
+            <button id="refresh">Check again</button>
+          </section>
 
-        <section>
-          <h2>3. Worker</h2>
-          <p id="worker-message">Checking worker...</p>
-          <p id="version-message" class="small"></p>
-          <button id="start" class="primary">Resume / start worker</button>
-          <button id="pause">Pause worker</button>
-          <button id="stop">Stop process</button>
-        </section>
-      </div>
+          <section id="model-step">
+            <h2>2. Download a model</h2>
+            <label for="model-select">Approved local model</label>
+            <select id="model-select"></select>
+            <p id="model-guidance" class="small"></p>
+            <button id="pull-model" class="primary">Download selected model</button>
+            <div id="download-status" class="small"></div>
+          </section>
 
-      <section>
-        <h2>Volunteer settings</h2>
-        <div class="grid">
-          <label>
-            Coordinator URL
-            <input id="coordinator-url" type="url" />
-          </label>
-          <label>
-            Max CPU percent
-            <input id="max-cpu" type="number" min="5" max="95" step="5" />
-          </label>
-          <label>
-            Minimum idle seconds
-            <input id="min-idle" type="number" min="10" max="3600" step="10" />
-          </label>
-          <label>
-            Work schedule
-            <select id="schedule">
-              <option value="idle-only">Only while idle</option>
-              <option value="manual">Manual only</option>
-              <option value="always">Always while running</option>
-            </select>
-          </label>
+          <section id="registration-step">
+            <h2>3. Register worker</h2>
+            <p class="small">Enter the one-time enrollment code from your invite or enrollment email. Codes are used only on computers you control.</p>
+            <label>
+              Enrollment code
+              <input id="enrollment-code" type="password" placeholder="occ_..." autocomplete="off" />
+            </label>
+            <button id="register-worker" class="primary">Register worker</button>
+            <p id="registration-message" class="small"></p>
+          </section>
+
+          <section id="settings-step">
+            <h2>4. Resource settings</h2>
+            <div class="grid">
+              <label>
+                Coordinator URL
+                <input id="coordinator-url" type="url" />
+              </label>
+              <label>
+                Max CPU percent
+                <input id="max-cpu" type="number" min="5" max="95" step="5" />
+              </label>
+              <label>
+                Minimum idle seconds
+                <input id="min-idle" type="number" min="10" max="3600" step="10" />
+              </label>
+              <label>
+                Work schedule
+                <select id="schedule">
+                  <option value="idle-only">Only while idle</option>
+                  <option value="manual">Manual only</option>
+                  <option value="always">Always while running</option>
+                </select>
+              </label>
+            </div>
+            <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in</label>
+            <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
+            <button id="save-settings" class="primary">Save settings</button>
+            <button id="save-start" class="primary">Save and start worker</button>
+            <p id="settings-message" class="small">Defaults are conservative: idle-only, limited CPU, and no battery work.</p>
+          </section>
+
+          <section id="dashboard-step">
+            <h2>Worker dashboard</h2>
+            <p id="worker-message">Checking worker...</p>
+            <p id="version-message" class="small"></p>
+            <div class="dashboard-actions">
+              <button id="start" class="primary">Resume / start worker</button>
+              <button id="pause">Pause worker</button>
+              <button id="stop">Stop process</button>
+              <button id="log">Tail log</button>
+            </div>
+          </section>
+
+          <section>
+            <h2>Uninstall and local data</h2>
+            <p>
+              Removing the app from Windows Apps/Programs removes the application. Use this button first if you also want to remove
+              local worker credentials, enrollment state, and logs from this computer.
+            </p>
+            <button id="uninstall-state" class="danger">Remove local worker data</button>
+          </section>
+
+          <section>
+            <h2>Setup checklist</h2>
+            <div id="screens"></div>
+          </section>
+
+          <section>
+            <h2>Activity and technical details</h2>
+            <details>
+              <summary class="small">Show technical details</summary>
+              <pre id="output"></pre>
+            </details>
+          </section>
         </div>
-        <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in</label>
-        <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
-        <button id="save-settings" class="primary">Save settings</button>
-        <p id="settings-message" class="small">Settings are stored locally in your app data directory.</p>
-      </section>
-
-      <section>
-        <h2>Uninstall and local data</h2>
-        <p>
-          Removing the app from Windows Apps/Programs removes the application. Use this button first if you also want to remove
-          local worker credentials, enrollment state, and logs from this computer.
-        </p>
-        <button id="uninstall-state" class="danger">Remove local worker data</button>
-      </section>
-
-      <section>
-        <h2>Worker registration</h2>
-        <p class="small">Enter the one-time enrollment code from your invite or enrollment email. Codes are used only on computers you control.</p>
-        <label>
-          Enrollment code
-          <input id="enrollment-code" type="password" placeholder="occ_..." />
-        </label>
-        <button id="register-worker" class="primary">Register worker</button>
-        <p id="registration-message" class="small"></p>
-      </section>
-
-      <section>
-        <h2>Setup checklist</h2>
-        <div id="screens"></div>
-      </section>
-
-      <section>
-        <h2>Activity log</h2>
-        <button id="log">Tail log</button>
-        <details class="mt-3">
-          <summary class="small">Show technical details</summary>
-          <pre id="output"></pre>
-        </details>
-      </section>
+      </div>
     </main>
     <script>
       const api = window.opencauseDesktop;
@@ -170,18 +192,55 @@
       const schedule = document.getElementById('schedule');
       const startup = document.getElementById('startup');
       const battery = document.getElementById('battery');
+      const progressSteps = document.getElementById('progress-steps');
+      const setupProgressBar = document.getElementById('setup-progress-bar');
+      const setupSummary = document.getElementById('setup-summary');
       let latestState = null;
       let ollamaPoll = null;
       let modelDownloadPoll = null;
+
+      function modelLabel(model) { return `${model.label} (${model.id})`; }
+
+      function selectedModelInstalled() {
+        return Boolean(latestState?.modelRuntime?.selectedModelInstalled);
+      }
+
+      function registered() {
+        return Boolean(latestState?.settings?.nodeId || latestState?.runtime?.registered);
+      }
+
+      function setupSteps() {
+        return [
+          { id: 'runtime-step', title: 'Install Ollama', done: Boolean(latestState?.modelRuntime?.available), help: 'Required local runtime' },
+          { id: 'model-step', title: 'Download model', done: selectedModelInstalled(), help: latestState?.modelRuntime?.selectedModel || 'Approved model' },
+          { id: 'registration-step', title: 'Register worker', done: registered(), help: 'One-time enrollment code' },
+          { id: 'settings-step', title: 'Review resources', done: Boolean(latestState), help: 'Idle-only defaults' },
+          { id: 'dashboard-step', title: 'Start worker', done: Boolean(latestState?.runtime?.running), help: 'Visible and pausable' }
+        ];
+      }
+
+      function currentStepId() {
+        const first = setupSteps().find(step => !step.done);
+        return first?.id ?? 'dashboard-step';
+      }
+
+      function updateProgress() {
+        const steps = setupSteps();
+        const active = currentStepId();
+        const doneCount = steps.filter(step => step.done).length;
+        progressSteps.innerHTML = steps.map((step, index) => `
+          <div class="step ${step.id === active ? 'active' : ''}">
+            <div class="step-number ${step.done ? 'step-done' : step.id === active ? 'step-action' : ''}">${step.done ? '✓' : index + 1}</div>
+            <div><strong>${step.title}</strong><p class="small">${step.done ? 'Done' : step.help}</p></div>
+          </div>`).join('');
+        setupProgressBar.style.width = `${Math.round((doneCount / steps.length) * 100)}%`;
+        setupSummary.textContent = doneCount === steps.length ? 'Setup complete. You can leave the worker running or pause it anytime.' : `${doneCount} of ${steps.length} setup steps complete.`;
+      }
 
       function statusLabel(status) {
         if (status === 'ready') return ['✓ Done', 'step-done'];
         if (status === 'blocked') return ['Needs action', 'step-error'];
         return ['Needs action', 'step-action'];
-      }
-
-      function modelLabel(model) {
-        return `${model.label} (${model.id})`;
       }
 
       function renderModels(modelRuntime) {
@@ -195,15 +254,11 @@
       function renderSelectedModelGuidance() {
         if (!latestState?.modelRuntime) return;
         const model = latestState.modelRuntime.approvedModels.find(candidate => candidate.id === modelSelect.value);
-        if (!model) {
-          modelGuidance.textContent = 'This model is not approved.';
-          pullButton.disabled = true;
-          return;
-        }
+        if (!model) { modelGuidance.textContent = 'This model is not approved.'; pullButton.disabled = true; return; }
         modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
         const runtimeAvailable = Boolean(latestState.modelRuntime.available);
-        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental';
-        pullButton.textContent = !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
+        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental' || latestState.modelRuntime.selectedModelInstalled;
+        pullButton.textContent = latestState.modelRuntime.selectedModelInstalled ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
       }
 
       function startOllamaPolling() {
@@ -212,9 +267,7 @@
         ollamaPoll = setInterval(async () => {
           await refresh();
           if (latestState?.modelRuntime?.available) {
-            clearInterval(ollamaPoll);
-            ollamaPoll = null;
-            ollamaWaiting.textContent = 'Ollama detected.';
+            clearInterval(ollamaPoll); ollamaPoll = null; ollamaWaiting.textContent = 'Ollama detected.';
           }
         }, 4000);
       }
@@ -227,9 +280,7 @@
           downloadStatus.innerHTML = `<p><strong>${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}</strong></p><p>${status.lastMessage || ''}</p>`;
           output.textContent = JSON.stringify(status, null, 2);
           if (status.status !== 'running') {
-            clearInterval(modelDownloadPoll);
-            modelDownloadPoll = null;
-            await refresh();
+            clearInterval(modelDownloadPoll); modelDownloadPoll = null; await refresh();
           }
         }, 1000);
       }
@@ -242,25 +293,22 @@
           output.textContent = message;
           return;
         }
-
         try {
-        latestState = await api.getState();
-        runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
-        ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
-        workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
-        versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
-        screens.innerHTML = latestState.viewModel.map(screen => {
-          const [label, cls] = statusLabel(screen.status);
-          return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`;
-        }).join('');
-        renderModels(latestState.modelRuntime);
-        coordinatorUrl.value = latestState.settings.coordinatorUrl;
-        maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
-        minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
-        schedule.value = latestState.settings.resourceControls.schedule;
-        startup.checked = latestState.settings.startupOnLogin;
-        battery.checked = latestState.settings.resourceControls.runOnBattery;
-        output.textContent = JSON.stringify(latestState, null, 2);
+          latestState = await api.getState();
+          runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
+          ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
+          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
+          versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
+          screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
+          renderModels(latestState.modelRuntime);
+          coordinatorUrl.value = latestState.settings.coordinatorUrl;
+          maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
+          minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
+          schedule.value = latestState.settings.resourceControls.schedule;
+          startup.checked = latestState.settings.startupOnLogin;
+          battery.checked = latestState.settings.resourceControls.runOnBattery;
+          output.textContent = JSON.stringify(latestState, null, 2);
+          updateProgress();
         } catch (error) {
           const message = `Desktop state check failed: ${error?.message ?? error}`;
           runtimeMessage.innerHTML = `<span class="blocked">${message}</span>`;
@@ -269,11 +317,20 @@
         }
       }
 
+      async function saveSettings() {
+        settingsMessage.textContent = 'Saving settings...';
+        const saved = await api.updateSettings({
+          coordinatorUrl: coordinatorUrl.value,
+          startupOnLogin: startup.checked,
+          resourceControls: { maxCpuPercent: Number(maxCpu.value), minIdleSeconds: Number(minIdle.value), schedule: schedule.value, runOnBattery: battery.checked }
+        });
+        settingsMessage.textContent = 'Settings saved.';
+        output.textContent = JSON.stringify(saved, null, 2);
+        await refresh();
+      }
+
       document.getElementById('refresh').onclick = refresh;
-      document.getElementById('install-ollama').onclick = async () => {
-        await api.openExternal('https://ollama.com/download');
-        startOllamaPolling();
-      };
+      document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling(); };
       document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
@@ -282,52 +339,26 @@
         registrationMessage.textContent = 'Registering worker...';
         try {
           const result = await api.registerWorker(enrollmentCode.value);
-          registrationMessage.textContent = result.code === 0 ? 'Worker registered. Refreshing status...' : `Registration failed: ${result.stderr || result.stdout || result.code}`;
+          registrationMessage.textContent = result.code === 0 ? 'Worker registered. Your code is hidden now.' : `Registration failed: ${result.stderr || result.stdout || result.code}`;
+          if (result.code === 0) enrollmentCode.value = '';
           output.textContent = JSON.stringify(result, null, 2);
           await refresh();
-        } catch (error) {
-          registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`;
-          output.textContent = registrationMessage.textContent;
-        }
+        } catch (error) { registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`; output.textContent = registrationMessage.textContent; }
       };
-      document.getElementById('save-settings').onclick = async () => {
-        settingsMessage.textContent = 'Saving settings...';
-        const saved = await api.updateSettings({
-          coordinatorUrl: coordinatorUrl.value,
-          startupOnLogin: startup.checked,
-          resourceControls: {
-            maxCpuPercent: Number(maxCpu.value),
-            minIdleSeconds: Number(minIdle.value),
-            schedule: schedule.value,
-            runOnBattery: battery.checked
-          }
-        });
-        settingsMessage.textContent = 'Settings saved.';
-        output.textContent = JSON.stringify(saved, null, 2);
-        await refresh();
-      };
-      document.getElementById('uninstall-state').onclick = async () => {
-        if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return;
-        output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2);
-        await refresh();
-      };
+      document.getElementById('save-settings').onclick = saveSettings;
+      document.getElementById('save-start').onclick = async () => { await saveSettings(); output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
       modelSelect.onchange = renderSelectedModelGuidance;
       pullButton.onclick = async () => {
         const model = modelSelect.value;
-        if (!latestState?.modelRuntime?.available) {
-          output.textContent = 'Install Ollama first, then click Refresh status before downloading a model.';
-          return;
-        }
-        output.textContent = `Downloading ${model}. This can take a while...`;
+        if (!latestState?.modelRuntime?.available) { output.textContent = 'Install Ollama first, then click Check again before downloading a model.'; return; }
+        downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
         try {
           const status = await api.startModelDownload(model);
           downloadStatus.innerHTML = `<p><strong>Downloading model...</strong></p><p>${status.lastMessage}</p>`;
           output.textContent = JSON.stringify(status, null, 2);
           await watchModelDownload(status.id);
-        } catch (error) {
-          output.textContent = String(error?.message ?? error);
-          downloadStatus.textContent = String(error?.message ?? error);
-        }
+        } catch (error) { output.textContent = String(error?.message ?? error); downloadStatus.textContent = String(error?.message ?? error); }
       };
       refresh();
     </script>

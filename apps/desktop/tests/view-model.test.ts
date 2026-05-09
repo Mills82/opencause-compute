@@ -5,6 +5,7 @@ import { buildDesktopViewModel, publicLaunchUiReady } from '../src/view-model';
 describe('desktop view model', () => {
   const runtime = {
     configured: true,
+    registered: false,
     running: false,
     appDir: '/tmp/opencause',
     logPath: '/tmp/opencause/worker.log',

@@ -43,8 +43,8 @@ export function buildDesktopViewModel(input: DesktopViewModelInput): ScreenViewM
     {
       id: 'enrollment',
       title: 'Volunteer enrollment',
-      status: input.settings.nodeId ? 'ready' : 'warning',
-      message: input.settings.nodeId
+      status: input.settings.nodeId || input.runtime.registered ? 'ready' : 'warning',
+      message: input.settings.nodeId || input.runtime.registered
         ? 'Worker is registered.'
         : input.publicEnrollmentEnabled
           ? 'Request or enter a one-time enrollment code to register this worker.'

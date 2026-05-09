@@ -64,7 +64,18 @@ describe('worker supervisor contract', () => {
   });
 
   it('reports configured false when worker entry is missing', () => {
-    expect(supervisor.status()).toMatchObject({ configured: false, running: false });
+    expect(supervisor.status()).toMatchObject({ configured: false, registered: false, running: false });
+  });
+
+  it('reports registered when local worker credentials exist', async () => {
+    const appDir = await mkdtemp(path.join(os.tmpdir(), 'occ-worker-registered-'));
+    await writeFile(path.join(appDir, 'node.json'), '{}');
+    const localSupervisor = new WorkerSupervisor({
+      workerEntry: '/tmp/worker.js',
+      appDir,
+      coordinatorUrl: 'https://opencause.appassist.ai'
+    });
+    expect(localSupervisor.status().registered).toBe(true);
   });
 
   it('removes local worker state for uninstall cleanup', async () => {

@@ -21,6 +21,7 @@ export type WorkerSupervisorConfig = {
 
 export type WorkerRuntimeStatus = {
   configured: boolean;
+  registered: boolean;
   running: boolean;
   appDir: string;
   logPath: string;
@@ -43,6 +44,7 @@ export class WorkerSupervisor {
   status(): WorkerRuntimeStatus {
     return {
       configured: existsSync(this.config.workerEntry),
+      registered: existsSync(path.join(this.config.appDir, 'node.json')),
       running: Boolean(this.child && !this.child.killed),
       appDir: this.config.appDir,
       logPath: path.join(this.config.appDir, 'worker.log'),
