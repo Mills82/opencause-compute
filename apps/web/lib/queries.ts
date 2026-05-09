@@ -1,5 +1,6 @@
 import { getWorkerControl, listNodes, reconcileCoordinatorState } from './coordinator';
 import { loadDb, withDb } from './db';
+import { packetSigningDiagnostics } from './signing-diagnostics';
 
 export async function getDashboardData() {
   const db = await withDb((state) => {
@@ -39,7 +40,8 @@ export async function getDashboardData() {
     volunteerProfileCount: db.volunteerProfiles.length,
     publicVolunteerProfileCount: db.volunteerProfiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private').length,
     teamCount: db.teams.length,
-    volunteerBadgeCount: db.volunteerBadges.length
+    volunteerBadgeCount: db.volunteerBadges.length,
+    signingDiagnostics: packetSigningDiagnostics()
   };
 }
 

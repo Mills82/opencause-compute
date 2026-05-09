@@ -1,6 +1,7 @@
 import type { DatabaseState } from '@opencause/shared';
 import { storageModeLabel } from '../db';
 import { isHostedMode, productionEnvStatus } from '../runtime-config';
+import { packetSigningDiagnostics } from '../signing-diagnostics';
 
 export type ReadinessItem = {
   id: string;
@@ -23,7 +24,8 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
   const env = productionEnvStatus();
   const storageMode = storageModeLabel();
   const hosted = isHostedMode();
-  const signingMode = process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY ? 'ed25519' : 'hmac-fallback';
+  const signing = packetSigningDiagnostics();
+  const signingMode = signing.signingMode;
   const publicEnrollmentEnabled = process.env.ENABLE_PUBLIC_VOLUNTEER_ENROLLMENT === 'true';
   const hasTurnstile = Boolean(process.env.TURNSTILE_SECRET_KEY && process.env.TURNSTILE_SITE_KEY);
   const hasEnrollmentEmail = Boolean(process.env.RESEND_API_KEY && process.env.ENROLLMENT_EMAIL_FROM);
@@ -34,7 +36,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
   const items: ReadinessItem[] = [
     item('env', 'Hosted environment validation', env.ok ? 'pass' : 'fail', env.ok ? 'Required hosted env vars are present.' : `Missing: ${env.missing.join(', ')}`),
     item('storage', 'Relational hosted storage', storageMode === 'postgres-relational' ? 'pass' : 'fail', `Current storage mode: ${storageMode}.`),
-    item('signing', 'Asymmetric packet signing', signingMode === 'ed25519' ? 'pass' : 'fail', `Current signing mode: ${signingMode}.`),
+    item('signing', 'Asymmetric packet signing', signingMode === 'ed25519' && signing.privateKeyParseOk && signing.publicKeyParseOk && signing.keyPairVerifyOk ? 'pass' : 'fail', signing.signingMode === 'ed25519' ? `Mode=${signingMode}; private key parse=${signing.privateKeyParseOk}; public key parse=${signing.publicKeyParseOk}; key pair verify=${signing.keyPairVerifyOk}${signing.error ? `; error=${signing.error}` : ''}.` : `Current signing mode: ${signingMode}.`),
     item('admin_surface', 'Admin/coordinator surface protected', 'pass', 'Admin UI and coordinator read APIs require auth in current route configuration.'),
     item('volunteer_enrollment', 'Self-serve volunteer enrollment', publicEnrollmentEnabled && hasTurnstile && hasEnrollmentEmail ? 'warn' : 'fail', publicEnrollmentEnabled ? (hasTurnstile && hasEnrollmentEmail ? 'Enabled behind Turnstile with email delivery; monitor abuse before public beta.' : `Incomplete public enrollment config: ${[!hasTurnstile ? 'Turnstile' : null, !hasEnrollmentEmail ? 'email delivery' : null].filter(Boolean).join(', ')}.`) : 'Disabled; public volunteers cannot self-serve yet.'),
     item('download', 'Desktop worker download', hasDownload ? (downloadStage === 'public' ? 'pass' : 'warn') : 'fail', hasDownload ? `Download configured at stage=${downloadStage}.` : 'No public/prototype worker download URL is configured.'),

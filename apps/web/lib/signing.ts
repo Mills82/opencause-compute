@@ -1,5 +1,6 @@
 import { signPayloadEd25519, signPayloadHmac, verifyPayloadEd25519, verifyPayloadHmac } from '@opencause/shared';
 import { isDevMode } from './runtime-config';
+import { assertPacketSigningReady } from './signing-diagnostics';
 
 function hmacSecret(): string {
   if (process.env.SIGNING_SECRET) return process.env.SIGNING_SECRET;
@@ -18,6 +19,7 @@ function signingPublicKey(): string | undefined {
 export function signWorkPacketPayload(payload: unknown): string {
   const privateKey = signingPrivateKey();
   if (privateKey) {
+    assertPacketSigningReady();
     return signPayloadEd25519(payload, privateKey, process.env.PACKET_SIGNING_KEY_ID);
   }
   return signPayloadHmac(payload, hmacSecret());

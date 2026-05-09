@@ -52,6 +52,19 @@ export default async function AdminDashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-xl border border-line bg-panel p-4">
+          <h3 className="text-lg font-medium">Coordinator readiness</h3>
+          <dl className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
+            <div><dt className="text-white">Packet signing mode</dt><dd>{data.signingDiagnostics.signingMode}</dd></div>
+            <div><dt className="text-white">Private key parse</dt><dd>{String(data.signingDiagnostics.privateKeyParseOk)}</dd></div>
+            <div><dt className="text-white">Public key parse</dt><dd>{String(data.signingDiagnostics.publicKeyParseOk)}</dd></div>
+            <div><dt className="text-white">Key-pair verify</dt><dd>{String(data.signingDiagnostics.keyPairVerifyOk)}</dd></div>
+            <div><dt className="text-white">Queued packets</dt><dd>{data.queuedCount}</dd></div>
+            <div><dt className="text-white">Last ingestion failures</dt><dd>{data.failedIngestionRunCount}</dd></div>
+          </dl>
+          {data.signingDiagnostics.error ? <p className="mt-3 text-sm text-red-300">Signing diagnostic error: {data.signingDiagnostics.error}</p> : null}
+        </article>
+
+        <article className="rounded-xl border border-line bg-panel p-4">
           <h3 className="text-lg font-medium">Worker control status</h3>
           <dl className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2">
             <div><dt className="text-white">Paused</dt><dd>{String(data.workerControl.paused)}</dd></div>

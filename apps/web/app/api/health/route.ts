@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { loadDb, storageModeLabel } from '../../../lib/db';
 import { isHostedMode, productionEnvStatus } from '../../../lib/runtime-config';
+import { packetSigningDiagnostics } from '../../../lib/signing-diagnostics';
 
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../lib/rate-limit';
 export async function GET(request: Request) {
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   const db = await loadDb();
   const env = productionEnvStatus();
+  const signing = packetSigningDiagnostics();
   return NextResponse.json({
     ok: env.ok,
     app: 'opencause-compute',
@@ -17,7 +19,8 @@ export async function GET(request: Request) {
     commit: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_SHA ?? null,
     storageMode: storageModeLabel(),
     deploymentMode: isHostedMode() ? 'hosted' : 'dev',
-    signingMode: process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY ? 'ed25519' : 'hmac-fallback',
+    signingMode: signing.signingMode,
+    signingDiagnostics: signing,
     envValidation: { ok: env.ok, missingRequiredKeys: env.missing },
     counts: {
       projects: db.projects.length,
