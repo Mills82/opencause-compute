@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { loadDb } from '../../../lib/db';
+import { loadDb, storageModeLabel } from '../../../lib/db';
 import { isHostedMode, productionEnvStatus } from '../../../lib/runtime-config';
 
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
     app: 'opencause-compute',
     version: process.env.npm_package_version ?? '0.1.0',
     commit: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_SHA ?? null,
-    storageMode: process.env.DATABASE_URL ? 'postgres' : 'file',
+    storageMode: storageModeLabel(),
     deploymentMode: isHostedMode() ? 'hosted' : 'dev',
     signingMode: process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY ? 'ed25519' : 'hmac-fallback',
     envValidation: { ok: env.ok, missingRequiredKeys: env.missing },
