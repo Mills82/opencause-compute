@@ -1,0 +1,147 @@
+name: Desktop Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. desktop-v0.1.0-prototype.1'
+        required: true
+        type: string
+      stage:
+        description: 'Release stage'
+        required: true
+        default: prototype
+        type: choice
+        options:
+          - prototype
+          - public-beta
+          - public
+      draft:
+        description: 'Create release as draft'
+        required: true
+        default: true
+        type: boolean
+      prerelease:
+        description: 'Mark release as prerelease'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows-desktop:
+    name: Build and publish Windows desktop release
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Validate release inputs
+        shell: pwsh
+        run: |
+          if ('${{ inputs.stage }}' -eq 'public') {
+            throw 'Public stage is reserved for signed + QA-approved releases. Add signing verification before using stage=public.'
+          }
+          if ('${{ inputs.tag }}' -notmatch '^desktop-v\d+\.\d+\.\d+-(prototype|beta)\.\d+$') {
+            throw 'Tag must look like desktop-v0.1.0-prototype.1 or desktop-v0.1.0-beta.1'
+          }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build packages
+        run: |
+          npm run build -w @opencause/shared
+          npm run build -w @opencause/worker
+          npm run build -w @opencause/desktop
+
+      - name: Test release-relevant packages
+        run: |
+          npm run test -w @opencause/shared
+          npm run test -w @opencause/worker
+          npm run test -w @opencause/desktop
+
+      - name: Build unsigned Windows installer
+        run: npm run package:win:unsigned -w @opencause/desktop
+
+      - name: Prepare release assets
+        id: assets
+        shell: pwsh
+        run: |
+          $releaseDir = 'apps/desktop/release'
+          $assetDir = 'release-assets'
+          New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+
+          $installer = Get-ChildItem $releaseDir -File -Filter '*.exe' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $installer) { throw 'No Windows installer .exe found.' }
+
+          $safeInstaller = 'OpenCause-Compute-Worker-Setup-${{ inputs.tag }}-unsigned.exe'
+          Copy-Item $installer.FullName (Join-Path $assetDir $safeInstaller)
+
+          $checksumPath = Join-Path $assetDir 'SHA256SUMS.txt'
+          Remove-Item $checksumPath -ErrorAction SilentlyContinue
+          Get-ChildItem $assetDir -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | ForEach-Object {
+            $hash = Get-FileHash $_.FullName -Algorithm SHA256
+            Add-Content -Path $checksumPath -Value "$($hash.Hash.ToLower())  $($_.Name)"
+          }
+
+          $notesPath = Join-Path $assetDir 'RELEASE-NOTES.md'
+          @"
+          # OpenCause Compute Worker ${{ inputs.tag }}
+
+          Stage: ${{ inputs.stage }}
+          Commit: $env:GITHUB_SHA
+          Workflow: $env:GITHUB_WORKFLOW
+          Run: $env:GITHUB_RUN_ID
+
+          ## Artifact
+
+          - Installer: $safeInstaller
+          - Checksums: SHA256SUMS.txt
+
+          ## Status
+
+          This artifact is unsigned and intended for prototype / selected tester QA only.
+
+          Do not use as a broad public release until:
+
+          - installer and executable are code-signed
+          - clean Windows install/uninstall QA passes
+          - worker registration, pause/resume, logs, resource controls, revocation behavior, and rollback are verified
+          - release notes and checksums are published with final public-facing copy
+
+          ## Site env vars after release publication
+
+          ```bash
+          NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL=https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/$safeInstaller
+          NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL=https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/SHA256SUMS.txt
+          NEXT_PUBLIC_WINDOWS_WORKER_RELEASE_NOTES_URL=https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/RELEASE-NOTES.md
+          NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=${{ inputs.stage }}
+          ```
+          "@ | Set-Content -Path $notesPath
+
+          "installer=$safeInstaller" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: OpenCause Compute Worker ${{ inputs.tag }}
+          body_path: release-assets/RELEASE-NOTES.md
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/*.exe
+            release-assets/SHA256SUMS.txt
+            release-assets/RELEASE-NOTES.md

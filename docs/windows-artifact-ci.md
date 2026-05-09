@@ -2,11 +2,19 @@
 
 The Windows worker installer should be built on Windows CI instead of requiring Wine in WSL.
 
-Workflow:
+Prototype artifact workflow:
 
 ```text
 .github/workflows/desktop-windows-artifact.yml
 ```
+
+GitHub Release publication workflow:
+
+```text
+.github/workflows/desktop-windows-release.yml
+```
+
+For the release process, see `docs/desktop-release-process.md`.
 
 What it does:
 
@@ -47,7 +55,7 @@ The notes include commit SHA, workflow name, and run id. The checksum file shoul
 
 ## Publishing download links
 
-The public `/download` page only shows a Windows download button when these environment variables are configured:
+Prefer GitHub Releases as the artifact host. The public `/download` page only shows a Windows download button when these environment variables are configured:
 
 ```bash
 NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL=

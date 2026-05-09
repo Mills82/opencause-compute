@@ -49,7 +49,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [x] Worker records version, extractor version, model/runtime, prompt version/hash, schema version, validation version, timestamp, and platform capabilities.
 - [x] Add desktop app scaffold/contract for public volunteer worker UX.
-- [x] Add Windows unsigned prototype artifact workflow.
+- [x] Add Windows unsigned prototype artifact workflow and GitHub Release publication workflow.
 - [ ] Installer does not require normal volunteers to install Node/npm manually.
 - [x] Private-alpha worker has visible activity log, coordinator pause handling, status command, and local-state uninstall command.
 - [x] Public volunteer worker has one-click pause/resume, uninstall/local-data removal, startup-on-login control, resource settings, and version display in desktop UI.
