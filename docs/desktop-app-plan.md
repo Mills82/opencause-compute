@@ -54,3 +54,18 @@ Public volunteer launch remains no-go until at least one signed Windows installe
 - pass one-time enrollment code through registration args/env
 
 This is intentionally a thin boundary so a future Tauri/Electron shell can own UI, installer integration, OS startup, and local settings while reusing the existing worker runtime.
+
+## Desktop settings state
+
+`apps/desktop/src/settings.ts` defines local desktop settings persisted as `desktop-settings.json` under the app data directory.
+
+Current settings cover:
+
+- coordinator URL
+- one-time enrollment code / registration state
+- local pause flag
+- startup-on-login preference
+- idle/resource controls
+- model runtime/provider settings
+
+Secrets such as enrollment codes and node tokens must be redacted before displaying settings in UI/status output.

@@ -1,4 +1,13 @@
 export { WorkerSupervisor, type WorkerCommand, type WorkerRuntimeStatus, type WorkerSupervisorConfig } from './supervisor.js';
+export {
+  defaultDesktopSettings,
+  loadDesktopSettings,
+  redactedSettings,
+  saveDesktopSettings,
+  settingsPath,
+  updateDesktopSettings,
+  type DesktopSettings
+} from './settings.js';
 
 export type DesktopScreenId =
   | 'welcome'
