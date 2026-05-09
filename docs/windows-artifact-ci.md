@@ -44,3 +44,16 @@ The workflow generates and uploads:
 - `PROTOTYPE-RELEASE-NOTES.md`
 
 The notes include commit SHA, workflow name, and run id. The checksum file should be retained with any prototype artifact used for QA.
+
+## Publishing download links
+
+The public `/download` page only shows a Windows download button when these environment variables are configured:
+
+```bash
+NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL=
+NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL=
+NEXT_PUBLIC_WINDOWS_WORKER_RELEASE_NOTES_URL=
+NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=prototype
+```
+
+Leave the URL variables empty until the artifact, checksum file, and prototype release notes are ready to share. Use `NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=public` only after signing and public-release QA are complete.

@@ -19,6 +19,9 @@ export default function HomePage() {
           <a className="rounded border border-line px-4 py-2" href="/volunteer">
             Volunteer onboarding
           </a>
+          <a className="rounded border border-line px-4 py-2" href="/download">
+            Worker download
+          </a>
         </div>
       </div>
 
