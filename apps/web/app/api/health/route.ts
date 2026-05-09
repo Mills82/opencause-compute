@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { loadDb } from '../../../lib/db';
 import { isHostedMode, productionEnvStatus } from '../../../lib/runtime-config';
