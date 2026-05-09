@@ -9,3 +9,6 @@ apps/web/data/*.json
 apps/web/data/*.db
 
 *.tsbuildinfo
+
+# Local generated secrets
+.secrets/

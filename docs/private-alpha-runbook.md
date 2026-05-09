@@ -106,7 +106,7 @@ The hosted web app is intentionally split between a public landing surface and a
 - `/api/projects`, `/api/work-packets`, and `/api/results` are admin-readable in private alpha so public users cannot enumerate coordinator state.
 - Use `ADMIN_UI_PASSWORD` for the browser login. If it is not set, the app falls back to `ADMIN_API_KEY` for private-alpha operations.
 - Do not expose `ADMIN_API_KEY` in client-side code. Browser admin actions authenticate with the HTTP-only admin cookie.
-- Hosted deployments should set `OPENCAUSE_HOSTED=true` and must provide `DATABASE_URL`, `SIGNING_SECRET`, `ADMIN_API_KEY`, and `NCBI_EMAIL`. If cron ingestion is enabled, also set `CRON_SECRET`.
+- Hosted deployments should set `OPENCAUSE_HOSTED=true` and must provide `DATABASE_URL`, `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, `ADMIN_API_KEY`, and `NCBI_EMAIL`. If cron ingestion is enabled, also set `CRON_SECRET`.
 - Set `NODE_ENROLLMENT_CODES` to comma-separated private-alpha invite codes before exposing node registration. Hosted registration fails closed when no enrollment code is configured. Workers must include a valid `enrollmentCode` to register.
 - Admins can suspend or revoke a worker with `POST /api/admin/nodes/:nodeId/status`; suspended/revoked nodes cannot authenticate, heartbeat, claim, or submit.
 - `GET /api/health` returns non-sensitive deployment, queue, node, and result counts for launch checks. It must never include raw environment values or secrets.
@@ -120,4 +120,4 @@ Hosted/public-facing deployments should use asymmetric packet signing:
 - Coordinator: `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, optional `PACKET_SIGNING_KEY_ID`.
 - Worker: `PACKET_SIGNING_PUBLIC_KEY`, optional `PACKET_SIGNING_KEY_ID`.
 
-`SIGNING_SECRET` is retained for local/dev and tightly controlled private-alpha fallback only. Do not distribute a shared signing secret to public volunteers.
+`SIGNING_SECRET` is retained for local/dev fallback only. Hosted deployments now fail closed unless Ed25519 signing keys are configured. Do not distribute a shared signing secret to public volunteers.

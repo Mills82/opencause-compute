@@ -14,6 +14,7 @@ export async function GET() {
     commit: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_SHA ?? null,
     storageMode: process.env.DATABASE_URL ? 'postgres' : 'file',
     deploymentMode: isHostedMode() ? 'hosted' : 'dev',
+    signingMode: process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY ? 'ed25519' : 'hmac-fallback',
     envValidation: { ok: env.ok, missingRequiredKeys: env.missing },
     counts: {
       projects: db.projects.length,
