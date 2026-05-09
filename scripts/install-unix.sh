@@ -14,6 +14,11 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v ollama >/dev/null 2>&1; then
+  echo "ollama is required for Local LLM v1 extraction. Install ollama first."
+  exit 1
+fi
+
 echo "Installing dependencies..."
 npm install
 
@@ -22,6 +27,9 @@ npm run build
 
 echo "Running tests..."
 npm run test
+
+echo "Ensuring local model is available..."
+ollama pull "${LOCAL_LLM_MODEL:-llama3.2:3b}"
 
 echo "Installation complete."
 echo "Next steps:"

@@ -11,6 +11,10 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
   Write-Error 'npm is required. Install npm first.'
 }
 
+if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
+  Write-Error 'ollama is required for Local LLM v1 extraction. Install ollama first.'
+}
+
 Write-Host 'Installing dependencies...'
 npm install
 
@@ -19,6 +23,10 @@ npm run build
 
 Write-Host 'Running tests...'
 npm run test
+
+Write-Host 'Ensuring local model is available...'
+$Model = if ($env:LOCAL_LLM_MODEL) { $env:LOCAL_LLM_MODEL } else { 'llama3.2:3b' }
+ollama pull $Model
 
 Write-Host 'Installation complete.'
 Write-Host 'Next steps:'

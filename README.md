@@ -15,8 +15,8 @@ Donate your idle computer to AI-powered open science.
 V1 does **not** make medical claims.
 
 Extractor status:
-- Current implementation: deterministic `Mock Extractor v1` (real packet processing flow, non-LLM extraction logic)
-- Not implemented yet: small local LLM extraction backend (planned next step)
+- Default release path: `Local LLM v1` (required by default)
+- `Mock Extractor v1` is disabled by default and only available with explicit opt-in (`ALLOW_MOCK_EXTRACTOR=true` and `EXTRACTOR_MODE=mock`) for development/testing
 
 ## Quick start (release mode)
 
@@ -24,6 +24,13 @@ Extractor status:
 
 ```bash
 npm run setup
+```
+
+1.5 Install and run a local model backend (Ollama example):
+
+```bash
+ollama serve
+ollama pull llama3.2:3b
 ```
 
 2. Start the full stack in one command (web + seed + worker loop):
@@ -86,6 +93,20 @@ IDLE_MODE=cpu-only MAX_CPU_PERCENT=30 npm run start:worker:loop
 
 ```bash
 npm run start:worker:loop -- --idle-mode user-and-cpu --min-idle-seconds 180
+```
+
+## Local LLM configuration
+
+Worker defaults:
+- `EXTRACTOR_MODE=local-llm`
+- `LOCAL_LLM_ENDPOINT=http://127.0.0.1:11434`
+- `LOCAL_LLM_MODEL=llama3.2:3b`
+- `ALLOW_MOCK_EXTRACTOR=false`
+
+Example:
+
+```bash
+LOCAL_LLM_MODEL=llama3.2:3b npm run start:worker:loop
 ```
 
 ## Installers and packaging

@@ -42,7 +42,7 @@ export const workPacketPayloadSchema = z.object({
   sourceUrl: z.string().url(),
   sourcePublishedAt: z.string().optional(),
   inputHash: z.string(),
-  extractor: z.literal('mock-extractor-v1'),
+  extractor: z.enum(['local-llm-v1', 'mock-extractor-v1']),
   createdAt: z.string()
 });
 
@@ -78,7 +78,7 @@ export const extractionResultSchema = z.object({
   workPacketId: z.string(),
   nodeId: z.string(),
   claimId: z.string(),
-  extractorVersion: z.literal('Mock Extractor v1'),
+  extractorVersion: z.enum(['Local LLM v1', 'Mock Extractor v1']),
   resultHash: z.string(),
   validated: z.boolean(),
   validationErrors: z.array(z.string()),

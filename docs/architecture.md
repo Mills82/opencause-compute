@@ -36,11 +36,12 @@
   2. idle gate check (user idle + CPU threshold, configurable)
   3. claim
   4. verify HMAC signature
-  5. run Mock Extractor v1
+  5. run Local LLM v1 extraction (default release mode)
   6. submit results
 - Writes activity log to `~/.opencause-compute/worker.log`.
 - Polls coordinator worker-control config and applies central pause/resume and thresholds.
 - Supports one-shot run-now token that bypasses idle gate for manual testing.
+- Mock extractor path is disabled by default and kept for explicit development/test opt-in only.
 
 ## Shared package
 

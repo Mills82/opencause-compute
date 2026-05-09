@@ -9,13 +9,17 @@ import {
   type WorkerControlConfig
 } from '@opencause/shared';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle';
+import { readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm';
 
 type JsonValue = Record<string, unknown>;
+type ExtractorMode = 'local-llm' | 'mock';
+type ExtractorVersion = 'Local LLM v1' | 'Mock Extractor v1';
 
 const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
 const APP_DIR = process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute');
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
+const localLlmConfig = readLocalLlmConfig();
 
 async function log(message: string): Promise<void> {
   await mkdir(APP_DIR, { recursive: true });
@@ -37,6 +41,21 @@ function required(value: string | undefined, name: string): string {
     throw new Error(`missing_arg:${name}`);
   }
   return value;
+}
+
+function readExtractorMode(): ExtractorMode {
+  const value = arg('--extractor-mode', process.env.EXTRACTOR_MODE ?? 'local-llm');
+  return value === 'mock' ? 'mock' : 'local-llm';
+}
+
+function allowMockExtractor(): boolean {
+  return arg('--allow-mock-extractor', process.env.ALLOW_MOCK_EXTRACTOR ?? 'false') === 'true';
+}
+
+function enforceExtractorPolicy(mode: ExtractorMode, mockAllowed: boolean): void {
+  if (mode === 'mock' && !mockAllowed) {
+    throw new Error('mock_extractor_disabled');
+  }
 }
 
 function readIdleConfig(): IdleConfig {
@@ -87,16 +106,17 @@ async function getControlConfig(server: string): Promise<WorkerControlConfig> {
   return json.config;
 }
 
-async function register(server: string): Promise<string> {
+async function register(server: string, extractorMode: ExtractorMode): Promise<string> {
   const nodeName = arg('--node-name', `${os.hostname()}-worker`) as string;
   const platform = `${process.platform}-${process.arch}`;
   const version = '0.1.0';
+  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
 
   const response = await post<{ node: { id: string } }>(server, '/api/nodes/register', {
     nodeName,
     platform,
     version,
-    capabilities: ['mock-extractor-v1']
+    capabilities
   });
 
   await log(`registered node ${response.node.id}`);
@@ -134,18 +154,59 @@ async function claim(server: string, nodeId: string): Promise<
   return response;
 }
 
-async function submit(server: string, nodeId: string, claimId: string, packetId: string, result: ResultPayload): Promise<void> {
+async function submit(
+  server: string,
+  nodeId: string,
+  claimId: string,
+  packetId: string,
+  extractorVersion: ExtractorVersion,
+  result: ResultPayload
+): Promise<void> {
   const response = await post<{ result: { id: string; validated: boolean } }>(server, '/api/work/submit', {
     nodeId,
     claimId,
     workPacketId: packetId,
+    extractorVersion,
     result
   });
 
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
 
-async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig, bypassIdleGate = false): Promise<void> {
+async function extractFromPacket(
+  packet: WorkPacketPayload,
+  extractorMode: ExtractorMode,
+  mockAllowed: boolean
+): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload }> {
+  if (packet.extractor === 'mock-extractor-v1') {
+    if (!mockAllowed || extractorMode !== 'mock') {
+      throw new Error('mock_extractor_packet_rejected');
+    }
+    return {
+      extractorVersion: 'Mock Extractor v1',
+      result: runMockExtractorV1(packet.sourceText)
+    };
+  }
+
+  if (extractorMode !== 'local-llm') {
+    throw new Error('packet_requires_local_llm');
+  }
+
+  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig);
+  return {
+    extractorVersion: 'Local LLM v1',
+    result
+  };
+}
+
+async function runOnce(
+  server: string,
+  nodeId: string,
+  idleConfig: IdleConfig,
+  extractorMode: ExtractorMode,
+  mockAllowed: boolean,
+  bypassIdleGate = false
+): Promise<void> {
   if (!bypassIdleGate) {
     const idleDecision = await checkHostIdle(idleConfig);
     if (!idleDecision.eligible) {
@@ -171,11 +232,17 @@ async function runOnce(server: string, nodeId: string, idleConfig: IdleConfig, b
   }
 
   await log(`signature verified for packet ${claimed.packet.id}`);
-  const result = runMockExtractorV1(claimed.packet.sourceText);
-  await submit(server, nodeId, claimed.claimId, claimed.packet.id, result);
+  const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
+  await submit(server, nodeId, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result);
 }
 
-async function loop(server: string, nodeId: string, intervalMs: number): Promise<void> {
+async function loop(
+  server: string,
+  nodeId: string,
+  intervalMs: number,
+  extractorMode: ExtractorMode,
+  mockAllowed: boolean
+): Promise<void> {
   await log(`loop started intervalMs=${intervalMs}`);
   let lastRunNowToken: number | null = null;
 
@@ -189,7 +256,7 @@ async function loop(server: string, nodeId: string, intervalMs: number): Promise
       if (controlConfig.paused && !runNowRequested) {
         await log('paused by coordinator control settings');
       } else {
-        await runOnce(server, nodeId, effectiveIdleConfig, runNowRequested);
+        await runOnce(server, nodeId, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested);
       }
       lastRunNowToken = controlConfig.runNowToken;
     } catch (error) {
@@ -203,9 +270,18 @@ async function main() {
   const command = process.argv[2] ?? 'run-once';
   const server = arg('--server', DEFAULT_SERVER) as string;
   const idleConfig = readIdleConfig();
+  const extractorMode = readExtractorMode();
+  const mockAllowed = allowMockExtractor();
+
+  enforceExtractorPolicy(extractorMode, mockAllowed);
+
+  if (extractorMode === 'local-llm') {
+    await verifyLocalLlmAvailable(localLlmConfig);
+    await log(`local llm ready endpoint=${localLlmConfig.endpoint} model=${localLlmConfig.model}`);
+  }
 
   if (command === 'register') {
-    await register(server);
+    await register(server, extractorMode);
     return;
   }
 
@@ -222,16 +298,16 @@ async function main() {
   }
 
   if (command === 'run-once') {
-    const nodeId = arg('--node-id') ?? (await register(server));
+    const nodeId = arg('--node-id') ?? (await register(server, extractorMode));
     await heartbeat(server, nodeId);
-    await runOnce(server, nodeId, idleConfig, arg('--force-now') === 'true');
+    await runOnce(server, nodeId, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
     return;
   }
 
   if (command === 'loop') {
-    const nodeId = arg('--node-id') ?? (await register(server));
+    const nodeId = arg('--node-id') ?? (await register(server, extractorMode));
     const intervalMs = Number(arg('--interval-ms', '5000'));
-    await loop(server, nodeId, intervalMs);
+    await loop(server, nodeId, intervalMs, extractorMode, mockAllowed);
     return;
   }
 

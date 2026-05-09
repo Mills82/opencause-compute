@@ -3,7 +3,7 @@
 ## Current protections
 
 - Work packets are treated as data, not executable code.
-- Worker executes only bundled `Mock Extractor v1` logic.
+- Worker executes only approved built-in extraction paths (`Local LLM v1` by default, mock path by explicit opt-in only).
 - Server signs packet payloads with HMAC-SHA256.
 - Worker verifies packet signatures before extraction.
 - Input source text hash recorded on packet creation.
@@ -17,9 +17,10 @@
 - Duplicate claim attempts from one node are idempotent and do not create concurrent active claims.
 - Nodes are marked offline when heartbeat is stale, and offline-node claims are reclaimed.
 - Worker uses local app-data directory (`~/.opencause-compute`) and writes visible activity logs.
-- No inbound ports or local LLM server are required for worker operation.
+- Worker opens no inbound ports; local LLM runs on localhost and is called outbound by worker.
 - Worker gates packet execution behind idle checks (default: user idle + CPU threshold).
 - Coordinator-managed worker controls allow pause/resume and run-now testing without changing executable code.
+- Release mode rejects mock extractor submissions unless `ALLOW_MOCK_RESULTS=true` is explicitly set.
 
 ## Known V1 limits
 

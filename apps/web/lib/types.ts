@@ -18,6 +18,7 @@ export type SubmitInput = {
   nodeId: string;
   claimId: string;
   workPacketId: string;
+  extractorVersion: 'Local LLM v1' | 'Mock Extractor v1';
   result: ResultPayload;
 };
 

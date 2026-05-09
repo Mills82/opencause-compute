@@ -54,6 +54,7 @@ describe('claim/submit flow', () => {
       nodeId: node.id,
       claimId: claim.claimId,
       workPacketId: claim.packet.id,
+      extractorVersion: 'Local LLM v1',
       result
     });
 
@@ -145,6 +146,7 @@ describe('claim/submit flow', () => {
         nodeId: node.id,
         claimId: claim.claimId,
         workPacketId: claim.packet.id,
+        extractorVersion: 'Local LLM v1',
         result
       })
     ).toThrowError('claim_expired');

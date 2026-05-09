@@ -31,7 +31,7 @@ export default async function HomePage() {
 
       <div className="rounded-xl border border-line bg-panel p-4">
         <p className="font-medium">Extractor mode</p>
-        <p className="text-sm text-slate-300">All demo outputs are generated with Mock Extractor v1.</p>
+        <p className="text-sm text-slate-300">Local LLM v1 is the default extractor in release mode.</p>
       </div>
     </section>
   );

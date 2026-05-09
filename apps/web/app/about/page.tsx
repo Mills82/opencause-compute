@@ -7,7 +7,7 @@ export default function AboutPage() {
         on secure packet coordination and structured extraction workflows.
       </p>
       <p className="text-slate-300">
-        This demo does not make medical claims and uses Mock Extractor v1 only.
+        This release does not make medical claims. Local LLM v1 is the default extractor.
       </p>
     </section>
   );

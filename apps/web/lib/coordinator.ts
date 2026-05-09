@@ -18,6 +18,9 @@ import { signWorkPacketPayload } from './signing';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
+const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local-llm-v1') as
+  | 'local-llm-v1'
+  | 'mock-extractor-v1';
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'>;
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
@@ -26,7 +29,7 @@ const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
   slug: 'cancer-knowledge-miner',
   name: 'Cancer Knowledge Miner',
   description:
-    'Processes open-access oncology/biomedical text into structured, citation-backed research facts using Mock Extractor v1.',
+    'Processes open-access oncology/biomedical text into structured, citation-backed research facts using Local LLM v1.',
   status: 'active'
 };
 
@@ -99,7 +102,7 @@ function buildPacketPayload(packet: WorkPacket): WorkPacketPayload {
     sourceUrl: packet.sourceUrl,
     sourcePublishedAt: packet.sourcePublishedAt,
     inputHash: packet.inputHash,
-    extractor: 'mock-extractor-v1',
+    extractor: packet.extractor,
     createdAt: packet.createdAt
   });
 }
@@ -223,7 +226,13 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
 
 export function submitResult(
   db: DatabaseState,
-  input: { nodeId: string; claimId: string; workPacketId: string; result: ResultPayload }
+  input: {
+    nodeId: string;
+    claimId: string;
+    workPacketId: string;
+    extractorVersion: 'Local LLM v1' | 'Mock Extractor v1';
+    result: ResultPayload;
+  }
 ): { record: ExtractionResult; facts: ExtractedFactRecord[]; workPacket: WorkPacket } {
   const packet = db.workPackets.find((p) => p.id === input.workPacketId);
   if (!packet) {
@@ -246,6 +255,13 @@ export function submitResult(
     throw new Error('claim_expired');
   }
 
+  if (packet.extractor === 'local-llm-v1' && input.extractorVersion !== 'Local LLM v1') {
+    throw new Error('extractor_version_mismatch');
+  }
+  if (packet.extractor === 'mock-extractor-v1' && input.extractorVersion !== 'Mock Extractor v1') {
+    throw new Error('extractor_version_mismatch');
+  }
+
   const packetPayload = buildPacketPayload(packet);
 
   const validation = validateResultForPacket(input.result, packetPayload);
@@ -256,7 +272,7 @@ export function submitResult(
     workPacketId: packet.id,
     nodeId: input.nodeId,
     claimId: claim.id,
-    extractorVersion: 'Mock Extractor v1',
+    extractorVersion: input.extractorVersion,
     resultHash: hashJson(input.result),
     validated: validation.valid,
     validationErrors: validation.errors,
@@ -322,7 +338,7 @@ export function seedDemoData(db: DatabaseState): { project: Project; packetsCrea
       sourceCitation: packetTemplate.sourceCitation,
       sourceUrl: packetTemplate.sourceUrl,
       inputHash: hashText(packetTemplate.sourceText),
-      extractor: 'mock-extractor-v1',
+      extractor: DEFAULT_PACKET_EXTRACTOR,
       createdAt: now
     };
 
