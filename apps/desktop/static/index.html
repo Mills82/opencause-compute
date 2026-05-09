@@ -216,6 +216,9 @@
       const setupProgressBar = document.getElementById('setup-progress-bar');
       const setupSummary = document.getElementById('setup-summary');
       const setupIntro = document.getElementById('setup-intro');
+      const setupAside = document.querySelector('aside');
+      const runtimeStep = document.getElementById('runtime-step');
+      const modelStep = document.getElementById('model-step');
       const registrationStep = document.getElementById('registration-step');
       const dashboardRuntime = document.getElementById('dashboard-runtime');
       const dashboardModel = document.getElementById('dashboard-model');
@@ -254,6 +257,7 @@
         const steps = setupSteps();
         const active = currentStepId();
         const doneCount = steps.filter(step => step.done).length;
+        const setupComplete = registered() && latestState?.modelRuntime?.available && selectedModelInstalled();
         progressSteps.innerHTML = steps.map((step, index) => `
           <div class="step ${step.id === active ? 'active' : ''}">
             <div class="step-number ${step.done ? 'step-done' : step.id === active ? 'step-action' : ''}">${step.done ? '✓' : index + 1}</div>
@@ -261,7 +265,10 @@
           </div>`).join('');
         setupProgressBar.style.width = `${Math.round((doneCount / steps.length) * 100)}%`;
         setupSummary.textContent = doneCount === steps.length ? 'Setup complete. You can leave the worker running or pause it anytime.' : `${doneCount} of ${steps.length} setup steps complete.`;
-        setupIntro.classList.toggle('hidden', registered() && latestState?.modelRuntime?.available && selectedModelInstalled());
+        setupIntro.classList.toggle('hidden', setupComplete);
+        setupAside.classList.toggle('hidden', setupComplete);
+        runtimeStep.classList.toggle('hidden', setupComplete);
+        modelStep.classList.toggle('hidden', setupComplete);
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
         dashboardWork.textContent = 'See web impact dashboard';
@@ -372,7 +379,10 @@
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
-      document.getElementById('diagnostics').onclick = async () => { output.textContent = JSON.stringify(await api.diagnostics(), null, 2); };
+      document.getElementById('diagnostics').onclick = async () => {
+        const diagnostics = await api.diagnostics();
+        output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;
+      };
       document.getElementById('toggle-enrollment-code').onclick = () => {
         const showing = enrollmentCode.type === 'text';
         enrollmentCode.type = showing ? 'password' : 'text';

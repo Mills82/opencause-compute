@@ -314,6 +314,7 @@ async function loop(
   server: string,
   credentials: NodeCredentials,
   intervalMs: number,
+  localIdleConfig: IdleConfig,
   extractorMode: ExtractorMode,
   mockAllowed: boolean
 ): Promise<void> {
@@ -324,7 +325,10 @@ async function loop(
     try {
       await heartbeat(server, credentials);
       const controlConfig = await getControlConfig(server);
-      const effectiveIdleConfig = toIdleConfigFromControl(controlConfig);
+      const coordinatorIdleConfig = toIdleConfigFromControl(controlConfig);
+      const effectiveIdleConfig = localIdleConfig.mode === 'cpu-only' && localIdleConfig.minIdleSeconds === 0
+        ? localIdleConfig
+        : coordinatorIdleConfig;
       const runNowRequested = lastRunNowToken !== null && controlConfig.runNowToken !== lastRunNowToken;
 
       if (controlConfig.paused && !runNowRequested) {
@@ -416,7 +420,7 @@ async function main() {
   if (command === 'loop') {
     const credentials = arg('--node-id') && arg('--node-token') ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token') as string } : (await loadNodeCredentials()) ?? (await register(server, extractorMode));
     const intervalMs = Number(arg('--interval-ms', '5000'));
-    await loop(server, credentials, intervalMs, extractorMode, mockAllowed);
+    await loop(server, credentials, intervalMs, idleConfig, extractorMode, mockAllowed);
     return;
   }
 
