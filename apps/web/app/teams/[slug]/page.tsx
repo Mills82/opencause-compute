@@ -4,7 +4,7 @@ import { loadDb } from '../../../lib/db';
 export default async function TeamProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const db = await loadDb();
-  const team = db.teams.find((candidate) => candidate.slug === slug && candidate.visibility === 'public');
+  const team = db.teams.find((candidate) => candidate.slug === slug && candidate.visibility === 'public' && candidate.moderationStatus !== 'hidden');
   if (!team) notFound();
   const stats = db.teamStatsSnapshots.find((snapshot) => snapshot.teamId === team.id && snapshot.window === 'all_time');
   return (

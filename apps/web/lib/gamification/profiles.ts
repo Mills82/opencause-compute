@@ -32,6 +32,8 @@ export function createPrivateVolunteerProfileForNode(db: DatabaseState, nodeId: 
     slug: uniqueSlug(db, displayName),
     privacyMode: 'private',
     publicProfileEnabled: false,
+    moderationStatus: 'ok',
+    moderationNote: undefined,
     avatarColor: AVATAR_COLORS[(number - 1) % AVATAR_COLORS.length],
     joinedAt: nowIso,
     lastActiveAt: nowIso,

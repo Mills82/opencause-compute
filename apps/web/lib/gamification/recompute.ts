@@ -180,6 +180,8 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
         metricValue: digest.sectionsProcessed.toLocaleString(),
         accentColor: profile.avatarColor,
         publicEnabled: true,
+        moderationStatus: 'ok',
+        moderationNote: undefined,
         periodStart: digest.periodStart,
         periodEnd: digest.periodEnd,
         createdAt: nowIso
@@ -230,6 +232,8 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
         metricValue: stats.contributionScore.toLocaleString(),
         accentColor: '#38bdf8',
         publicEnabled: true,
+        moderationStatus: 'ok',
+        moderationNote: undefined,
         periodStart: weekStart.toISOString(),
         periodEnd: weekEnd.toISOString(),
         createdAt: nowIso

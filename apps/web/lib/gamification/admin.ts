@@ -71,6 +71,8 @@ export function createTeamAdmin(db: DatabaseState, input: {
     slug: uniqueSlug(db.teams.map((candidate) => candidate.slug), name),
     description: input.description?.trim().slice(0, 500) ?? '',
     visibility: input.visibility ?? 'public',
+    moderationStatus: 'ok',
+    moderationNote: undefined,
     createdByVolunteerProfileId: input.createdByVolunteerProfileId,
     createdAt: now,
     updatedAt: now,

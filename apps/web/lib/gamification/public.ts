@@ -9,7 +9,7 @@ export function publicVolunteerName(profile: VolunteerProfile): string {
 }
 
 export function canShowVolunteerProfile(profile: VolunteerProfile): boolean {
-  return profile.publicProfileEnabled && profile.privacyMode === 'public_named';
+  return profile.publicProfileEnabled && profile.privacyMode === 'public_named' && profile.moderationStatus !== 'hidden';
 }
 
 export function buildImpactSummary(db: DatabaseState) {
@@ -17,10 +17,10 @@ export function buildImpactSummary(db: DatabaseState) {
   const sum = (key: keyof VolunteerStatsSnapshot) => stats.reduce((total, snapshot) => total + Number(snapshot[key] ?? 0), 0);
   return {
     volunteers: db.volunteerProfiles.length,
-    publicVolunteers: db.volunteerProfiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private').length,
+    publicVolunteers: db.volunteerProfiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private' && profile.moderationStatus !== 'hidden').length,
     activeVolunteers: stats.filter((snapshot) => snapshot.packetsSubmitted > 0).length,
     activeNodes: db.nodes.filter((node) => node.status === 'online').length,
-    teams: db.teams.filter((team) => team.visibility === 'public').length,
+    teams: db.teams.filter((team) => team.visibility === 'public' && team.moderationStatus !== 'hidden').length,
     sectionsProcessed: sum('sectionsProcessed'),
     formatValidatedSubmissions: sum('formatValidatedSubmissions'),
     consensusPassedContributions: sum('consensusPassedContributions'),
@@ -33,7 +33,7 @@ export function buildImpactSummary(db: DatabaseState) {
 
 export function buildVolunteerLeaderboard(db: DatabaseState) {
   return db.volunteerProfiles
-    .filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private')
+    .filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private' && profile.moderationStatus !== 'hidden')
     .map((profile) => {
       const stats = latestVolunteerStats(db, profile.id);
       const membership = db.teamMemberships.find((candidate) => candidate.volunteerProfileId === profile.id && candidate.status === 'active');
@@ -55,7 +55,7 @@ export function buildVolunteerLeaderboard(db: DatabaseState) {
 
 export function buildTeamLeaderboard(db: DatabaseState) {
   return db.teams
-    .filter((team) => team.visibility === 'public')
+    .filter((team) => team.visibility === 'public' && team.moderationStatus !== 'hidden')
     .map((team) => {
       const stats = db.teamStatsSnapshots.find((snapshot) => snapshot.teamId === team.id && snapshot.window === 'all_time');
       return {

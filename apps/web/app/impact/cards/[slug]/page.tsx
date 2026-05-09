@@ -4,7 +4,7 @@ import { loadDb } from '../../../../lib/db';
 export default async function ImpactCardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const db = await loadDb();
-  const card = db.impactCards.find((candidate) => candidate.slug === slug && candidate.publicEnabled);
+  const card = db.impactCards.find((candidate) => candidate.slug === slug && candidate.publicEnabled && candidate.moderationStatus !== 'hidden');
   if (!card) notFound();
   return (
     <section className="space-y-6">

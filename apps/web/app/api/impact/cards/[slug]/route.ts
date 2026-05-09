@@ -4,7 +4,7 @@ import { loadDb } from '../../../../../lib/db';
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const db = await loadDb();
-  const card = db.impactCards.find((candidate) => candidate.slug === slug && candidate.publicEnabled);
+  const card = db.impactCards.find((candidate) => candidate.slug === slug && candidate.publicEnabled && candidate.moderationStatus !== 'hidden');
   if (!card) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({
     slug: card.slug,

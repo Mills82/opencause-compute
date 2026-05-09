@@ -151,6 +151,8 @@ export const volunteerProfileSchema = z.object({
   bio: z.string().optional(),
   setupTokenHash: z.string().optional(),
   setupTokenExpiresAt: z.string().nullable().optional(),
+  moderationStatus: z.enum(['ok', 'hidden', 'flagged']).default('ok'),
+  moderationNote: z.string().optional(),
   joinedAt: z.string(),
   lastActiveAt: z.string().nullable().optional(),
   statsUpdatedAt: z.string().nullable().optional(),
@@ -175,7 +177,9 @@ export const teamSchema = z.object({
   createdByVolunteerProfileId: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  statsUpdatedAt: z.string().nullable().optional()
+  statsUpdatedAt: z.string().nullable().optional(),
+  moderationStatus: z.enum(['ok', 'hidden', 'flagged']).default('ok'),
+  moderationNote: z.string().optional()
 });
 
 export const teamMembershipSchema = z.object({
@@ -267,9 +271,24 @@ export const impactCardSchema = z.object({
   metricValue: z.string(),
   accentColor: z.string(),
   publicEnabled: z.boolean(),
+  moderationStatus: z.enum(['ok', 'hidden', 'flagged']).default('ok'),
+  moderationNote: z.string().optional(),
   periodStart: z.string().nullable().optional(),
   periodEnd: z.string().nullable().optional(),
   createdAt: z.string()
+});
+
+export const publicReportSchema = z.object({
+  id: z.string(),
+  targetType: z.enum(['volunteer_profile', 'team', 'impact_card']),
+  targetId: z.string().nullable().optional(),
+  targetSlug: z.string().nullable().optional(),
+  reason: z.string(),
+  details: z.string().default(''),
+  reporterContact: z.string().nullable().optional(),
+  status: z.enum(['open', 'reviewed', 'dismissed', 'actioned']),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable().optional()
 });
 
 export const ingestionRunSchema = z.object({
@@ -320,6 +339,7 @@ export const databaseSchema = z.object({
   teamStatsSnapshots: z.array(teamStatsSnapshotSchema).default([]),
   impactDigests: z.array(impactDigestSchema).default([]),
   impactCards: z.array(impactCardSchema).default([]),
+  publicReports: z.array(publicReportSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -347,6 +367,7 @@ export type VolunteerStatsSnapshot = z.infer<typeof volunteerStatsSnapshotSchema
 export type TeamStatsSnapshot = z.infer<typeof teamStatsSnapshotSchema>;
 export type ImpactDigest = z.infer<typeof impactDigestSchema>;
 export type ImpactCard = z.infer<typeof impactCardSchema>;
+export type PublicReport = z.infer<typeof publicReportSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;
