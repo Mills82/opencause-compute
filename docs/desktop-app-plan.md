@@ -100,3 +100,16 @@ npm run electron:dev -w @opencause/desktop
 ```
 
 This is a prototype shell only. It is not signed, not packaged, and not suitable for public volunteers until installer/signing/update/uninstall work is complete.
+
+## Windows packaging scaffold
+
+`apps/desktop/electron-builder.json` defines an unsigned Windows NSIS installer target and includes the built worker runtime as an extra resource.
+
+Commands:
+
+```bash
+npm run package:dir -w @opencause/desktop
+npm run package:win:unsigned -w @opencause/desktop
+```
+
+The Windows target intentionally sets `signAndEditExecutable=false`. This creates a reproducible prototype artifact path only. Public release still requires code-signing certificates, installer QA on a clean Windows machine, and an update/uninstall strategy.

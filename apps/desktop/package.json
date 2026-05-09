@@ -10,7 +10,9 @@
     "test": "vitest run",
     "dev": "tsx src/index.ts",
     "electron:dev": "npm run build && electron dist/electron-main.js",
-    "package:plan": "node dist/index.js package-plan"
+    "package:plan": "node dist/index.js package-plan",
+    "package:win:unsigned": "npm run build && electron-builder --config electron-builder.json --win --x64",
+    "package:dir": "npm run build && electron-builder --config electron-builder.json --dir"
   },
   "dependencies": {
     "@opencause/shared": "file:../../packages/shared"
@@ -20,6 +22,7 @@
     "electron": "^33.2.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.1",
+    "electron-builder": "^25.1.8"
   }
 }

@@ -1,0 +1,42 @@
+{
+  "appId": "ai.appassist.opencause.compute.worker",
+  "productName": "OpenCause Compute Worker",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "../worker/dist",
+      "to": "worker/dist"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "OpenCause Compute Worker"
+  },
+  "mac": {
+    "target": ["dir"],
+    "identity": null
+  },
+  "linux": {
+    "target": ["dir"]
+  }
+}
