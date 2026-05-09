@@ -4,7 +4,7 @@ import { withDb } from '../../../../../lib/db';
 import { createWorkPacketsFromSources, getOrCreateProject } from '../../../../../lib/coordinator';
 import { completeIngestionRun, startIngestionRun } from '../../../../../lib/ingestion/runs';
 import { fetchPubMedRecords } from '../../../../../lib/ingestion/pubmed';
-import { checkNamedRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
+import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { isAdminAuthorized } from '../../../../../lib/admin-auth';
 
 const requestSchema = z.object({
@@ -18,7 +18,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const rateLimit = checkNamedRateLimit(request, 'ingest');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'ingest');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

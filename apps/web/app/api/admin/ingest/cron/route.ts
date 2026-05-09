@@ -5,7 +5,7 @@ import { completeIngestionRun, startIngestionRun } from '../../../../../lib/inge
 import { isAdminAuthorized, isCronAuthorized } from '../../../../../lib/admin-auth';
 import { fetchPubMedRecords } from '../../../../../lib/ingestion/pubmed';
 import { ingestPmcOaFullTextWithReport } from '../../../../../lib/ingestion/pmc-oa';
-import { checkNamedRateLimit, rateLimitResponse } from '../../../../../lib/rate-limit';
+import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 
 const DEFAULT_QUERY = 'cancer biomarker response resistance';
 const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
@@ -134,7 +134,7 @@ async function runIngestion() {
 }
 
 export async function GET(request: Request) {
-  const rateLimit = checkNamedRateLimit(request, 'ingest');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'ingest');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const rateLimit = checkNamedRateLimit(request, 'ingest');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'ingest');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request) && !isCronAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

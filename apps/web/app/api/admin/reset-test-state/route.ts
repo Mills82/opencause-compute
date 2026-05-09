@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { isAdminAuthorized } from '../../../../lib/admin-auth';
 import { recordAuditEvent } from '../../../../lib/audit';
 import { withDb } from '../../../../lib/db';
-import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 
 function resetEnabled(): boolean {
   return process.env.ENABLE_ADMIN_TEST_RESET === 'true';
 }
 
 export async function POST(request: Request) {
-  const rateLimit = checkNamedRateLimit(request, 'adminApi');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'adminApi');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

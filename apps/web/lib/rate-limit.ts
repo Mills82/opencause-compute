@@ -1,10 +1,12 @@
+import { checkPostgresRateLimit } from './rate-limit-db';
+
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
 
 export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
-function clientIp(request: Request): string {
+export function rateLimitIdentityFromRequest(request: Request): string {
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     request.headers.get('x-real-ip') ||
@@ -40,7 +42,7 @@ export function checkRateLimit(
   options: { limit: number; windowMs: number; identity?: string }
 ): RateLimitResult {
   const now = Date.now();
-  const key = `${scope}:${options.identity ?? clientIp(request)}`;
+  const key = `${scope}:${options.identity ?? rateLimitIdentityFromRequest(request)}`;
   const current = buckets.get(key);
 
   if (!current || current.resetAt <= now) {
@@ -54,6 +56,18 @@ export function checkRateLimit(
 
   current.count += 1;
   return { allowed: true };
+}
+
+export async function checkNamedRateLimitAsync(
+  request: Request,
+  scope: keyof typeof defaultLimits,
+  identity?: string
+): Promise<RateLimitResult> {
+  const options = defaultLimits[scope];
+  const key = `${scope}:${identity ?? rateLimitIdentityFromRequest(request)}`;
+  const postgresResult = await checkPostgresRateLimit(key, options);
+  if (postgresResult) return postgresResult;
+  return checkRateLimit(request, scope, { ...options, identity });
 }
 
 export function checkNamedRateLimit(

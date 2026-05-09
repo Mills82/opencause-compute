@@ -35,3 +35,7 @@ Current deployment is suitable only for controlled private-alpha/demo exposure w
 - Private alpha / controlled demo: **go**, with trusted users only.
 - Public beta with selected external volunteers: **not yet**; installer, sandbox/resource controls, and stronger abuse controls should land first.
 - Broad public launch: **no-go** until every blocker in `docs/public-launch-checklist.md` is closed.
+
+## Abuse-control update
+
+Hosted deployments now use Postgres-backed rate-limit buckets when `DATABASE_URL` is present, with in-memory fallback for local development or if `OPENCAUSE_DB_RATE_LIMITS=false`. This is stronger than pure in-process limits for serverless deployments, but broad public launch should still monitor abuse patterns and consider edge/provider controls for high traffic.

@@ -30,7 +30,8 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add best-effort configurable rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
 - [x] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
 - [ ] Add public `/volunteer` form with Turnstile widget and email delivery/verification.
-- [ ] Replace in-process rate limiting with production-grade distributed abuse controls before broad public launch.
+- [x] Add Postgres-backed rate-limit buckets for hosted/serverless-safe abuse control.
+- [ ] Add edge/provider abuse monitoring and alerting before broad high-traffic launch.
 
 ## Deployment/env checklist
 

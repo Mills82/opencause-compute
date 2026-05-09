@@ -3,13 +3,13 @@ import { z } from 'zod';
 import { isAdminAuthorized } from '../../../../../../lib/admin-auth';
 import { recordAuditEvent } from '../../../../../../lib/audit';
 import { withDb } from '../../../../../../lib/db';
-import { checkNamedRateLimit, rateLimitResponse } from '../../../../../../lib/rate-limit';
+import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../../lib/rate-limit';
 
 const requestSchema = z.object({ status: z.enum(['issued', 'revoked']) });
 
 export async function POST(request: Request, { params }: { params: Promise<{ enrollmentId: string }> }) {
   const { enrollmentId } = await params;
-  const rateLimit = checkNamedRateLimit(request, 'adminApi');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'adminApi');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

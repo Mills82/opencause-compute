@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { withDb } from '../../../../lib/db';
 import { recordAuditEvent } from '../../../../lib/audit';
 import { hashEnrollmentCode } from '../../../../lib/coordinator';
-import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 import { clientIp, verifyTurnstile } from '../../../../lib/turnstile';
 
 const requestSchema = z.object({
@@ -17,7 +17,7 @@ function publicEnrollmentEnabled(): boolean {
 }
 
 export async function POST(request: Request) {
-  const rateLimit = checkNamedRateLimit(request, 'nodeRegister');
+  const rateLimit = await checkNamedRateLimitAsync(request, 'nodeRegister');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
 
   if (!publicEnrollmentEnabled()) {
