@@ -20,9 +20,20 @@ describe('local llm helpers', () => {
     const normalized = normalizeLocalLlmPayload({
       facts: [{ drugOrCompound: null, relationshipType: 'associated with response', evidenceSentence: null, confidence: '0.7' }]
     });
-    expect(normalized.summary).toContain('Extracted 1 candidate fact');
+    expect(normalized.summary).toContain('No candidate facts extracted');
     expect(normalized.warnings).toContain('local_model_missing_warnings_array');
-    expect(normalized.facts[0].relationshipType).toBe('unclear');
+    expect(normalized.warnings).toContain('local_model_returned_no_facts');
+    expect(normalized.facts).toHaveLength(0);
+  });
+
+  it('keeps facts with exact source evidence', () => {
+    const evidenceSentence = 'Responses to atezolizumab appear durable in metastatic triple-negative breast cancer.';
+    const normalized = normalizeLocalLlmPayload({
+      facts: [{ drugOrCompound: null, relationshipType: 'associated_with_response', evidenceSentence, confidence: '0.7' }],
+      summary: 'ok',
+      warnings: []
+    }, evidenceSentence);
+    expect(normalized.facts[0].relationshipType).toBe('associated_with_response');
     expect(normalized.facts[0].drugOrCompound).toBeUndefined();
     expect(normalized.facts[0].confidence).toBe(0.7);
   });

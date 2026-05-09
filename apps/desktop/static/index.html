@@ -268,6 +268,12 @@
       let dashboardPoll = null;
       let profileSetupUrl = null;
       let activeTab = 'overview';
+      let settingsDirty = false;
+
+      function editableFocused() {
+        const el = document.activeElement;
+        return Boolean(el && ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName));
+      }
 
       function modelLabel(model) { return `${model.label} (${model.id})`; }
 
@@ -403,12 +409,14 @@
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
           renderModels(latestState.modelRuntime);
-          coordinatorUrl.value = latestState.settings.coordinatorUrl;
-          maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
-          minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
-          schedule.value = latestState.settings.resourceControls.schedule;
-          startup.checked = latestState.settings.startupOnLogin;
-          battery.checked = latestState.settings.resourceControls.runOnBattery;
+          if (!settingsDirty && !editableFocused()) {
+            coordinatorUrl.value = latestState.settings.coordinatorUrl;
+            maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
+            minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
+            schedule.value = latestState.settings.resourceControls.schedule;
+            startup.checked = latestState.settings.startupOnLogin;
+            battery.checked = latestState.settings.resourceControls.runOnBattery;
+          }
           output.textContent = JSON.stringify(latestState, null, 2);
           updateProgress();
         } catch (error) {
@@ -436,8 +444,14 @@
         });
         settingsMessage.textContent = 'Settings saved.';
         output.textContent = JSON.stringify(saved, null, 2);
+        settingsDirty = false;
         await refresh();
       }
+
+      [coordinatorUrl, maxCpu, minIdle, schedule, startup, battery].forEach((input) => {
+        input.addEventListener('input', () => { settingsDirty = true; });
+        input.addEventListener('change', () => { settingsDirty = true; });
+      });
 
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };

@@ -42,6 +42,8 @@ export function extractionPrompt(sourceText: string): string {
     'associated_with_response, associated_with_resistance, associated_with_risk, associated_with_progression, studied_with, unclear',
     'Rules:',
     '- evidenceSentence must be an exact sentence copied from source text',
+    '- if you cannot copy an exact evidence sentence, omit that fact',
+    '- omit cancerType, geneOrBiomarker, and drugOrCompound when unknown; never use null or placeholder text',
     '- confidence must be between 0 and 1',
     '- include at least one fact when possible',
     '- do not add markdown or commentary, output JSON only',
@@ -73,12 +75,14 @@ function confidence(value: unknown): number {
   return Math.max(0, Math.min(1, numeric));
 }
 
-export function normalizeLocalLlmPayload(rawPayload: unknown): ResultPayload {
+export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): ResultPayload {
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const factsSource = Array.isArray(source.facts) ? source.facts : [];
   const facts = factsSource
     .filter((fact): fact is Record<string, unknown> => Boolean(fact && typeof fact === 'object'))
     .map((fact) => {
+      const evidenceSentence = requiredString(fact.evidenceSentence, '');
+      if (!evidenceSentence || (sourceText && !sourceText.includes(evidenceSentence))) return null;
       const relationship = typeof fact.relationshipType === 'string' && ALLOWED_RELATIONSHIPS.has(fact.relationshipType)
         ? fact.relationshipType
         : 'unclear';
@@ -87,10 +91,11 @@ export function normalizeLocalLlmPayload(rawPayload: unknown): ResultPayload {
         geneOrBiomarker: optionalString(fact.geneOrBiomarker),
         drugOrCompound: optionalString(fact.drugOrCompound),
         relationshipType: relationship,
-        evidenceSentence: requiredString(fact.evidenceSentence, 'No exact evidence sentence returned by local model.'),
+        evidenceSentence,
         confidence: confidence(fact.confidence)
       };
-    });
+    })
+    .filter((fact): fact is NonNullable<typeof fact> => Boolean(fact));
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : [];
   if (!Array.isArray(source.warnings)) warnings.push('local_model_missing_warnings_array');
   if (!facts.length) warnings.push('local_model_returned_no_facts');
@@ -145,5 +150,5 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
   const json = (await response.json()) as { response?: string };
   const raw = json.response ?? '';
   const payload = JSON.parse(extractJsonBlock(raw));
-  return normalizeLocalLlmPayload(payload);
+  return normalizeLocalLlmPayload(payload, sourceText);
 }
