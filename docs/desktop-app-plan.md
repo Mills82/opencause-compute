@@ -84,3 +84,19 @@ It tracks whether the UI should block or warn on:
 - battery/resource settings
 
 This keeps product/safety logic outside a specific UI framework and makes the eventual Tauri/Electron layer thinner.
+
+## Electron prototype shell
+
+`apps/desktop` now includes an Electron prototype entrypoint:
+
+- `src/electron-main.ts`
+- `src/electron-preload.ts`
+- `static/index.html`
+
+Run locally with:
+
+```bash
+npm run electron:dev -w @opencause/desktop
+```
+
+This is a prototype shell only. It is not signed, not packaged, and not suitable for public volunteers until installer/signing/update/uninstall work is complete.

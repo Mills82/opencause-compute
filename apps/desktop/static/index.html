@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenCause Compute Worker</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #0b1020; color: #e5eefc; }
+      main { max-width: 900px; margin: 0 auto; padding: 32px; }
+      section { border: 1px solid #26324d; border-radius: 12px; padding: 16px; margin: 12px 0; background: #11182a; }
+      .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
+      button { margin-right: 8px; padding: 8px 12px; border-radius: 8px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
+      pre { white-space: pre-wrap; background: #070b14; padding: 12px; border-radius: 8px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>OpenCause Compute Worker</h1>
+      <p>Desktop prototype shell. Not a signed public installer yet.</p>
+      <div id="screens"></div>
+      <section>
+        <button id="refresh">Refresh</button>
+        <button id="start">Start worker</button>
+        <button id="stop">Stop worker</button>
+        <button id="log">Tail log</button>
+      </section>
+      <pre id="output"></pre>
+    </main>
+    <script>
+      const api = window.opencauseDesktop;
+      const screens = document.getElementById('screens');
+      const output = document.getElementById('output');
+      async function refresh() {
+        const state = await api.getState();
+        screens.innerHTML = state.viewModel.map(screen => `<section><h2>${screen.title}</h2><p class="${screen.status}">${screen.status}</p><p>${screen.message}</p></section>`).join('');
+        output.textContent = JSON.stringify(state, null, 2);
+      }
+      document.getElementById('refresh').onclick = refresh;
+      document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); };
+      document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); };
+      document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      refresh();
+    </script>
+  </body>
+</html>
