@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getProjects } from '../../lib/queries';
 
 export default async function ProjectsPage() {

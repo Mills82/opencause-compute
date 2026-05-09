@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getNodes, getWorkerControlConfig } from '../../lib/queries';
 import WorkerControlPanel from './worker-control-panel';
 

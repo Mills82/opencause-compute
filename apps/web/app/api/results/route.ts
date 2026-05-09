@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { withDb } from '../../../lib/db';
 import { listResults } from '../../../lib/coordinator';

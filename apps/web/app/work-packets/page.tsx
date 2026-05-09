@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getWorkPackets } from '../../lib/queries';
 
 export default async function WorkPacketsPage() {
