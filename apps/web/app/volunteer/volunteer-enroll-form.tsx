@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 
 export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: boolean; turnstileSiteKey?: string }) {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState(enabled ? 'Enter your email to request a one-time worker enrollment code.' : 'Public enrollment is not enabled yet.');
+  const [status, setStatus] = useState(enabled ? 'Enter your email to request a one-time worker enrollment code.' : 'Volunteer enrollment is not open yet.');
   const [enrollmentCode, setEnrollmentCode] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -22,20 +22,20 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
     const json = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setStatus(json.error === 'challenge_failed' ? 'Anti-abuse challenge failed. Refresh and try again.' : `Enrollment failed: ${json.error ?? response.status}`);
+      setStatus(json.error === 'challenge_failed' ? 'Verification failed. Refresh and try again.' : `Enrollment request failed: ${json.error ?? response.status}`);
       return;
     }
 
-    setEnrollmentCode(json.enrollmentCode);
-    setStatus('Enrollment code issued. Save it now; it is shown only once.');
+    setEnrollmentCode(json.enrollmentCode ?? null);
+    setStatus(json.enrollmentCode ? 'Enrollment code issued. Save it now; it is shown only once.' : 'Enrollment code sent. Check your email for next steps.');
   }
 
   return (
     <form className="space-y-4 rounded-xl border border-line bg-panel p-5" onSubmit={submit}>
       <div>
-        <h3 className="text-lg font-medium">Volunteer signup</h3>
+        <h3 className="text-lg font-medium">Request worker access</h3>
         <p className="mt-1 text-sm text-slate-300">
-          This creates a one-time code for registering a worker node. The code is consumed when your worker registers.
+          We’ll send a one-time enrollment code for registering a worker on a computer you control.
         </p>
       </div>
       <label className="block text-sm">
@@ -59,7 +59,8 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
           <p className="font-medium text-white">One-time enrollment code</p>
           <code className="block break-all text-accent">{enrollmentCode}</code>
           <p className="text-slate-300">
-            Future desktop installers will apply this automatically. CLI/private-alpha users can set <code>NODE_ENROLLMENT_CODE</code> or pass <code>--enrollment-code</code> during registration.
+            Use this code only on a computer you control. Future desktop installers will apply it automatically; command-line
+            testers can set <code>NODE_ENROLLMENT_CODE</code> or pass <code>--enrollment-code</code> during registration.
           </p>
         </div>
       ) : null}

@@ -44,7 +44,7 @@ Private-alpha `NODE_ENROLLMENT_CODES` are static operator-issued invite codes. P
 
 ```bash
 RESEND_API_KEY=
-ENROLLMENT_EMAIL_FROM=OpenCause Compute <hello@appassist.ai>
+ENROLLMENT_EMAIL_FROM=Alan <alan@appassist.ai>
 SHOW_ENROLLMENT_CODE_IN_BROWSER=false
 ```
 

@@ -7,14 +7,15 @@ export default function DownloadPage() {
   return (
     <section className="space-y-6">
       <div className="max-w-3xl space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">Desktop worker download</p>
-        <h2 className="text-3xl font-semibold">OpenCause Compute Worker</h2>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">Worker download</p>
+        <h2 className="text-3xl font-semibold">Download the OpenCause Compute Worker.</h2>
         <p className="text-slate-300">
-          The desktop worker lets volunteers contribute idle compute to AI-assisted open science. It processes open-access/public
-          literature packets and returns citation-backed candidate facts with provenance.
+          The worker app lets volunteers contribute spare compute to open science projects. It verifies signed work packets,
+          keeps activity visible, and returns citation-backed candidate facts with provenance.
         </p>
         <p className="text-slate-300">
-          Results require consensus and/or human review before scientific use. OpenCause Compute is not medical advice.
+          Worker output is research-support evidence. It is not medical advice and should not be used for diagnosis, treatment,
+          or care decisions.
         </p>
       </div>
 
@@ -24,37 +25,37 @@ export default function DownloadPage() {
           <div className="mt-3 space-y-3 text-sm text-slate-300">
             {isPrototype ? (
               <div className="rounded border border-yellow-500/50 bg-yellow-500/10 p-3 text-yellow-100">
-                Prototype artifact only. Do not treat this as a signed public release.
+                This is a prototype build for testing. Only install it on a machine you are comfortable using for QA.
               </div>
             ) : null}
             <a className="inline-block rounded bg-accent px-4 py-2 text-ink" href={windowsUrl}>
               Download Windows worker
             </a>
             <ul className="list-disc space-y-1 pl-6">
-              <li>Verify checksums before testing.</li>
-              <li>Only install prototype builds on machines intended for QA.</li>
-              <li>Do not use worker output as medical advice or validated scientific findings.</li>
+              <li>Verify checksums before installing.</li>
+              <li>Use the worker only on a computer you control.</li>
+              <li>Keep activity logs visible and pause the worker any time you need the machine back.</li>
             </ul>
             <div className="flex flex-wrap gap-3">
               {checksumUrl ? <a href={checksumUrl}>SHA256 checksums</a> : null}
-              {releaseNotesUrl ? <a href={releaseNotesUrl}>Prototype release notes</a> : null}
+              {releaseNotesUrl ? <a href={releaseNotesUrl}>Release notes</a> : null}
             </div>
           </div>
         ) : (
           <div className="mt-3 rounded border border-line bg-ink p-4 text-sm text-slate-300">
-            No public worker download is configured yet. The Windows prototype artifact can be built through GitHub Actions, but
-            it should not be posted here until checksum, signing/unsigned status, and QA expectations are clear.
+            A public worker download is not available yet. We are completing installer, signing, and QA checks before publishing
+            the download link.
           </div>
         )}
       </article>
 
       <article className="rounded-xl border border-line bg-panel p-5 text-sm text-slate-300">
-        <h3 className="text-lg font-medium text-white">Before installing</h3>
+        <h3 className="text-lg font-medium text-white">What to expect</h3>
         <ul className="mt-3 list-disc space-y-2 pl-6">
-          <li>You should be able to pause/resume work and see activity logs.</li>
-          <li>The worker should store credentials/logs in its app data directory.</li>
-          <li>The worker should not access personal files outside its app data directory.</li>
-          <li>Volunteer electricity, network, and hardware resources may be used.</li>
+          <li>You can pause worker activity and view logs.</li>
+          <li>The worker stores credentials and logs in its app data directory.</li>
+          <li>The worker is designed to process open/public literature, not your personal files.</li>
+          <li>Your computer may use electricity, network, CPU, and memory while contributing.</li>
         </ul>
       </article>
     </section>

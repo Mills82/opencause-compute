@@ -10,10 +10,13 @@ export default async function ReadinessPage() {
     <section className="space-y-6">
       <div className="max-w-3xl space-y-3">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">Launch readiness</p>
-        <h2 className="text-3xl font-semibold">OpenCause Compute go/no-go</h2>
+        <h2 className="text-3xl font-semibold">OpenCause Compute readiness</h2>
         <p className="text-slate-300">
-          Current status: <span className="font-semibold text-white">{readiness.goNoGo}</span>. This page is intentionally
-          conservative; private-alpha readiness does not mean broad public launch readiness.
+          We publish readiness status so volunteers and collaborators can see what is complete and what still needs work before
+          broad public participation.
+        </p>
+        <p className="text-slate-300">
+          Current status: <span className="font-semibold text-white">{readiness.goNoGo}</span>.
         </p>
       </div>
       <div className="grid gap-3">

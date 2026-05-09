@@ -9,24 +9,25 @@ export default function VolunteerPage() {
     <section className="space-y-6">
       {enabled && turnstileSiteKey ? <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer /> : null}
       <div className="max-w-3xl space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">Volunteer onboarding</p>
-        <h2 className="text-3xl font-semibold">Contribute idle compute to AI-assisted open science.</h2>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-accent">Volunteer compute</p>
+        <h2 className="text-3xl font-semibold">Help process open science literature with your computer.</h2>
         <p className="text-slate-300">
-          OpenCause Compute workers process open-access/public literature packets, verify coordinator signatures, record visible
-          logs, and send back citation-backed candidate facts with provenance.
+          A worker node downloads signed research packets, verifies them, runs an approved local extraction workflow, and sends
+          back citation-backed candidate facts with provenance.
         </p>
         <p className="text-slate-300">
-          Results require consensus and/or human review before scientific use. OpenCause Compute is not medical advice.
+          You stay in control: worker activity should be visible, pausable, and limited by resource settings. OpenCause Compute
+          does not process private medical records and is not medical advice.
         </p>
       </div>
 
       <VolunteerEnrollForm enabled={enabled} turnstileSiteKey={turnstileSiteKey} />
 
       <article className="rounded-xl border border-line bg-panel p-5 text-sm text-slate-300">
-        <h3 className="text-lg font-medium text-white">Before public download</h3>
+        <h3 className="text-lg font-medium text-white">Before you join</h3>
         <p className="mt-2">
-          The backend supports self-serve one-time enrollment codes, but broad public participation still needs the packaged
-          desktop worker app, stronger sandbox/resource controls, and production-grade abuse monitoring.
+          Public volunteer enrollment is opening carefully. Worker builds may be marked prototype while installer signing,
+          desktop QA, and additional resource-control checks are completed.
         </p>
       </article>
     </section>
