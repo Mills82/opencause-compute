@@ -318,17 +318,14 @@ async function loop(
   extractorMode: ExtractorMode,
   mockAllowed: boolean
 ): Promise<void> {
-  await log(`loop started intervalMs=${intervalMs}`);
+  await log(`loop started intervalMs=${intervalMs} idleMode=${localIdleConfig.mode} minIdleSeconds=${localIdleConfig.minIdleSeconds} maxCpuPercent=${localIdleConfig.maxCpuPercent}`);
   let lastRunNowToken: number | null = null;
 
   while (true) {
     try {
       await heartbeat(server, credentials);
       const controlConfig = await getControlConfig(server);
-      const coordinatorIdleConfig = toIdleConfigFromControl(controlConfig);
-      const effectiveIdleConfig = localIdleConfig.mode === 'cpu-only' && localIdleConfig.minIdleSeconds === 0
-        ? localIdleConfig
-        : coordinatorIdleConfig;
+      const effectiveIdleConfig = localIdleConfig;
       const runNowRequested = lastRunNowToken !== null && controlConfig.runNowToken !== lastRunNowToken;
 
       if (controlConfig.paused && !runNowRequested) {
