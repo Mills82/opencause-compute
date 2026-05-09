@@ -54,7 +54,7 @@ Use a clean Windows VM or physical machine with no repo checkout and no develope
 
 - [ ] Update mechanism selected.
 - [ ] Update channel/channel policy documented.
-- [ ] Downgrade/rollback behavior documented.
+- [x] Downgrade/rollback behavior documented in `docs/release-rollback.md`.
 - [ ] Failed update leaves worker stopped or on prior working version, not half-updated.
 
 ## Security/resource test

@@ -37,13 +37,13 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [x] Add dependency audit triage and document remaining framework upgrade blocker.
 - [x] Add admin-gated private-alpha test-state reset path.
-- [ ] Resolve or formally accept remaining moderate Next/PostCSS audit findings before broad public launch.
+- [x] Resolve or formally accept remaining moderate Next/PostCSS audit findings before broad public launch.
 - [x] Add relational database architecture plan and migration scaffolding.
 - [x] `.env.example` includes coordinator, worker, hosted, optional ingestion, and rate-limit settings.
 - [x] Hosted deployments fail clearly on missing required configuration.
 - [x] File DB fallback is local/dev only by default; hosted uses Postgres relational storage unless explicitly disabled.
 - [x] Move hosted production from single-row JSONB state to relational tables.
-- [ ] Rollback procedure is documented and tested.
+- [ ] Rollback procedure is documented in `docs/release-rollback.md`; dry-run test still required.
 
 ## Worker release checklist
 

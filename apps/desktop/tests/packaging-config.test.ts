@@ -14,4 +14,11 @@ describe('electron-builder packaging config', () => {
     expect(config.files).toContain('dist/**/*');
     expect(config.extraResources[0]).toMatchObject({ from: '../worker/dist', to: 'worker/dist' });
   });
+
+  it('uses an installer shape suitable for non-developer Windows volunteers', () => {
+    expect(config.nsis.oneClick).toBe(false);
+    expect(config.nsis.allowToChangeInstallationDirectory).toBe(true);
+    expect(config.nsis.createDesktopShortcut).toBe(true);
+    expect(config.nsis.createStartMenuShortcut).toBe(true);
+  });
 });

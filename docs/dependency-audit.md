@@ -18,4 +18,4 @@ The app has been migrated to Next 16.2.6 and the prior high-severity Next findin
 
 ## Public launch implication
 
-Broad public launch should include advisory-level review of the remaining moderate audit findings and either a safe dependency update when available or a documented exception if the advisories do not affect this deployment.
+The remaining moderate Next/PostCSS findings are formally accepted for private alpha and selected public beta in `docs/dependency-audit-exception-next-postcss.md`. Broad public launch should re-run advisory review and prefer a safe dependency update if one is available by then.
