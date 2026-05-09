@@ -15,10 +15,13 @@
       section, .card { border: 1px solid #26324d; border-radius: 14px; padding: 18px; margin: 14px 0; background: #11182a; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
       .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
-      button, select { margin-top: 8px; padding: 9px 12px; border-radius: 9px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
+      button, select, input { margin-top: 8px; padding: 9px 12px; border-radius: 9px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
       button.primary { background: #7dd3fc; border-color: #7dd3fc; color: #07111f; font-weight: 700; }
+      button.danger { border-color: #ff7b72; color: #ffb4ad; }
       button:disabled { opacity: .55; cursor: not-allowed; }
       label { display: block; color: #d7e1f4; font-size: 14px; margin-bottom: 6px; }
+      input[type="number"], input[type="url"] { width: calc(100% - 26px); }
+      input[type="checkbox"] { width: auto; margin-right: 8px; }
       pre { white-space: pre-wrap; background: #070b14; padding: 12px; border-radius: 8px; overflow: auto; max-height: 280px; }
       .small { font-size: 13px; color: #94a3b8; }
       .pill { display: inline-block; border: 1px solid #3b4b70; border-radius: 999px; padding: 3px 8px; font-size: 12px; color: #b8c4d9; margin-left: 8px; }
@@ -61,10 +64,51 @@
         <section>
           <h2>3. Worker</h2>
           <p id="worker-message">Checking worker...</p>
-          <button id="start">Start worker</button>
-          <button id="stop">Stop worker</button>
+          <p id="version-message" class="small"></p>
+          <button id="start" class="primary">Resume / start worker</button>
+          <button id="pause">Pause worker</button>
+          <button id="stop">Stop process</button>
         </section>
       </div>
+
+      <section>
+        <h2>Volunteer settings</h2>
+        <div class="grid">
+          <label>
+            Coordinator URL
+            <input id="coordinator-url" type="url" />
+          </label>
+          <label>
+            Max CPU percent
+            <input id="max-cpu" type="number" min="5" max="95" step="5" />
+          </label>
+          <label>
+            Minimum idle seconds
+            <input id="min-idle" type="number" min="10" max="3600" step="10" />
+          </label>
+          <label>
+            Work schedule
+            <select id="schedule">
+              <option value="idle-only">Only while idle</option>
+              <option value="manual">Manual only</option>
+              <option value="always">Always while running</option>
+            </select>
+          </label>
+        </div>
+        <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in</label>
+        <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
+        <button id="save-settings" class="primary">Save settings</button>
+        <p id="settings-message" class="small">Settings are stored locally in your app data directory.</p>
+      </section>
+
+      <section>
+        <h2>Uninstall and local data</h2>
+        <p>
+          Removing the app from Windows Apps/Programs removes the application. Use this button first if you also want to remove
+          local worker credentials, enrollment state, and logs from this computer.
+        </p>
+        <button id="uninstall-state" class="danger">Remove local worker data</button>
+      </section>
 
       <section>
         <h2>Setup checklist</h2>
@@ -86,6 +130,14 @@
       const modelSelect = document.getElementById('model-select');
       const modelGuidance = document.getElementById('model-guidance');
       const pullButton = document.getElementById('pull-model');
+      const versionMessage = document.getElementById('version-message');
+      const settingsMessage = document.getElementById('settings-message');
+      const coordinatorUrl = document.getElementById('coordinator-url');
+      const maxCpu = document.getElementById('max-cpu');
+      const minIdle = document.getElementById('min-idle');
+      const schedule = document.getElementById('schedule');
+      const startup = document.getElementById('startup');
+      const battery = document.getElementById('battery');
       let latestState = null;
 
       function modelLabel(model) {
@@ -116,16 +168,45 @@
       async function refresh() {
         latestState = await api.getState();
         runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
-        workerMessage.textContent = latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.';
+        workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
+        versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
         screens.innerHTML = latestState.viewModel.map(screen => `<div class="card"><h3>${screen.title}<span class="pill ${screen.status}">${screen.status}</span></h3><p>${screen.message}</p></div>`).join('');
         renderModels(latestState.modelRuntime);
+        coordinatorUrl.value = latestState.settings.coordinatorUrl;
+        maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
+        minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
+        schedule.value = latestState.settings.resourceControls.schedule;
+        startup.checked = latestState.settings.startupOnLogin;
+        battery.checked = latestState.settings.resourceControls.runOnBattery;
         output.textContent = JSON.stringify(latestState, null, 2);
       }
 
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('start').onclick = async () => { output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('save-settings').onclick = async () => {
+        settingsMessage.textContent = 'Saving settings...';
+        const saved = await api.updateSettings({
+          coordinatorUrl: coordinatorUrl.value,
+          startupOnLogin: startup.checked,
+          resourceControls: {
+            maxCpuPercent: Number(maxCpu.value),
+            minIdleSeconds: Number(minIdle.value),
+            schedule: schedule.value,
+            runOnBattery: battery.checked
+          }
+        });
+        settingsMessage.textContent = 'Settings saved.';
+        output.textContent = JSON.stringify(saved, null, 2);
+        await refresh();
+      };
+      document.getElementById('uninstall-state').onclick = async () => {
+        if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return;
+        output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2);
+        await refresh();
+      };
       modelSelect.onchange = renderSelectedModelGuidance;
       pullButton.onclick = async () => {
         const model = modelSelect.value;

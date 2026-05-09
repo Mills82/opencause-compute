@@ -52,7 +52,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add Windows unsigned prototype artifact workflow.
 - [ ] Installer does not require normal volunteers to install Node/npm manually.
 - [x] Private-alpha worker has visible activity log, coordinator pause handling, status command, and local-state uninstall command.
-- [ ] Public volunteer worker has one-click pause/resume, uninstall, startup-on-login control, resource settings, and version display in desktop UI.
+- [x] Public volunteer worker has one-click pause/resume, uninstall/local-data removal, startup-on-login control, resource settings, and version display in desktop UI.
 - [ ] Complete Windows release QA checklist in `docs/windows-release-qa-checklist.md`.
 - [ ] Implement code signing plan in `docs/code-signing-plan.md`.
 - [x] Worker release/sandbox target model is documented in `docs/worker-release-and-sandbox-plan.md`.

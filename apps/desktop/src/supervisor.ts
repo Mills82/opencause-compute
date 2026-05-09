@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 export type WorkerSupervisorConfig = {
@@ -88,5 +88,11 @@ export class WorkerSupervisor {
     const logPath = path.join(this.config.appDir, 'worker.log');
     const content = await readFile(logPath, 'utf8').catch(() => '');
     return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
+  }
+
+  async uninstallLocalState(): Promise<WorkerRuntimeStatus> {
+    this.stop();
+    await rm(this.config.appDir, { recursive: true, force: true });
+    return this.status();
   }
 }

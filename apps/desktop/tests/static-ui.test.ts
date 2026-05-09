@@ -14,4 +14,13 @@ describe('desktop static first-run UI', () => {
   it('warns that large or experimental models require opt-in', () => {
     expect(html).toContain('Advanced model requires explicit opt-in');
   });
+
+  it('exposes public volunteer controls for pause, resources, startup, version, and local data removal', () => {
+    expect(html).toContain('Resume / start worker');
+    expect(html).toContain('Pause worker');
+    expect(html).toContain('Max CPU percent');
+    expect(html).toContain('Start OpenCause Compute when I sign in');
+    expect(html).toContain('App version:');
+    expect(html).toContain('Remove local worker data');
+  });
 });

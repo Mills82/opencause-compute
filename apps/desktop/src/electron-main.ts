@@ -64,17 +64,27 @@ ipcMain.handle('desktop:get-state', async () => {
       disclaimerAccepted: false,
       runtimeAvailable: modelRuntime.available && modelRuntime.selectedModelInstalled,
       publicEnrollmentEnabled: false
-    })
+    }),
+    appVersion: app.getVersion()
   };
 });
 
 ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknown) => {
   const settings = await updateDesktopSettings(appDir, update as Partial<DesktopSettings>);
+  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin });
   return redactedSettings(settings);
 });
 
-ipcMain.handle('desktop:start-worker', async () => (await supervisor()).startLoop());
+ipcMain.handle('desktop:start-worker', async () => {
+  await updateDesktopSettings(appDir, { localPaused: false });
+  return (await supervisor()).startLoop();
+});
+ipcMain.handle('desktop:pause-worker', async () => {
+  await updateDesktopSettings(appDir, { localPaused: true });
+  return (await supervisor()).stop();
+});
 ipcMain.handle('desktop:stop-worker', async () => (await supervisor()).stop());
+ipcMain.handle('desktop:uninstall-local-state', async () => (await supervisor()).uninstallLocalState());
 ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLog());
 ipcMain.handle('desktop:pull-model', async (_event: unknown, model: unknown) => {
   if (typeof model !== 'string') throw new Error('model_required');

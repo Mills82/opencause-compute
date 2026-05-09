@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { WorkerSupervisor } from '../src/supervisor';
 
@@ -39,5 +42,19 @@ describe('worker supervisor contract', () => {
 
   it('reports configured false when worker entry is missing', () => {
     expect(supervisor.status()).toMatchObject({ configured: false, running: false });
+  });
+
+  it('removes local worker state for uninstall cleanup', async () => {
+    const appDir = await mkdtemp(path.join(os.tmpdir(), 'occ-worker-state-'));
+    await writeFile(path.join(appDir, 'node.json'), '{}');
+    const localSupervisor = new WorkerSupervisor({
+      workerEntry: '/tmp/worker.js',
+      appDir,
+      coordinatorUrl: 'https://opencause.appassist.ai'
+    });
+
+    const status = await localSupervisor.uninstallLocalState();
+    expect(status.running).toBe(false);
+    expect(status.configured).toBe(false);
   });
 });
