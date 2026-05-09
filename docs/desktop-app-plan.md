@@ -125,3 +125,13 @@ wine is required, please see https://electron.build/multi-platform-build#linux
 ```
 
 For a full Windows installer artifact, run on Windows or install/configure Wine in CI. The generated unsigned Windows artifacts are still prototype-only and not acceptable for broad public release until code signing, installer QA, update, and uninstall testing are complete.
+
+## Windows artifact CI
+
+A GitHub Actions workflow builds unsigned Windows prototype artifacts on `windows-latest`:
+
+```text
+.github/workflows/desktop-windows-artifact.yml
+```
+
+Use this instead of installing Wine locally unless local WSL builds are specifically desired. The uploaded artifact is for QA only and is not public-ready because it is unsigned.
