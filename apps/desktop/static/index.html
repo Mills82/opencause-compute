@@ -14,6 +14,15 @@
       p { color: #b8c4d9; line-height: 1.55; }
       section, .card { border: 1px solid #26324d; border-radius: 14px; padding: 18px; margin: 14px 0; background: #11182a; }
       .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+      .layout.dashboard-mode { grid-template-columns: minmax(0, 1fr); }
+      .layout.dashboard-mode > aside { display: none; }
+      .layout.dashboard-mode > div { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: start; }
+      .layout.dashboard-mode section { margin: 0; }
+      .layout.dashboard-mode [data-panel] { grid-column: 1 / -1; }
+      .layout.dashboard-mode #dashboard-step { grid-column: 1 / -1; }
+      .layout.dashboard-mode #profile-step { grid-column: span 5; }
+      .layout.dashboard-mode #settings-step { grid-column: span 7; }
+      .layout.dashboard-mode .wide { grid-column: 1 / -1; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
       .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
       button, select, input { margin-top: 8px; padding: 9px 12px; border-radius: 9px; border: 1px solid #3b4b70; background: #18233d; color: #e5eefc; }
@@ -35,7 +44,14 @@
       .progress { height: 10px; border-radius: 999px; background: #070b14; overflow: hidden; margin: 12px 0; border: 1px solid #25314d; }
       .progress > div { height: 100%; width: 0%; background: #7dd3fc; transition: width .25s ease; }
       .dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
+      .tab { border-color: #334466; background: #11182a; }
+      .tab.active { background: #7dd3fc; border-color: #7dd3fc; color: #07111f; font-weight: 700; }
+      .stat-card { background: #0d1425; border: 1px solid #25314d; border-radius: 12px; padding: 14px; }
+      .stat-card strong { display:block; font-size: 22px; margin-bottom: 4px; }
+      .hero-dashboard { background: linear-gradient(135deg, #14213d, #101827); border-color: #38527c; }
       @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
+      @media (max-width: 950px) { .layout.dashboard-mode #profile-step, .layout.dashboard-mode #settings-step { grid-column: 1 / -1; } }
     </style>
   </head>
   <body>
@@ -56,7 +72,14 @@
         </p>
       </section>
 
-      <div class="layout">
+      <nav id="dashboard-tabs" class="tabs hidden" aria-label="Worker dashboard tabs">
+        <button class="tab active" type="button" data-tab="overview">Overview</button>
+        <button class="tab" type="button" data-tab="profile">Profile</button>
+        <button class="tab" type="button" data-tab="settings">Resources</button>
+        <button class="tab" type="button" data-tab="activity">Activity & diagnostics</button>
+      </nav>
+
+      <div id="app-layout" class="layout">
         <aside>
           <section>
             <h2>Setup progress</h2>
@@ -106,14 +129,14 @@
             <p id="registration-message" class="small"></p>
           </section>
 
-          <section id="profile-step">
+          <section id="profile-step" data-panel="profile">
             <h2>Profile and impact sharing</h2>
             <p class="small">Set your display name, privacy, team, and impact-sharing preferences. Profiles default to private.</p>
             <button id="open-profile" type="button">Open profile setup</button>
             <p id="profile-message" class="small"></p>
           </section>
 
-          <section id="settings-step">
+          <section id="settings-step" data-panel="settings">
             <h2>4. Resource settings</h2>
             <div class="grid">
               <label>
@@ -144,14 +167,14 @@
             <p id="settings-message" class="small">Defaults are conservative: idle-only, limited CPU, and no battery work.</p>
           </section>
 
-          <section id="dashboard-step">
+          <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
             <h2>Worker dashboard</h2>
             <p id="worker-message">Checking worker...</p>
             <p id="version-message" class="small"></p>
             <div class="grid">
-              <div><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
-              <div><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
-              <div><strong id="dashboard-work">—</strong><p class="small">Completed work</p></div>
+              <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
+              <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
+              <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed work</p></div>
             </div>
             <p class="small">Resource telemetry such as CPU/GPU usage and temperatures will appear after hardware telemetry is added.</p>
             <div class="dashboard-actions">
@@ -163,7 +186,7 @@
             </div>
           </section>
 
-          <section>
+          <section data-panel="activity">
             <h2>Uninstall and local data</h2>
             <p>
               Removing the app from Windows Apps/Programs removes the application. Use this button first if you also want to remove
@@ -172,12 +195,12 @@
             <button id="uninstall-state" class="danger">Remove local worker data</button>
           </section>
 
-          <section>
+          <section data-panel="activity">
             <h2>Setup checklist</h2>
             <div id="screens"></div>
           </section>
 
-          <section>
+          <section data-panel="activity" class="wide">
             <h2>Activity and technical details</h2>
             <button id="diagnostics">Show diagnostics</button>
             <details>
@@ -217,6 +240,8 @@
       const setupSummary = document.getElementById('setup-summary');
       const setupIntro = document.getElementById('setup-intro');
       const setupAside = document.querySelector('aside');
+      const appLayout = document.getElementById('app-layout');
+      const dashboardTabs = document.getElementById('dashboard-tabs');
       const runtimeStep = document.getElementById('runtime-step');
       const modelStep = document.getElementById('model-step');
       const registrationStep = document.getElementById('registration-step');
@@ -227,6 +252,7 @@
       let ollamaPoll = null;
       let modelDownloadPoll = null;
       let profileSetupUrl = null;
+      let activeTab = 'overview';
 
       function modelLabel(model) { return `${model.label} (${model.id})`; }
 
@@ -267,8 +293,15 @@
         setupSummary.textContent = doneCount === steps.length ? 'Setup complete. You can leave the worker running or pause it anytime.' : `${doneCount} of ${steps.length} setup steps complete.`;
         setupIntro.classList.toggle('hidden', setupComplete);
         setupAside.classList.toggle('hidden', setupComplete);
+        appLayout.classList.toggle('dashboard-mode', setupComplete);
+        dashboardTabs.classList.toggle('hidden', !setupComplete);
         runtimeStep.classList.toggle('hidden', setupComplete);
         modelStep.classList.toggle('hidden', setupComplete);
+        document.querySelectorAll('[data-panel]').forEach((panel) => {
+          const panelTabs = (panel.getAttribute('data-panel') || '').split(/\s+/);
+          panel.classList.toggle('hidden', setupComplete && !panelTabs.includes(activeTab));
+        });
+        document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
         dashboardWork.textContent = 'See web impact dashboard';
@@ -383,6 +416,9 @@
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;
       };
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.onclick = () => { activeTab = tab.dataset.tab || 'overview'; updateProgress(); };
+      });
       document.getElementById('toggle-enrollment-code').onclick = () => {
         const showing = enrollmentCode.type === 'text';
         enrollmentCode.type = showing ? 'password' : 'text';
