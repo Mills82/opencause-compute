@@ -113,12 +113,12 @@ ipcMain.handle('desktop:pause-worker', async () => {
 });
 ipcMain.handle('desktop:stop-worker', async () => (await supervisor()).stop());
 ipcMain.handle('desktop:uninstall-local-state', async () => (await supervisor()).uninstallLocalState());
-ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLog());
+ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLogNewestFirst());
 ipcMain.handle('desktop:diagnostics', async () => {
   const sup = await supervisor();
   return {
     status: sup.status(),
-    workerLog: await sup.tailLog(),
+    workerLog: await sup.tailLogNewestFirst(),
     registrationDebugLog: await sup.registrationDebugLog()
   };
 });

@@ -389,7 +389,11 @@
           runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
           ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
           if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
-          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : `Worker is not running.${latestState.runtime.lastExitCode !== undefined ? ' Last exit code: ' + latestState.runtime.lastExitCode + '.' : ''}${latestState.runtime.lastError ? ' Last error: ' + latestState.runtime.lastError : ''}`);
+          const runtime = latestState.runtime;
+          const stoppedDetail = runtime.lastMode === 'run-once'
+            ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
+            : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
+          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (runtime.running ? `Worker running with pid ${runtime.pid}.` : stoppedDetail);
           const log = await api.tailLog();
           latestLog.textContent = log || 'No log lines yet.';
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
@@ -473,7 +477,7 @@
       };
       document.getElementById('save-settings').onclick = saveSettings;
       document.getElementById('save-start').onclick = async () => { await saveSettings(); workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
-      document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now...'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
+      document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now. It may return to not running when the one-shot check finishes.'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
       modelSelect.onchange = async () => {
         renderSelectedModelGuidance();

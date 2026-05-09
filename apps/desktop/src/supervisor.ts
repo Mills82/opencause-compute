@@ -30,6 +30,9 @@ export type WorkerRuntimeStatus = {
   pid?: number;
   lastExitCode?: number | null;
   lastError?: string;
+  lastMode?: 'loop' | 'run-once';
+  lastStartedAt?: string;
+  lastExitedAt?: string;
 };
 
 export type WorkerCommand =
@@ -43,6 +46,9 @@ export class WorkerSupervisor {
   private child: ChildProcessWithoutNullStreams | null = null;
   private lastExitCode: number | null | undefined;
   private lastError: string | undefined;
+  private lastMode: 'loop' | 'run-once' | undefined;
+  private lastStartedAt: string | undefined;
+  private lastExitedAt: string | undefined;
 
   constructor(private readonly config: WorkerSupervisorConfig) {}
 
@@ -56,7 +62,10 @@ export class WorkerSupervisor {
       credentialsPath: path.join(this.config.appDir, 'node.json'),
       pid: this.child?.pid,
       lastExitCode: this.lastExitCode,
-      lastError: this.lastError
+      lastError: this.lastError,
+      lastMode: this.lastMode,
+      lastStartedAt: this.lastStartedAt,
+      lastExitedAt: this.lastExitedAt
     };
   }
 
@@ -104,12 +113,18 @@ export class WorkerSupervisor {
   startLoop(options: { forceNow?: boolean } = {}): WorkerRuntimeStatus {
     if (this.child && !this.child.killed) return this.status();
     const [entry, ...args] = this.buildArgs(options.forceNow ? { kind: 'run-once', forceNow: true } : { kind: 'loop' });
+    this.lastMode = options.forceNow ? 'run-once' : 'loop';
+    this.lastStartedAt = new Date().toISOString();
+    this.lastExitedAt = undefined;
+    this.lastExitCode = undefined;
+    this.lastError = undefined;
     this.child = spawn(process.execPath, [entry, ...args], { env: this.workerEnv() });
     this.child.stdout.on('data', (chunk) => { void this.appendWorkerLog(chunk.toString().trimEnd()); });
     this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
     this.child.on('error', (error) => { this.lastError = error.message; void this.appendWorkerLog(`spawn error ${error.message}`); });
     this.child.on('close', (code) => {
       this.lastExitCode = code;
+      this.lastExitedAt = new Date().toISOString();
       void this.appendWorkerLog(`worker process exited code=${code ?? 'unknown'}`);
       this.child = null;
     });
@@ -228,6 +243,11 @@ export class WorkerSupervisor {
     const logPath = path.join(this.config.appDir, 'worker.log');
     const content = await readFile(logPath, 'utf8').catch(() => '');
     return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
+  }
+
+  async tailLogNewestFirst(maxBytes = 16_384): Promise<string> {
+    const content = await this.tailLog(maxBytes);
+    return content.split(/\r?\n/).filter(Boolean).reverse().join('\n');
   }
 
   async registrationDebugLog(maxBytes = 16_384): Promise<string> {
