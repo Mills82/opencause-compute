@@ -4,11 +4,14 @@ import { isAdminAuthorized } from '../../../../../../lib/admin-auth';
 import { withDb } from '../../../../../../lib/db';
 import { recordAuditEvent } from '../../../../../../lib/audit';
 
+import { checkNamedRateLimit, rateLimitResponse } from '../../../../../../lib/rate-limit';
 const requestSchema = z.object({
   status: z.enum(['online', 'offline', 'suspended', 'revoked'])
 });
 
 export async function POST(request: Request, { params }: { params: { nodeId: string } }) {
+  const rateLimit = checkNamedRateLimit(request, 'adminApi');
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }

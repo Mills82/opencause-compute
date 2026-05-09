@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { createAdminSessionCookieValue, getAdminCookieName } from '../../../../lib/admin-auth';
 import { isDevMode } from '../../../../lib/runtime-config';
 
+import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 export async function POST(request: Request) {
+  const rateLimit = checkNamedRateLimit(request, 'adminApi');
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   const body = (await request.json().catch(() => ({}))) as { password?: string };
   const expected = process.env.ADMIN_UI_PASSWORD || process.env.ADMIN_API_KEY;
 

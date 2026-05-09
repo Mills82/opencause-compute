@@ -3,7 +3,10 @@ import { triggerRunNow } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { isAdminAuthorized } from '../../../../lib/admin-auth';
 
+import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 export async function POST(request: Request) {
+  const rateLimit = checkNamedRateLimit(request, 'workerControl');
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }

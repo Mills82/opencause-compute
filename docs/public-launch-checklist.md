@@ -10,14 +10,14 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## Private-alpha go/no-go
 
-- [ ] `/` is public-facing and does not expose coordinator internals.
-- [ ] `/admin`, `/projects`, `/work-packets`, `/results`, and `/nodes` require admin login.
-- [ ] Worker-control POST and run-now POST require admin authorization without exposing `ADMIN_API_KEY` in browser code.
-- [ ] Worker heartbeat/claim/submit still require valid node tokens.
-- [ ] Hosted env validation is enabled with `OPENCAUSE_HOSTED=true`.
-- [ ] Required hosted env vars are set: `DATABASE_URL`, `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, `ADMIN_API_KEY`, `NCBI_EMAIL`, and `CRON_SECRET` when cron ingestion is enabled.
-- [ ] `/api/health` works and exposes no secrets.
-- [ ] README and private-alpha runbook describe local/dev versus hosted behavior.
+- [x] `/` is public-facing and does not expose coordinator internals.
+- [x] `/admin`, `/projects`, `/work-packets`, `/results`, and `/nodes` require admin login.
+- [x] Worker-control POST and run-now POST require admin authorization without exposing `ADMIN_API_KEY` in browser code.
+- [x] Worker heartbeat/claim/submit still require valid node tokens.
+- [x] Hosted env validation is enabled with `OPENCAUSE_HOSTED=true`.
+- [x] Required hosted env vars are set: `DATABASE_URL`, `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, `ADMIN_API_KEY`, `NCBI_EMAIL`, and `CRON_SECRET` when cron ingestion is enabled.
+- [x] `/api/health` works and exposes no secrets.
+- [x] README and private-alpha runbook describe local/dev versus hosted behavior.
 
 ## Security checklist
 
@@ -26,16 +26,17 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add invite/enrollment-code flow for node registration.
 - [x] Add node statuses: active/online, offline, suspended, revoked.
 - [x] Revoked or suspended nodes cannot claim or submit.
-- [ ] Add rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
-- [ ] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
+- [x] Add best-effort configurable rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
+- [x] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
+- [ ] Replace in-process rate limiting with production-grade distributed abuse controls before broad public launch.
 
 ## Deployment/env checklist
 
 - [x] Add relational database architecture plan and migration scaffolding.
-- [ ] `.env.example` includes coordinator, worker, hosted, and optional ingestion settings.
-- [ ] Hosted deployments fail clearly on missing required configuration.
-- [ ] File DB fallback is local/dev only.
-- [ ] Move hosted production from single-row JSONB state to relational tables.
+- [x] `.env.example` includes coordinator, worker, hosted, optional ingestion, and rate-limit settings.
+- [x] Hosted deployments fail clearly on missing required configuration.
+- [x] File DB fallback is local/dev only by default; hosted uses Postgres relational storage unless explicitly disabled.
+- [x] Move hosted production from single-row JSONB state to relational tables.
 - [ ] Rollback procedure is documented and tested.
 
 ## Worker release checklist
@@ -48,21 +49,23 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 ## Legal/trust checklist
 
 - [x] Add baseline `/privacy`, `/terms`, `/security`, `/science-disclaimer`, and `/responsible-disclosure` pages.
-- [ ] Explain what data volunteers process and send back.
-- [ ] Explain local file access boundaries, telemetry, uninstall, security reporting, electricity/resource implications, open-access literature caveats, and no-medical-advice posture.
+- [x] Explain what data volunteers process and send back.
+- [x] Explain local file access boundaries, telemetry, security reporting, electricity/resource implications, open-access literature caveats, and no-medical-advice posture.
+- [ ] Add fuller uninstall instructions once installer/desktop UX exists.
 
 ## AI/science-risk checklist
 
-- [ ] UI uses “candidate facts,” “citation-backed extraction,” and “format/schema validation.”
-- [ ] UI avoids medical/clinical overclaims.
+- [x] UI uses “candidate facts,” “citation-backed extraction,” and “format/schema validation.”
+- [x] UI avoids medical/clinical overclaims.
 - [x] Add consensus validation levels and separate raw submissions from consensus facts in labels/docs.
 - [x] No extracted fact is labeled accepted solely because one worker produced schema-valid JSON.
-- [ ] Implement duplicate independent processing and automated consensus comparison.
+- [x] Implement initial duplicate independent processing and structural consensus comparison.
+- [ ] Add semantic comparison, configurable thresholds, reviewer tooling, and consensus exports.
 
 ## NCBI ingestion checklist
 
-- [ ] Include registered tool/email on NCBI requests.
-- [ ] Honor 3 req/s without API key and 10 req/s with API key.
+- [x] Include registered email/API key config on NCBI requests.
+- [x] Honor conservative request pacing in current ingestion paths.
 - [ ] Add backoff/retry and batching/history for larger jobs.
 - [x] Track ingestion runs with fetched/skipped/failed counts, failure reasons, source type, query, retmax, and timestamps.
 

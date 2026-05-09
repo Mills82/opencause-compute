@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isNodeEnrollmentRequired, registerNode } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
-import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 
 const requestSchema = z.object({
   nodeName: z.string().min(1),
@@ -13,7 +13,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const limit = checkRateLimit(request, 'node-register', { limit: 5, windowMs: 60_000 });
+  const limit = checkNamedRateLimit(request, 'nodeRegister');
   if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
   const parsed = requestSchema.safeParse(await request.json());

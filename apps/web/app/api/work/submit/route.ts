@@ -4,7 +4,7 @@ import { resultPayloadSchema, resultProvenanceSchema } from '@opencause/shared';
 import { submitResult } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
-import { checkRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
+import { checkNamedRateLimit, rateLimitResponse } from '../../../../lib/rate-limit';
 import { submitResultRelational } from '../../../../lib/relational-worker';
 
 const requestSchema = z.object({
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const limit = checkRateLimit(request, 'work-submit', { limit: 30, windowMs: 60_000, identity: parsed.data.nodeId });
+  const limit = checkNamedRateLimit(request, 'workSubmit', parsed.data.nodeId);
   if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
   if (parsed.data.extractorVersion === 'Mock Extractor v1' && !ALLOW_MOCK_RESULTS) {
