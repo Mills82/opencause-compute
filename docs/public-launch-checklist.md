@@ -4,7 +4,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## Stages
 
-- **Private alpha:** public landing page can be visible; coordinator/admin surface is authenticated; workers are trusted/invited manually; HMAC packet signing and JSONB state are acceptable with documented risk.
+- **Private alpha:** public landing page can be visible; coordinator/admin surface is authenticated; workers are trusted/invited manually; hosted packet signing is asymmetric; JSONB state remains acceptable only with documented risk.
 - **Public beta:** volunteer enrollment is gated; node revocation/rate limiting/provenance are in place; legal/trust pages exist; abuse controls are tested.
 - **Public launch:** asymmetric packet signing, relational storage, consensus validation, installer UX, observability, incident response, and legal/science disclaimers are complete.
 
@@ -15,17 +15,17 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [ ] Worker-control POST and run-now POST require admin authorization without exposing `ADMIN_API_KEY` in browser code.
 - [ ] Worker heartbeat/claim/submit still require valid node tokens.
 - [ ] Hosted env validation is enabled with `OPENCAUSE_HOSTED=true`.
-- [ ] Required hosted env vars are set: `DATABASE_URL`, `SIGNING_SECRET`, `ADMIN_API_KEY`, `NCBI_EMAIL`, and `CRON_SECRET` when cron ingestion is enabled.
+- [ ] Required hosted env vars are set: `DATABASE_URL`, `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, `ADMIN_API_KEY`, `NCBI_EMAIL`, and `CRON_SECRET` when cron ingestion is enabled.
 - [ ] `/api/health` works and exposes no secrets.
 - [ ] README and private-alpha runbook describe local/dev versus hosted behavior.
 
 ## Security checklist
 
-- [ ] Replace HMAC packet signing with coordinator private key / worker public key verification.
-- [ ] Add key rotation documentation and tests for tampering/key mismatch.
-- [ ] Add invite/account/device approval flow for node registration.
-- [ ] Add node statuses: active, suspended, revoked.
-- [ ] Revoked or suspended nodes cannot claim or submit.
+- [x] Replace HMAC packet signing with coordinator private key / worker public key verification for hosted mode.
+- [x] Add key rotation documentation and tests for tampering/key mismatch.
+- [x] Add invite/enrollment-code flow for node registration.
+- [x] Add node statuses: active/online, offline, suspended, revoked.
+- [x] Revoked or suspended nodes cannot claim or submit.
 - [ ] Add rate limits for registration, heartbeat, claim, submit, admin ingest, worker control, and public APIs.
 - [ ] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
 
@@ -38,7 +38,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## Worker release checklist
 
-- [ ] Worker records version, extractor version, model/runtime, prompt version/hash, schema version, validation version, timestamp, and platform capabilities.
+- [x] Worker records version, extractor version, model/runtime, prompt version/hash, schema version, validation version, timestamp, and platform capabilities.
 - [ ] Installer does not require normal volunteers to install Node/npm manually.
 - [ ] Worker has visible activity log, pause/resume, uninstall, startup-on-login control, resource settings, and version display.
 - [ ] Worker sandbox/resource model is documented.
@@ -62,6 +62,12 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [ ] Honor 3 req/s without API key and 10 req/s with API key.
 - [ ] Add backoff/retry and batching/history for larger jobs.
 - [x] Track ingestion runs with fetched/skipped/failed counts, failure reasons, source type, query, retmax, and timestamps.
+
+## Observability and incident checklist
+
+- [x] Admin dashboard shows baseline queue, claim, node, worker-control, and ingestion health without database spelunking.
+- [x] Baseline private-alpha incident response path is documented in `docs/incident-response.md`.
+- [ ] Add durable structured audit logs for admin actions, registration/revocation, claims, submissions, ingestion, and validation decisions.
 
 ## Final go/no-go
 

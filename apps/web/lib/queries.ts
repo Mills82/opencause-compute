@@ -10,9 +10,22 @@ export async function getDashboardData() {
     projectCount: db.projects.length,
     packetCount: db.workPackets.length,
     queuedCount: db.workPackets.filter((p) => p.status === 'queued').length,
+    claimedPacketCount: db.workPackets.filter((p) => p.status === 'claimed').length,
+    completedPacketCount: db.workPackets.filter((p) => p.status === 'completed').length,
+    activeClaimCount: db.claims.filter((claim) => claim.status === 'claimed').length,
+    expiredClaimCount: db.claims.filter((claim) => claim.status === 'expired').length,
     nodeCount: db.nodes.length,
+    onlineNodeCount: db.nodes.filter((node) => node.status === 'online').length,
+    offlineNodeCount: db.nodes.filter((node) => node.status === 'offline').length,
+    suspendedNodeCount: db.nodes.filter((node) => node.status === 'suspended').length,
+    revokedNodeCount: db.nodes.filter((node) => node.status === 'revoked').length,
     resultCount: db.results.length,
-    validatedCount: db.results.filter((r) => r.formatValidated ?? r.validated).length
+    validatedCount: db.results.filter((r) => r.formatValidated ?? r.validated).length,
+    failedValidationCount: db.results.filter((r) => !(r.formatValidated ?? r.validated)).length,
+    workerControl: db.workerControl,
+    ingestionRunCount: db.ingestionRuns.length,
+    failedIngestionRunCount: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length,
+    recentIngestionRuns: db.ingestionRuns.slice(0, 5)
   };
 }
 
