@@ -96,3 +96,25 @@ export async function resourceStatus(settings: DesktopSettings) {
     reason
   };
 }
+
+export function recommendedModelConfig(settings: DesktopSettings) {
+  const totalMemoryGb = os.totalmem() / 1024 / 1024 / 1024;
+  const cpuCores = os.cpus().length;
+  const model = settings.modelRuntime.model;
+  const qualityMode = settings.modelRuntime.qualityMode;
+  const base = qualityMode === 'balanced'
+    ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const }
+    : { numCtx: 8192, numPredict: 1200, tier: 'high' as const };
+  const constrained = totalMemoryGb < 12 || cpuCores < 6;
+  const recommended = constrained ? { numCtx: 4096, numPredict: 900, tier: 'balanced' as const } : base;
+  return {
+    model,
+    qualityMode,
+    totalMemoryGb: Number(totalMemoryGb.toFixed(1)),
+    cpuCores,
+    recommendedNumCtx: recommended.numCtx,
+    recommendedNumPredict: recommended.numPredict,
+    recommendedTier: recommended.tier,
+    note: constrained ? 'Balanced defaults recommended for this machine size.' : 'High-quality defaults look reasonable for this machine.'
+  };
+}

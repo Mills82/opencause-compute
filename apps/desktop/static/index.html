@@ -76,8 +76,8 @@
       <nav id="dashboard-tabs" class="tabs hidden" aria-label="Worker dashboard tabs">
         <button class="tab active" type="button" data-tab="overview">Overview</button>
         <button class="tab" type="button" data-tab="profile">Profile</button>
-        <button class="tab" type="button" data-tab="settings">Resources</button>
-        <button class="tab" type="button" data-tab="activity">Activity & diagnostics</button>
+        <button class="tab" type="button" data-tab="settings">Models & resources</button>
+        <button class="tab" type="button" data-tab="activity">Advanced</button>
       </nav>
 
       <div id="app-layout" class="layout">
@@ -107,7 +107,7 @@
             <button id="refresh">Check again</button>
           </section>
 
-          <section id="model-step">
+          <section id="model-step" data-panel="settings">
             <h2>2. Download a model</h2>
             <label for="model-select">Approved local model</label>
             <select id="model-select"></select>
@@ -139,6 +139,15 @@
 
           <section id="settings-step" data-panel="settings">
             <h2>4. Resource settings</h2>
+            <p id="model-config-guidance" class="small"></p>
+            <label>
+              Quality mode
+              <select id="quality-mode">
+                <option value="high">High quality (8k context)</option>
+                <option value="balanced">Balanced (4k context)</option>
+                <option value="custom">Custom / advanced</option>
+              </select>
+            </label>
             <div class="grid">
               <label>
                 Coordinator URL
@@ -227,6 +236,8 @@
       const runtimeMessage = document.getElementById('runtime-message');
       const workerMessage = document.getElementById('worker-message');
       const modelSelect = document.getElementById('model-select');
+      const qualityMode = document.getElementById('quality-mode');
+      const modelConfigGuidance = document.getElementById('model-config-guidance');
       const modelGuidance = document.getElementById('model-guidance');
       const pullButton = document.getElementById('pull-model');
       const ollamaHelp = document.getElementById('ollama-help');
@@ -317,7 +328,7 @@
         appLayout.classList.toggle('dashboard-mode', setupComplete);
         dashboardTabs.classList.toggle('hidden', !setupComplete);
         runtimeStep.classList.toggle('hidden', setupComplete);
-        modelStep.classList.toggle('hidden', setupComplete);
+        modelStep.classList.toggle('hidden', false);
         document.querySelectorAll('[data-panel]').forEach((panel) => {
           const panelTabs = (panel.getAttribute('data-panel') || '').split(/\s+/);
           panel.classList.toggle('hidden', setupComplete && !panelTabs.includes(activeTab));
@@ -416,7 +427,9 @@
             schedule.value = latestState.settings.resourceControls.schedule;
             startup.checked = latestState.settings.startupOnLogin;
             battery.checked = latestState.settings.resourceControls.runOnBattery;
+            qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'high';
           }
+          modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
           output.textContent = JSON.stringify(latestState, null, 2);
           updateProgress();
         } catch (error) {
@@ -440,6 +453,7 @@
         const saved = await api.updateSettings({
           coordinatorUrl: coordinatorUrl.value,
           startupOnLogin: startup.checked,
+          modelRuntime: { model: modelSelect.value, qualityMode: qualityMode.value },
           resourceControls: { maxCpuPercent: Number(maxCpu.value), minIdleSeconds: Number(minIdle.value), schedule: schedule.value, runOnBattery: battery.checked }
         });
         settingsMessage.textContent = 'Settings saved.';
@@ -448,7 +462,7 @@
         await refresh();
       }
 
-      [coordinatorUrl, maxCpu, minIdle, schedule, startup, battery].forEach((input) => {
+      [coordinatorUrl, maxCpu, minIdle, schedule, startup, battery, qualityMode, modelSelect].forEach((input) => {
         input.addEventListener('input', () => { settingsDirty = true; });
         input.addEventListener('change', () => { settingsDirty = true; });
       });

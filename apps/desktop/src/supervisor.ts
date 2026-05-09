@@ -18,6 +18,11 @@ export type WorkerSupervisorConfig = {
     maxCpuPercent: number;
     schedule: 'always' | 'idle-only' | 'manual';
   };
+  modelRuntime?: {
+    qualityMode?: 'balanced' | 'high' | 'custom';
+    numCtx?: number;
+    numPredict?: number;
+  };
 };
 
 export type WorkerRuntimeStatus = {
@@ -107,6 +112,12 @@ export class WorkerSupervisor {
     };
     if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
     if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
+    const qualityMode = this.config.modelRuntime?.qualityMode ?? 'high';
+    env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'balanced' ? 4096 : 8192));
+    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (qualityMode === 'balanced' ? 900 : 1200));
+    env.LOCAL_LLM_TEMPERATURE = '0';
+    env.LOCAL_LLM_TOP_P = '0.9';
+    env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'balanced' ? 'balanced' : 'high';
     return env;
   }
 

@@ -22,6 +22,9 @@ export type DesktopSettings = {
     provider: 'ollama';
     endpointType: 'localhost' | 'remote-http' | 'other';
     model: string;
+    qualityMode: 'balanced' | 'high' | 'custom';
+    numCtx?: number;
+    numPredict?: number;
     approvedModels: typeof APPROVED_LOCAL_MODELS;
   };
 };
@@ -42,6 +45,9 @@ export const defaultDesktopSettings: DesktopSettings = {
     provider: 'ollama',
     endpointType: 'localhost',
     model: DEFAULT_LOCAL_MODEL,
+    qualityMode: 'high',
+    numCtx: 8192,
+    numPredict: 1200,
     approvedModels: APPROVED_LOCAL_MODELS
   }
 };

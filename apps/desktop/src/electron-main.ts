@@ -5,7 +5,7 @@ import { buildDesktopViewModel } from './view-model.js';
 import { loadDesktopSettings, redactedSettings, updateDesktopSettings, type DesktopSettings } from './settings.js';
 import { WorkerSupervisor } from './supervisor.js';
 import { modelDownloadStatus, modelRuntimeStatus, pullOllamaModel, startOllamaModelDownload } from './model-runtime.js';
-import { resourceStatus } from './host-metrics.js';
+import { recommendedModelConfig, resourceStatus } from './host-metrics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(app.getPath('userData'), 'opencause-worker');
@@ -48,7 +48,8 @@ async function supervisor() {
     enrollmentCode: settings.enrollmentCode,
     nodeId: settings.nodeId,
     nodeToken: settings.nodeToken,
-    resourceControls: settings.resourceControls
+    resourceControls: settings.resourceControls,
+    modelRuntime: settings.modelRuntime
   });
   if (cachedSupervisor && cachedSupervisorKey === key) return cachedSupervisor;
   cachedSupervisorKey = key;
@@ -59,7 +60,8 @@ async function supervisor() {
     enrollmentCode: settings.enrollmentCode,
     nodeId: settings.nodeId,
     nodeToken: settings.nodeToken,
-    resourceControls: settings.resourceControls
+    resourceControls: settings.resourceControls,
+    modelRuntime: settings.modelRuntime
   });
   return cachedSupervisor;
 }
@@ -71,12 +73,14 @@ ipcMain.handle('desktop:get-state', async () => {
   const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   const resources = await resourceStatus(settings);
+  const modelRecommendation = recommendedModelConfig(settings);
   return {
     settings: redactedSettings(settings),
     runtime,
     profileSetupUrl: credentials?.profileSetupUrl,
     modelRuntime,
     resources,
+    modelRecommendation,
     viewModel: buildDesktopViewModel({
       settings,
       runtime,
