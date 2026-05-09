@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BADGE_DEFINITIONS, calculateContributionScore, type DatabaseState, type ImpactDigest, type VolunteerStatsSnapshot, type TeamStatsSnapshot } from '@opencause/shared';
+import { BADGE_DEFINITIONS, calculateContributionScore, type DatabaseState, type ImpactCard, type ImpactDigest, type VolunteerStatsSnapshot, type TeamStatsSnapshot } from '@opencause/shared';
 
 function activeProfileIdForNode(db: DatabaseState, nodeId: string): string | undefined {
   return db.volunteerProfileNodes.find((link) => link.nodeId === nodeId && !link.detachedAt)?.volunteerProfileId;
@@ -55,6 +55,16 @@ function digestPreview(input: Pick<ImpactDigest, 'sectionsProcessed' | 'formatVa
   return `${parts.join(', ')}.`;
 }
 
+function cardSlug(kind: string, id: string, weekStart: Date): string {
+  return `${kind}-${id.slice(0, 8)}-${weekStart.toISOString().slice(0, 10)}`;
+}
+
+function upsertImpactCard(db: DatabaseState, card: ImpactCard): void {
+  const index = db.impactCards.findIndex((existing) => existing.slug === card.slug);
+  if (index >= 0) db.impactCards[index] = card;
+  else db.impactCards.push(card);
+}
+
 export function seedBadgeDefinitions(db: DatabaseState, nowIso = new Date().toISOString()): number {
   let added = 0;
   for (const definition of BADGE_DEFINITIONS) {
@@ -86,6 +96,7 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
   const weekStart = startOfWeek(now);
   const weekEnd = now;
   db.impactDigests = db.impactDigests.filter((digest) => digest.periodStart !== weekStart.toISOString() || digest.periodEnd !== weekEnd.toISOString());
+  db.impactCards ??= [];
 
   let badgesAwarded = 0;
   for (const profile of db.volunteerProfiles) {
@@ -156,6 +167,24 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
     };
     digest.previewText = digestPreview(digest);
     db.impactDigests.push(digest);
+    if (profile.publicProfileEnabled && profile.privacyMode !== 'private') {
+      upsertImpactCard(db, {
+        id: randomUUID(),
+        volunteerProfileId: profile.id,
+        teamId: null,
+        cardType: 'volunteer_weekly',
+        slug: cardSlug('volunteer-weekly', profile.id, weekStart),
+        title: profile.privacyMode === 'public_named' ? `${profile.displayName}'s OpenCause impact` : 'Anonymous OpenCause volunteer impact',
+        subtitle: digest.previewText,
+        metricLabel: 'Paper sections processed this week',
+        metricValue: digest.sectionsProcessed.toLocaleString(),
+        accentColor: profile.avatarColor,
+        publicEnabled: true,
+        periodStart: digest.periodStart,
+        periodEnd: digest.periodEnd,
+        createdAt: nowIso
+      });
+    }
     profile.lastActiveAt = results.length ? results.map((result) => result.submittedAt).sort().at(-1) ?? profile.lastActiveAt : profile.lastActiveAt;
     profile.statsUpdatedAt = nowIso;
     profile.updatedAt = nowIso;
@@ -188,6 +217,24 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
       computedAt: nowIso
     };
     db.teamStatsSnapshots.push(stats);
+    if (team.visibility === 'public') {
+      upsertImpactCard(db, {
+        id: randomUUID(),
+        volunteerProfileId: null,
+        teamId: team.id,
+        cardType: 'team_weekly',
+        slug: cardSlug('team-weekly', team.id, weekStart),
+        title: `${team.name} OpenCause impact`,
+        subtitle: `This team has helped process ${stats.sectionsProcessed.toLocaleString()} open-access paper sections in eligible OpenCause work.`,
+        metricLabel: 'Team contribution score',
+        metricValue: stats.contributionScore.toLocaleString(),
+        accentColor: '#38bdf8',
+        publicEnabled: true,
+        periodStart: weekStart.toISOString(),
+        periodEnd: weekEnd.toISOString(),
+        createdAt: nowIso
+      });
+    }
     team.statsUpdatedAt = nowIso;
     team.updatedAt = nowIso;
   }

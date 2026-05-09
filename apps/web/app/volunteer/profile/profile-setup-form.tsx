@@ -6,6 +6,7 @@ type SetupData = {
   profile: { displayName: string; privacyMode: 'private' | 'public_anonymous' | 'public_named'; publicProfileEnabled: boolean; bio: string; avatarColor: string };
   stats: null | { contributionScore: number; sectionsProcessed: number; formatValidatedSubmissions: number; consensusPassedContributions: number; distinctActiveDays: number };
   latestDigest: null | { previewText: string; periodStart: string; periodEnd: string; sectionsProcessed: number; formatValidatedSubmissions: number; consensusPassedContributions: number; badgesAwarded: number };
+  impactCards?: { slug: string; title: string }[];
   badges: { slug: string; awardedAt: string }[];
   teams: { id: string; name: string }[];
 };
@@ -57,6 +58,7 @@ export function ProfileSetupForm({ token }: { token: string }) {
       <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{data.badges.length.toLocaleString()}</p><p className="text-sm text-slate-300">Badges</p></div>
     </div>
     <div className="rounded-xl border border-line bg-panel p-4"><h2 className="font-semibold">Weekly impact preview</h2><p className="mt-2 text-sm text-slate-300">{data.latestDigest?.previewText ?? 'Your impact digest will appear after your worker completes eligible contributions.'}</p></div>
+    {data.impactCards?.length ? <div className="rounded-xl border border-line bg-panel p-4"><h2 className="font-semibold">Shareable impact cards</h2><ul className="mt-2 space-y-1 text-sm">{data.impactCards.map((card) => <li key={card.slug}><a className="text-accent" href={`/impact/cards/${card.slug}`}>{card.title}</a></li>)}</ul></div> : null}
     <form action={submit} className="space-y-5 rounded-xl border border-line bg-panel p-5">
       <label className="block text-sm"><span className="text-slate-300">Display name</span><input name="displayName" defaultValue={data.profile.displayName} className="mt-1 w-full rounded border border-line bg-ink px-3 py-2 text-white" /></label>
       <label className="block text-sm"><span className="text-slate-300">Bio optional</span><textarea name="bio" defaultValue={data.profile.bio} maxLength={240} className="mt-1 w-full rounded border border-line bg-ink px-3 py-2 text-white" /></label>

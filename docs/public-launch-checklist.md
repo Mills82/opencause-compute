@@ -69,6 +69,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add protected admin controls for profile privacy/display-name setup and team membership setup.
 - [x] Add token-based volunteer self-service profile privacy/display-name controls for selected beta testers.
 - [x] Add weekly impact digest preview foundation without email delivery.
+- [x] Add public-safe shareable impact card foundation without auto-posting.
 - [ ] Add public team creation/join/leave UX with moderation controls before broad public teams.
 
 ## Legal/trust checklist

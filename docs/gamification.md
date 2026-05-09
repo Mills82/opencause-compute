@@ -87,6 +87,10 @@ Protected admin APIs can review and configure the recognition layer before publi
 
 The admin dashboard links to `/admin/gamification` for a protected setup/status view. These endpoints are intended for operator setup and QA, not public volunteer account management.
 
+## Shareable impact cards
+
+Recompute can generate public-safe impact cards for opted-in public volunteer profiles and public teams. Cards live under `/impact/cards/:slug` and expose only safe summary metrics/copy. They do not auto-post anywhere and do not include emails, node IDs, enrollment codes, private profile names, raw packet IDs, or medical/scientific overclaims.
+
 ## Current V1 limitations
 
 - Volunteer profile setup uses a registration-issued setup token rather than a full account system. This is suitable for selected beta testers, but broader public launch should still add account/session recovery, token rotation, and abuse/moderation UX.

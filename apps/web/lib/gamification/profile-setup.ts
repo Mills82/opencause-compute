@@ -37,6 +37,7 @@ export function readProfileSetup(db: DatabaseState, token: string, now = new Dat
     },
     stats: db.volunteerStatsSnapshots.find((stats) => stats.volunteerProfileId === profile.id && stats.window === 'all_time') ?? null,
     latestDigest: db.impactDigests.filter((digest) => digest.volunteerProfileId === profile.id).sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0] ?? null,
+    impactCards: db.impactCards.filter((card) => card.volunteerProfileId === profile.id && card.publicEnabled).map((card) => ({ slug: card.slug, title: card.title })),
     badges: db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id).map((badge) => ({ slug: badge.badgeSlug, awardedAt: badge.awardedAt })),
     teams: db.teams.filter((team) => team.visibility === 'public').map((team) => ({ id: team.id, name: team.name, slug: team.slug, description: team.description }))
   };

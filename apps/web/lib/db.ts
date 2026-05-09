@@ -27,6 +27,7 @@ const EMPTY_DB: DatabaseState = {
   volunteerStatsSnapshots: [],
   teamStatsSnapshots: [],
   impactDigests: [],
+  impactCards: [],
   workerControl: {
     paused: false,
     idleMode: 'user-and-cpu',
@@ -75,7 +76,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const ownClient = !client;
   const c = client ?? (await getPool().connect());
   try {
-    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests] = await Promise.all([
+    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests, impactCards] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
@@ -94,7 +95,8 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
       c.query('SELECT * FROM volunteer_badges ORDER BY awarded_at'),
       c.query('SELECT * FROM volunteer_stats_snapshots ORDER BY computed_at DESC'),
       c.query('SELECT * FROM team_stats_snapshots ORDER BY computed_at DESC'),
-      c.query('SELECT * FROM impact_digests ORDER BY period_start DESC')
+      c.query('SELECT * FROM impact_digests ORDER BY period_start DESC'),
+      c.query('SELECT * FROM impact_cards ORDER BY created_at DESC')
     ]);
 
     const controlRow = workerControl.rows[0];
@@ -343,6 +345,22 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         createdAt: iso(row.created_at)!,
         deliveredAt: iso(row.delivered_at)
       })),
+      impactCards: impactCards.rows.map((row) => ({
+        id: row.id,
+        volunteerProfileId: row.volunteer_profile_id ?? null,
+        teamId: row.team_id ?? null,
+        cardType: row.card_type,
+        slug: row.slug,
+        title: row.title,
+        subtitle: row.subtitle,
+        metricLabel: row.metric_label,
+        metricValue: row.metric_value,
+        accentColor: row.accent_color,
+        publicEnabled: row.public_enabled,
+        periodStart: iso(row.period_start),
+        periodEnd: iso(row.period_end),
+        createdAt: iso(row.created_at)!
+      })),
       workerControl: control
     });
   } finally {
@@ -367,6 +385,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('DELETE FROM ingestion_runs');
     await c.query('DELETE FROM audit_events');
     await c.query('DELETE FROM volunteer_enrollments');
+    await c.query('DELETE FROM impact_cards');
     await c.query('DELETE FROM impact_digests');
     await c.query('DELETE FROM team_stats_snapshots');
     await c.query('DELETE FROM volunteer_stats_snapshots');
@@ -432,6 +451,9 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     for (const digest of parsed.impactDigests) {
       await c.query('INSERT INTO impact_digests(id,volunteer_profile_id,period_start,period_end,sections_processed,format_validated_submissions,consensus_passed_contributions,idle_minutes_donated,badges_awarded,team_rank,preview_text,created_at,delivered_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (volunteer_profile_id,period_start,period_end) DO UPDATE SET sections_processed=EXCLUDED.sections_processed, format_validated_submissions=EXCLUDED.format_validated_submissions, consensus_passed_contributions=EXCLUDED.consensus_passed_contributions, idle_minutes_donated=EXCLUDED.idle_minutes_donated, badges_awarded=EXCLUDED.badges_awarded, team_rank=EXCLUDED.team_rank, preview_text=EXCLUDED.preview_text, created_at=EXCLUDED.created_at, delivered_at=EXCLUDED.delivered_at', [digest.id, digest.volunteerProfileId, digest.periodStart, digest.periodEnd, digest.sectionsProcessed, digest.formatValidatedSubmissions, digest.consensusPassedContributions, digest.idleMinutesDonated, digest.badgesAwarded, digest.teamRank, digest.previewText, digest.createdAt, digest.deliveredAt]);
     }
+    for (const card of parsed.impactCards) {
+      await c.query('INSERT INTO impact_cards(id,volunteer_profile_id,team_id,card_type,slug,title,subtitle,metric_label,metric_value,accent_color,public_enabled,period_start,period_end,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT (slug) DO UPDATE SET title=EXCLUDED.title, subtitle=EXCLUDED.subtitle, metric_label=EXCLUDED.metric_label, metric_value=EXCLUDED.metric_value, accent_color=EXCLUDED.accent_color, public_enabled=EXCLUDED.public_enabled, period_start=EXCLUDED.period_start, period_end=EXCLUDED.period_end, created_at=EXCLUDED.created_at', [card.id, card.volunteerProfileId, card.teamId, card.cardType, card.slug, card.title, card.subtitle, card.metricLabel, card.metricValue, card.accentColor, card.publicEnabled, card.periodStart, card.periodEnd, card.createdAt]);
+    }
     if (ownClient) await c.query('COMMIT');
   } catch (error) {
     if (ownClient) await c.query('ROLLBACK');
@@ -487,6 +509,7 @@ export async function loadDb(): Promise<DatabaseState> {
     if (!parsed.volunteerStatsSnapshots) parsed.volunteerStatsSnapshots = [];
     if (!parsed.teamStatsSnapshots) parsed.teamStatsSnapshots = [];
     if (!parsed.impactDigests) parsed.impactDigests = [];
+    if (!parsed.impactCards) parsed.impactCards = [];
     return databaseSchema.parse(parsed);
   } catch {
     await saveDb(EMPTY_DB);

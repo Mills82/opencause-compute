@@ -255,6 +255,23 @@ export const impactDigestSchema = z.object({
   deliveredAt: z.string().nullable().optional()
 });
 
+export const impactCardSchema = z.object({
+  id: z.string(),
+  volunteerProfileId: z.string().nullable().optional(),
+  teamId: z.string().nullable().optional(),
+  cardType: z.enum(['volunteer_weekly', 'team_weekly', 'global']),
+  slug: z.string(),
+  title: z.string(),
+  subtitle: z.string(),
+  metricLabel: z.string(),
+  metricValue: z.string(),
+  accentColor: z.string(),
+  publicEnabled: z.boolean(),
+  periodStart: z.string().nullable().optional(),
+  periodEnd: z.string().nullable().optional(),
+  createdAt: z.string()
+});
+
 export const ingestionRunSchema = z.object({
   id: z.string(),
   sourceType: z.enum(['pubmed_abstract', 'pmc_oa_full_text', 'combined']),
@@ -302,6 +319,7 @@ export const databaseSchema = z.object({
   volunteerStatsSnapshots: z.array(volunteerStatsSnapshotSchema).default([]),
   teamStatsSnapshots: z.array(teamStatsSnapshotSchema).default([]),
   impactDigests: z.array(impactDigestSchema).default([]),
+  impactCards: z.array(impactCardSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -328,6 +346,7 @@ export type VolunteerBadge = z.infer<typeof volunteerBadgeSchema>;
 export type VolunteerStatsSnapshot = z.infer<typeof volunteerStatsSnapshotSchema>;
 export type TeamStatsSnapshot = z.infer<typeof teamStatsSnapshotSchema>;
 export type ImpactDigest = z.infer<typeof impactDigestSchema>;
+export type ImpactCard = z.infer<typeof impactCardSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;
