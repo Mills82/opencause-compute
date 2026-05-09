@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   runMockExtractorV1,
+  verifyPayloadEd25519,
   verifyPayloadHmac,
   type ResultPayload,
   type WorkPacketPayload,
@@ -17,6 +18,8 @@ type ExtractorVersion = 'Local LLM v1' | 'Mock Extractor v1';
 
 const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
+const PACKET_SIGNING_PUBLIC_KEY = process.env.PACKET_SIGNING_PUBLIC_KEY;
+const PACKET_SIGNING_KEY_ID = process.env.PACKET_SIGNING_KEY_ID;
 const APP_DIR = process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute');
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
 const NODE_PATH = path.join(APP_DIR, 'node.json');
@@ -247,7 +250,9 @@ async function runOnce(
     return;
   }
 
-  const isValidSignature = verifyPayloadHmac(claimed.packet, claimed.signature, SIGNING_SECRET);
+  const isValidSignature = PACKET_SIGNING_PUBLIC_KEY
+    ? verifyPayloadEd25519(claimed.packet, claimed.signature, PACKET_SIGNING_PUBLIC_KEY, PACKET_SIGNING_KEY_ID)
+    : verifyPayloadHmac(claimed.packet, claimed.signature, SIGNING_SECRET);
   if (!isValidSignature) {
     await log(`signature verification failed for packet ${claimed.packet.id}`);
     return;

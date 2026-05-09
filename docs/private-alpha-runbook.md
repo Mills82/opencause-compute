@@ -112,3 +112,12 @@ The hosted web app is intentionally split between a public landing surface and a
 - `GET /api/health` returns non-sensitive deployment, queue, node, and result counts for launch checks. It must never include raw environment values or secrets.
 
 This split is sufficient for controlled private-alpha demos only. Before real public volunteer launch, close the remaining blockers in `docs/public-launch-checklist.md`.
+
+## Packet signing mode
+
+Hosted/public-facing deployments should use asymmetric packet signing:
+
+- Coordinator: `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, optional `PACKET_SIGNING_KEY_ID`.
+- Worker: `PACKET_SIGNING_PUBLIC_KEY`, optional `PACKET_SIGNING_KEY_ID`.
+
+`SIGNING_SECRET` is retained for local/dev and tightly controlled private-alpha fallback only. Do not distribute a shared signing secret to public volunteers.

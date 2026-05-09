@@ -1,16 +1,32 @@
-import { signPayloadHmac, verifyPayloadHmac } from '@opencause/shared';
+import { signPayloadEd25519, signPayloadHmac, verifyPayloadEd25519, verifyPayloadHmac } from '@opencause/shared';
 import { isDevMode } from './runtime-config';
 
-function getSigningSecret(): string {
+function hmacSecret(): string {
   if (process.env.SIGNING_SECRET) return process.env.SIGNING_SECRET;
   if (isDevMode()) return 'opencause-dev-signing-secret-v1';
   throw new Error('missing_signing_secret');
 }
 
+function signingPrivateKey(): string | undefined {
+  return process.env.PACKET_SIGNING_PRIVATE_KEY;
+}
+
+function signingPublicKey(): string | undefined {
+  return process.env.PACKET_SIGNING_PUBLIC_KEY;
+}
+
 export function signWorkPacketPayload(payload: unknown): string {
-  return signPayloadHmac(payload, getSigningSecret());
+  const privateKey = signingPrivateKey();
+  if (privateKey) {
+    return signPayloadEd25519(payload, privateKey, process.env.PACKET_SIGNING_KEY_ID);
+  }
+  return signPayloadHmac(payload, hmacSecret());
 }
 
 export function verifyWorkPacketSignature(payload: unknown, signature: string): boolean {
-  return verifyPayloadHmac(payload, signature, getSigningSecret());
+  const publicKey = signingPublicKey();
+  if (publicKey) {
+    return verifyPayloadEd25519(payload, signature, publicKey, process.env.PACKET_SIGNING_KEY_ID);
+  }
+  return verifyPayloadHmac(payload, signature, hmacSecret());
 }

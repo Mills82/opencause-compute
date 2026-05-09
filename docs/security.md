@@ -45,3 +45,21 @@
 ## Private-alpha signing limitation
 
 HMAC is private-alpha-only. Production/hosted mode must set `SIGNING_SECRET`; local dev/test may use the dev fallback. Asymmetric signing is required before public volunteer release, because workers should not receive server signing secrets in the long term.
+
+## Work packet signing
+
+Public-launch packet signing uses Ed25519 asymmetric signatures.
+
+- The coordinator signs canonical work-packet payloads with `PACKET_SIGNING_PRIVATE_KEY`.
+- Workers verify with `PACKET_SIGNING_PUBLIC_KEY` and never need the coordinator private key.
+- `PACKET_SIGNING_KEY_ID` identifies the active key and supports rotation planning.
+- `SIGNING_SECRET`/HMAC remains only as a local-dev or controlled private-alpha fallback. Do not give public workers a shared signing secret.
+
+### Key rotation
+
+1. Generate a new Ed25519 keypair.
+2. Deploy the new public key to workers with a new `PACKET_SIGNING_KEY_ID`.
+3. Deploy the matching private key to the coordinator.
+4. Retire the old key after old in-flight work packets expire.
+
+Forged packets, tampered payloads, key-id mismatches, and signatures made by the wrong private key must fail worker verification.

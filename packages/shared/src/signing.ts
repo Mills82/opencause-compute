@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, createPrivateKey, createPublicKey, sign, timingSafeEqual, verify } from 'node:crypto';
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') {
@@ -12,6 +12,12 @@ function stableStringify(value: unknown): string {
   const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(',')}}`;
 }
+
+export type PacketSignatureEnvelope = {
+  algorithm: 'ed25519' | 'hmac-sha256';
+  signature: string;
+  keyId?: string;
+};
 
 export function canonicalizeForSignature(payload: unknown): string {
   return stableStringify(payload);
@@ -28,6 +34,30 @@ export function verifyPayloadHmac(payload: unknown, signature: string, secret: s
     return false;
   }
   return timingSafeEqual(expected, got);
+}
+
+export function signPayloadEd25519(payload: unknown, privateKeyPem: string, keyId?: string): string {
+  const privateKey = createPrivateKey(privateKeyPem.replace(/\\n/g, '\n'));
+  const bytes = sign(null, Buffer.from(canonicalizeForSignature(payload)), privateKey).toString('base64url');
+  return JSON.stringify({ algorithm: 'ed25519', keyId, signature: bytes } satisfies PacketSignatureEnvelope);
+}
+
+export function verifyPayloadEd25519(payload: unknown, signatureEnvelope: string, publicKeyPem: string, expectedKeyId?: string): boolean {
+  let envelope: PacketSignatureEnvelope;
+  try {
+    envelope = JSON.parse(signatureEnvelope) as PacketSignatureEnvelope;
+  } catch {
+    return false;
+  }
+  if (envelope.algorithm !== 'ed25519' || !envelope.signature) return false;
+  if (expectedKeyId && envelope.keyId && envelope.keyId !== expectedKeyId) return false;
+
+  try {
+    const publicKey = createPublicKey(publicKeyPem.replace(/\\n/g, '\n'));
+    return verify(null, Buffer.from(canonicalizeForSignature(payload)), publicKey, Buffer.from(envelope.signature, 'base64url'));
+  } catch {
+    return false;
+  }
 }
 
 export function hashText(input: string): string {
