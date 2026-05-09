@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <header className="border-b border-line bg-panel/70">
             <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between">
               <a className="flex items-center gap-3" href="/" aria-label="OpenCause Compute home">
-                <img src="/opencause-compute-logo.png" alt="OpenCause Compute" className="h-12 w-auto max-w-[280px]" />
+                <img src="/opencause-compute-logo.svg" alt="OpenCause Compute" className="h-12 w-auto max-w-[280px]" />
               </a>
               <nav className="flex flex-wrap gap-4 text-sm font-medium text-slate-300" aria-label="Primary navigation">
                 {links.map(([label, href]) => (
