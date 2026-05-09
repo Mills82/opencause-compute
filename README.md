@@ -55,10 +55,12 @@ Prototype builds are for selected testers only. They may show Windows warnings u
 - `/about` — overview
 - `/download` — worker download links when configured
 - `/volunteer` — public volunteer enrollment when enabled
+- `/impact` — public aggregate impact dashboard with conservative scientific language
+- `/leaderboards`, `/leaderboards/volunteers`, `/leaderboards/teams` — privacy-aware recognition surfaces for opted-in profiles and public teams
 - `/privacy`, `/terms`, `/security`, `/science-disclaimer`, `/responsible-disclosure` — trust/legal pages
 - `/api/health` — non-secret health check
 
-Coordinator/admin surfaces are protected behind admin authentication.
+Coordinator/admin surfaces are protected behind admin authentication. See `docs/gamification.md` for contribution scoring, badges, teams, privacy behavior, and anti-abuse guardrails.
 
 ## For operators
 

@@ -59,6 +59,16 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add approved extractor manifest and localhost/app-dir safety checks.
 - [x] Worker sandbox/resource model enforces app-dir boundaries, approved extractor/runtime policy, localhost model endpoint, signature verification, and desktop resource controls; clean-machine QA still required before public release.
 
+## Impact recognition checklist
+
+- [x] Add private-by-default volunteer profile model separate from operational worker nodes.
+- [x] Add contribution scoring with a cap on raw idle-time contribution.
+- [x] Add badge definitions and idempotent badge-award foundation.
+- [x] Add public-safe `/impact` page and API with empty-state copy.
+- [x] Add privacy-aware leaderboard/profile/team route foundations.
+- [ ] Add volunteer self-service profile privacy/display-name controls before using leaderboards as a growth surface.
+- [ ] Add team creation/join/leave UX with moderation controls before broad public teams.
+
 ## Legal/trust checklist
 
 - [x] Add baseline `/privacy`, `/terms`, `/security`, `/science-disclaimer`, and `/responsible-disclosure` pages.

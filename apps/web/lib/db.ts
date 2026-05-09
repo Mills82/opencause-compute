@@ -18,6 +18,14 @@ const EMPTY_DB: DatabaseState = {
   ingestionRuns: [],
   auditEvents: [],
   volunteerEnrollments: [],
+  volunteerProfiles: [],
+  volunteerProfileNodes: [],
+  teams: [],
+  teamMemberships: [],
+  badgeDefinitions: [],
+  volunteerBadges: [],
+  volunteerStatsSnapshots: [],
+  teamStatsSnapshots: [],
   workerControl: {
     paused: false,
     idleMode: 'user-and-cpu',
@@ -66,7 +74,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const ownClient = !client;
   const c = client ?? (await getPool().connect());
   try {
-    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments] = await Promise.all([
+    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
@@ -76,7 +84,15 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
       c.query('SELECT * FROM worker_control WHERE id = 1'),
       c.query('SELECT * FROM ingestion_runs ORDER BY started_at DESC'),
       c.query('SELECT * FROM audit_events ORDER BY created_at DESC'),
-      c.query('SELECT * FROM volunteer_enrollments ORDER BY created_at DESC')
+      c.query('SELECT * FROM volunteer_enrollments ORDER BY created_at DESC'),
+      c.query('SELECT * FROM volunteer_profiles ORDER BY joined_at'),
+      c.query('SELECT * FROM volunteer_profile_nodes ORDER BY attached_at'),
+      c.query('SELECT * FROM teams ORDER BY created_at'),
+      c.query('SELECT * FROM team_memberships ORDER BY joined_at'),
+      c.query('SELECT * FROM badge_definitions ORDER BY created_at, slug'),
+      c.query('SELECT * FROM volunteer_badges ORDER BY awarded_at'),
+      c.query('SELECT * FROM volunteer_stats_snapshots ORDER BY computed_at DESC'),
+      c.query('SELECT * FROM team_stats_snapshots ORDER BY computed_at DESC')
     ]);
 
     const controlRow = workerControl.rows[0];
@@ -205,6 +221,109 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         metadata: row.metadata ?? {},
         createdAt: iso(row.created_at)!
       })),
+      volunteerProfiles: volunteerProfiles.rows.map((row) => ({
+        id: row.id,
+        displayName: row.display_name,
+        slug: row.slug,
+        privacyMode: row.privacy_mode,
+        publicProfileEnabled: row.public_profile_enabled,
+        avatarColor: row.avatar_color,
+        bio: row.bio ?? undefined,
+        joinedAt: iso(row.joined_at)!,
+        lastActiveAt: iso(row.last_active_at),
+        statsUpdatedAt: iso(row.stats_updated_at),
+        createdAt: iso(row.created_at)!,
+        updatedAt: iso(row.updated_at)!
+      })),
+      volunteerProfileNodes: volunteerProfileNodes.rows.map((row) => ({
+        id: row.id,
+        volunteerProfileId: row.volunteer_profile_id,
+        nodeId: row.node_id,
+        attachedAt: iso(row.attached_at)!,
+        detachedAt: iso(row.detached_at)
+      })),
+      teams: teams.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: row.description ?? '',
+        visibility: row.visibility,
+        createdByVolunteerProfileId: row.created_by_volunteer_profile_id ?? undefined,
+        createdAt: iso(row.created_at)!,
+        updatedAt: iso(row.updated_at)!,
+        statsUpdatedAt: iso(row.stats_updated_at)
+      })),
+      teamMemberships: teamMemberships.rows.map((row) => ({
+        id: row.id,
+        teamId: row.team_id,
+        volunteerProfileId: row.volunteer_profile_id,
+        role: row.role,
+        status: row.status,
+        joinedAt: iso(row.joined_at)!,
+        leftAt: iso(row.left_at)
+      })),
+      badgeDefinitions: badgeDefinitions.rows.map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        criteriaKind: row.criteria_kind,
+        criteriaValue: Number(row.criteria_value),
+        iconName: row.icon_name ?? undefined,
+        createdAt: iso(row.created_at)!
+      })),
+      volunteerBadges: volunteerBadges.rows.map((row) => ({
+        id: row.id,
+        volunteerProfileId: row.volunteer_profile_id,
+        badgeSlug: row.badge_slug,
+        awardedAt: iso(row.awarded_at)!,
+        sourceKind: row.source_kind ?? undefined,
+        sourceId: row.source_id ?? undefined
+      })),
+      volunteerStatsSnapshots: volunteerStatsSnapshots.rows.map((row) => ({
+        id: row.id,
+        volunteerProfileId: row.volunteer_profile_id,
+        window: row.stats_window,
+        windowStart: iso(row.window_start),
+        windowEnd: iso(row.window_end),
+        contributionScore: Number(row.contribution_score),
+        sectionsProcessed: Number(row.sections_processed),
+        packetsSubmitted: Number(row.packets_submitted),
+        formatValidatedSubmissions: Number(row.format_validated_submissions),
+        formatRejectedSubmissions: Number(row.format_rejected_submissions),
+        consensusPassedContributions: Number(row.consensus_passed_contributions),
+        consensusFailedContributions: Number(row.consensus_failed_contributions),
+        humanReviewedAcceptedContributions: Number(row.human_reviewed_accepted_contributions),
+        idleMinutesDonated: Number(row.idle_minutes_donated),
+        distinctActiveDays: Number(row.distinct_active_days),
+        currentStreakDays: Number(row.current_streak_days),
+        longestStreakDays: Number(row.longest_streak_days),
+        badgesCount: Number(row.badges_count),
+        computedAt: iso(row.computed_at)!
+      })),
+      teamStatsSnapshots: teamStatsSnapshots.rows.map((row) => ({
+        id: row.id,
+        teamId: row.team_id,
+        window: row.stats_window,
+        windowStart: iso(row.window_start),
+        windowEnd: iso(row.window_end),
+        contributionScore: Number(row.contribution_score),
+        sectionsProcessed: Number(row.sections_processed),
+        packetsSubmitted: Number(row.packets_submitted),
+        formatValidatedSubmissions: Number(row.format_validated_submissions),
+        formatRejectedSubmissions: Number(row.format_rejected_submissions),
+        consensusPassedContributions: Number(row.consensus_passed_contributions),
+        consensusFailedContributions: Number(row.consensus_failed_contributions),
+        humanReviewedAcceptedContributions: Number(row.human_reviewed_accepted_contributions),
+        idleMinutesDonated: Number(row.idle_minutes_donated),
+        distinctActiveDays: Number(row.distinct_active_days),
+        currentStreakDays: Number(row.current_streak_days),
+        longestStreakDays: Number(row.longest_streak_days),
+        memberCount: Number(row.member_count),
+        activeMemberCount: Number(row.active_member_count),
+        computedAt: iso(row.computed_at)!
+      })),
       workerControl: control
     });
   } finally {
@@ -222,12 +341,20 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('DELETE FROM extraction_results');
     await c.query('DELETE FROM work_claims');
     await c.query('DELETE FROM work_packets');
+    await c.query('DELETE FROM volunteer_profile_nodes');
     await c.query('DELETE FROM volunteer_nodes');
     await c.query('DELETE FROM projects');
     await c.query('DELETE FROM worker_control');
     await c.query('DELETE FROM ingestion_runs');
     await c.query('DELETE FROM audit_events');
     await c.query('DELETE FROM volunteer_enrollments');
+    await c.query('DELETE FROM team_stats_snapshots');
+    await c.query('DELETE FROM volunteer_stats_snapshots');
+    await c.query('DELETE FROM volunteer_badges');
+    await c.query('DELETE FROM badge_definitions');
+    await c.query('DELETE FROM team_memberships');
+    await c.query('DELETE FROM teams');
+    await c.query('DELETE FROM volunteer_profiles');
 
     for (const project of parsed.projects) {
       await c.query('INSERT INTO projects(id, slug, name, description, status, created_at) VALUES($1,$2,$3,$4,$5,$6)', [project.id, project.slug, project.name, project.description, project.status, project.createdAt]);
@@ -257,6 +384,30 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     }
     for (const event of parsed.auditEvents) {
       await c.query('INSERT INTO audit_events(id,actor_type,actor_id,action,target_type,target_id,metadata,created_at) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)', [event.id, event.actorType, event.actorId, event.action, event.targetType, event.targetId, JSON.stringify(event.metadata), event.createdAt]);
+    }
+    for (const profile of parsed.volunteerProfiles) {
+      await c.query('INSERT INTO volunteer_profiles(id,display_name,slug,privacy_mode,public_profile_enabled,avatar_color,bio,joined_at,last_active_at,stats_updated_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [profile.id, profile.displayName, profile.slug, profile.privacyMode, profile.publicProfileEnabled, profile.avatarColor, profile.bio, profile.joinedAt, profile.lastActiveAt, profile.statsUpdatedAt, profile.createdAt, profile.updatedAt]);
+    }
+    for (const link of parsed.volunteerProfileNodes) {
+      await c.query('INSERT INTO volunteer_profile_nodes(id,volunteer_profile_id,node_id,attached_at,detached_at) VALUES($1,$2,$3,$4,$5)', [link.id, link.volunteerProfileId, link.nodeId, link.attachedAt, link.detachedAt]);
+    }
+    for (const team of parsed.teams) {
+      await c.query('INSERT INTO teams(id,name,slug,description,visibility,created_by_volunteer_profile_id,created_at,updated_at,stats_updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [team.id, team.name, team.slug, team.description, team.visibility, team.createdByVolunteerProfileId, team.createdAt, team.updatedAt, team.statsUpdatedAt]);
+    }
+    for (const membership of parsed.teamMemberships) {
+      await c.query('INSERT INTO team_memberships(id,team_id,volunteer_profile_id,role,status,joined_at,left_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [membership.id, membership.teamId, membership.volunteerProfileId, membership.role, membership.status, membership.joinedAt, membership.leftAt]);
+    }
+    for (const badge of parsed.badgeDefinitions) {
+      await c.query('INSERT INTO badge_definitions(id,slug,name,description,category,criteria_kind,criteria_value,icon_name,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [badge.id, badge.slug, badge.name, badge.description, badge.category, badge.criteriaKind, badge.criteriaValue, badge.iconName, badge.createdAt]);
+    }
+    for (const badge of parsed.volunteerBadges) {
+      await c.query('INSERT INTO volunteer_badges(id,volunteer_profile_id,badge_slug,awarded_at,source_kind,source_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (volunteer_profile_id,badge_slug) DO NOTHING', [badge.id, badge.volunteerProfileId, badge.badgeSlug, badge.awardedAt, badge.sourceKind, badge.sourceId]);
+    }
+    for (const stats of parsed.volunteerStatsSnapshots) {
+      await c.query('INSERT INTO volunteer_stats_snapshots(id,volunteer_profile_id,stats_window,window_start,window_end,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,badges_count,computed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)', [stats.id, stats.volunteerProfileId, stats.window, stats.windowStart, stats.windowEnd, stats.contributionScore, stats.sectionsProcessed, stats.packetsSubmitted, stats.formatValidatedSubmissions, stats.formatRejectedSubmissions, stats.consensusPassedContributions, stats.consensusFailedContributions, stats.humanReviewedAcceptedContributions, stats.idleMinutesDonated, stats.distinctActiveDays, stats.currentStreakDays, stats.longestStreakDays, stats.badgesCount, stats.computedAt]);
+    }
+    for (const stats of parsed.teamStatsSnapshots) {
+      await c.query('INSERT INTO team_stats_snapshots(id,team_id,stats_window,window_start,window_end,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,member_count,active_member_count,computed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)', [stats.id, stats.teamId, stats.window, stats.windowStart, stats.windowEnd, stats.contributionScore, stats.sectionsProcessed, stats.packetsSubmitted, stats.formatValidatedSubmissions, stats.formatRejectedSubmissions, stats.consensusPassedContributions, stats.consensusFailedContributions, stats.humanReviewedAcceptedContributions, stats.idleMinutesDonated, stats.distinctActiveDays, stats.currentStreakDays, stats.longestStreakDays, stats.memberCount, stats.activeMemberCount, stats.computedAt]);
     }
     if (ownClient) await c.query('COMMIT');
   } catch (error) {
@@ -304,6 +455,14 @@ export async function loadDb(): Promise<DatabaseState> {
     if (!parsed.ingestionRuns) parsed.ingestionRuns = [];
     if (!parsed.auditEvents) parsed.auditEvents = [];
     if (!parsed.volunteerEnrollments) parsed.volunteerEnrollments = [];
+    if (!parsed.volunteerProfiles) parsed.volunteerProfiles = [];
+    if (!parsed.volunteerProfileNodes) parsed.volunteerProfileNodes = [];
+    if (!parsed.teams) parsed.teams = [];
+    if (!parsed.teamMemberships) parsed.teamMemberships = [];
+    if (!parsed.badgeDefinitions) parsed.badgeDefinitions = [];
+    if (!parsed.volunteerBadges) parsed.volunteerBadges = [];
+    if (!parsed.volunteerStatsSnapshots) parsed.volunteerStatsSnapshots = [];
+    if (!parsed.teamStatsSnapshots) parsed.teamStatsSnapshots = [];
     return databaseSchema.parse(parsed);
   } catch {
     await saveDb(EMPTY_DB);

@@ -20,6 +20,7 @@ import { createNodeToken, hashNodeToken } from './node-auth';
 import { isHostedMode } from './runtime-config';
 import { recordAuditEvent } from './audit';
 import { updateConsensusForPacket } from './consensus';
+import { createPrivateVolunteerProfileForNode } from './gamification/profiles';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -124,6 +125,7 @@ export function registerNode(
     enrollmentCodeHash
   };
   db.nodes.push(node);
+  const profile = createPrivateVolunteerProfileForNode(db, node.id, now);
   const enrollment = enrollmentCodeHash
     ? db.volunteerEnrollments.find((candidate) => candidate.enrollmentCodeHash === enrollmentCodeHash)
     : undefined;
@@ -138,7 +140,7 @@ export function registerNode(
     action: 'node.registered',
     targetType: 'node',
     targetId: node.id,
-    metadata: { platform: node.platform, version: node.version, capabilities: node.capabilities }
+    metadata: { platform: node.platform, version: node.version, capabilities: node.capabilities, volunteerProfileId: profile.id }
   });
   const { nodeTokenHash: _nodeTokenHash, enrollmentCodeHash: _enrollmentCodeHash, ...publicNode } = node;
   return { ...publicNode, node: publicNode, nodeToken };

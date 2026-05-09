@@ -20,6 +20,7 @@ Current deployment is suitable for controlled private-alpha/demo exposure. A Win
 - Private-alpha incident response notes exist.
 - Windows desktop installer prototype and GitHub Release workflow exist, so selected Windows testers should not need Node/npm.
 - Baseline abuse monitoring snapshot exists for admin/operator review.
+- Impact recognition foundation exists: private-by-default volunteer profiles, badge/scoring primitives, public-safe impact dashboard, and conservative leaderboard surfaces.
 
 ## Still blocking broad public launch
 
@@ -31,6 +32,7 @@ Current deployment is suitable for controlled private-alpha/demo exposure. A Win
 - Hosted public volunteer enrollment must be exercised with Turnstile/email delivery and selected-testers before broad opening.
 - More robust NCBI batching/history/backoff for larger ingestion jobs.
 - Load/concurrency tests against real Postgres for claim/submit/consensus under worker load.
+- Volunteer self-service profile/team management and public-recognition opt-in UX before relying on leaderboards for external growth.
 
 ## Current go/no-go
 

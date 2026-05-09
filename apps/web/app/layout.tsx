@@ -11,6 +11,8 @@ const description =
 const links = [
   ['Home', '/'],
   ['About', '/about'],
+  ['Impact', '/impact'],
+  ['Leaderboards', '/leaderboards'],
   ['Volunteer', '/volunteer'],
   ['Download', '/download']
 ] as const;

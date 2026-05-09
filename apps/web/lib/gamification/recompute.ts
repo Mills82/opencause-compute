@@ -1,0 +1,157 @@
+import { randomUUID } from 'node:crypto';
+import { BADGE_DEFINITIONS, calculateContributionScore, type DatabaseState, type VolunteerStatsSnapshot, type TeamStatsSnapshot } from '@opencause/shared';
+
+function activeProfileIdForNode(db: DatabaseState, nodeId: string): string | undefined {
+  return db.volunteerProfileNodes.find((link) => link.nodeId === nodeId && !link.detachedAt)?.volunteerProfileId;
+}
+
+function distinctDays(dates: string[]): string[] {
+  return [...new Set(dates.map((date) => date.slice(0, 10)))].sort();
+}
+
+function currentStreak(days: string[], now = new Date()): number {
+  const set = new Set(days);
+  let count = 0;
+  const cursor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  while (set.has(cursor.toISOString().slice(0, 10))) {
+    count += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return count;
+}
+
+function longestStreak(days: string[]): number {
+  let longest = 0;
+  let current = 0;
+  let prev = 0;
+  for (const day of days) {
+    const value = Date.parse(`${day}T00:00:00.000Z`) / 86_400_000;
+    current = value === prev + 1 ? current + 1 : 1;
+    longest = Math.max(longest, current);
+    prev = value;
+  }
+  return longest;
+}
+
+function valueForCriteria(stats: VolunteerStatsSnapshot, kind: string, extra: { lowErrorSubmissions: number; projectsContributedTo: number; teamMemberships: number; teamCaptainMemberships: number }): number {
+  if (kind in stats) return Number(stats[kind as keyof VolunteerStatsSnapshot] ?? 0);
+  return Number(extra[kind as keyof typeof extra] ?? 0);
+}
+
+export function seedBadgeDefinitions(db: DatabaseState, nowIso = new Date().toISOString()): number {
+  let added = 0;
+  for (const definition of BADGE_DEFINITIONS) {
+    if (db.badgeDefinitions.some((existing) => existing.slug === definition.slug)) continue;
+    db.badgeDefinitions.push({ id: randomUUID(), ...definition, createdAt: nowIso });
+    added += 1;
+  }
+  return added;
+}
+
+export function recomputeGamification(db: DatabaseState, now = new Date()): { profilesUpdated: number; teamsUpdated: number; badgesAwarded: number; badgeDefinitionsSeeded: number } {
+  const nowIso = now.toISOString();
+  const badgeDefinitionsSeeded = seedBadgeDefinitions(db, nowIso);
+  const eligibleNodeIds = new Set(db.nodes.filter((node) => node.status !== 'suspended' && node.status !== 'revoked').map((node) => node.id));
+  const submittedByProfile = new Map<string, typeof db.results>();
+
+  for (const result of db.results) {
+    if (!eligibleNodeIds.has(result.nodeId)) continue;
+    const profileId = activeProfileIdForNode(db, result.nodeId);
+    if (!profileId) continue;
+    const existing = submittedByProfile.get(profileId) ?? [];
+    if (existing.some((candidate) => candidate.nodeId === result.nodeId && candidate.workPacketId === result.workPacketId)) continue;
+    existing.push(result);
+    submittedByProfile.set(profileId, existing);
+  }
+
+  db.volunteerStatsSnapshots = db.volunteerStatsSnapshots.filter((snapshot) => snapshot.window !== 'all_time');
+  db.teamStatsSnapshots = db.teamStatsSnapshots.filter((snapshot) => snapshot.window !== 'all_time');
+
+  let badgesAwarded = 0;
+  for (const profile of db.volunteerProfiles) {
+    const results = submittedByProfile.get(profile.id) ?? [];
+    const dates = distinctDays(results.map((result) => result.submittedAt));
+    const formatValidatedSubmissions = results.filter((result) => result.formatValidated ?? result.validated).length;
+    const formatRejectedSubmissions = results.filter((result) => !(result.formatValidated ?? result.validated)).length;
+    const consensusPassedContributions = results.filter((result) => result.consensusStatus === 'consensus_passed').length;
+    const consensusFailedContributions = results.filter((result) => result.consensusStatus === 'consensus_failed').length;
+    const humanReviewedAcceptedContributions = results.filter((result) => result.reviewStatus === 'human_reviewed').length;
+    const distinctActiveDays = dates.length;
+    const idleMinutesDonated = 0;
+    const score = calculateContributionScore({ formatValidatedSubmissions, consensusPassedContributions, humanReviewedAcceptedContributions, distinctActiveDays, idleMinutesDonated, formatRejectedSubmissions, consensusFailedContributions });
+    const activeMemberships = db.teamMemberships.filter((membership) => membership.volunteerProfileId === profile.id && membership.status === 'active');
+    const lowErrorSubmissions = results.length >= 50 && formatRejectedSubmissions / Math.max(1, results.length) <= 0.05 ? results.length : 0;
+    const stats: VolunteerStatsSnapshot = {
+      id: randomUUID(),
+      volunteerProfileId: profile.id,
+      window: 'all_time',
+      windowStart: null,
+      windowEnd: null,
+      contributionScore: score.contributionScore,
+      sectionsProcessed: results.length,
+      packetsSubmitted: results.length,
+      formatValidatedSubmissions,
+      formatRejectedSubmissions,
+      consensusPassedContributions,
+      consensusFailedContributions,
+      humanReviewedAcceptedContributions,
+      idleMinutesDonated,
+      distinctActiveDays,
+      currentStreakDays: currentStreak(dates, now),
+      longestStreakDays: longestStreak(dates),
+      badgesCount: db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id).length,
+      computedAt: nowIso
+    };
+
+    const extra = {
+      lowErrorSubmissions,
+      projectsContributedTo: new Set(results.map((result) => db.workPackets.find((packet) => packet.id === result.workPacketId)?.projectId).filter(Boolean)).size,
+      teamMemberships: activeMemberships.length,
+      teamCaptainMemberships: activeMemberships.filter((membership) => membership.role === 'captain').length
+    };
+    for (const definition of db.badgeDefinitions) {
+      if (valueForCriteria(stats, definition.criteriaKind, extra) < definition.criteriaValue) continue;
+      if (db.volunteerBadges.some((badge) => badge.volunteerProfileId === profile.id && badge.badgeSlug === definition.slug)) continue;
+      db.volunteerBadges.push({ id: randomUUID(), volunteerProfileId: profile.id, badgeSlug: definition.slug, awardedAt: nowIso, sourceKind: 'gamification_recompute', sourceId: stats.id });
+      badgesAwarded += 1;
+    }
+    stats.badgesCount = db.volunteerBadges.filter((badge) => badge.volunteerProfileId === profile.id).length;
+    db.volunteerStatsSnapshots.push(stats);
+    profile.lastActiveAt = results.length ? results.map((result) => result.submittedAt).sort().at(-1) ?? profile.lastActiveAt : profile.lastActiveAt;
+    profile.statsUpdatedAt = nowIso;
+    profile.updatedAt = nowIso;
+  }
+
+  for (const team of db.teams) {
+    const memberships = db.teamMemberships.filter((membership) => membership.teamId === team.id && membership.status === 'active');
+    const memberStats = memberships.map((membership) => db.volunteerStatsSnapshots.find((stats) => stats.volunteerProfileId === membership.volunteerProfileId && stats.window === 'all_time')).filter((stats): stats is VolunteerStatsSnapshot => Boolean(stats));
+    const aggregate = (key: keyof VolunteerStatsSnapshot) => memberStats.reduce((sum, stats) => sum + Number(stats[key] ?? 0), 0);
+    const stats: TeamStatsSnapshot = {
+      id: randomUUID(),
+      teamId: team.id,
+      window: 'all_time',
+      windowStart: null,
+      windowEnd: null,
+      contributionScore: aggregate('contributionScore'),
+      sectionsProcessed: aggregate('sectionsProcessed'),
+      packetsSubmitted: aggregate('packetsSubmitted'),
+      formatValidatedSubmissions: aggregate('formatValidatedSubmissions'),
+      formatRejectedSubmissions: aggregate('formatRejectedSubmissions'),
+      consensusPassedContributions: aggregate('consensusPassedContributions'),
+      consensusFailedContributions: aggregate('consensusFailedContributions'),
+      humanReviewedAcceptedContributions: aggregate('humanReviewedAcceptedContributions'),
+      idleMinutesDonated: aggregate('idleMinutesDonated'),
+      distinctActiveDays: Math.max(0, ...memberStats.map((stats) => stats.distinctActiveDays)),
+      currentStreakDays: Math.max(0, ...memberStats.map((stats) => stats.currentStreakDays)),
+      longestStreakDays: Math.max(0, ...memberStats.map((stats) => stats.longestStreakDays)),
+      memberCount: memberships.length,
+      activeMemberCount: memberStats.filter((stats) => stats.packetsSubmitted > 0).length,
+      computedAt: nowIso
+    };
+    db.teamStatsSnapshots.push(stats);
+    team.statsUpdatedAt = nowIso;
+    team.updatedAt = nowIso;
+  }
+
+  return { profilesUpdated: db.volunteerProfiles.length, teamsUpdated: db.teams.length, badgesAwarded, badgeDefinitionsSeeded };
+}

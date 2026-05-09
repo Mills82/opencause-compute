@@ -139,6 +139,104 @@ export const volunteerEnrollmentSchema = z.object({
   source: z.enum(['public_signup', 'admin']).default('public_signup')
 });
 
+export const privacyModeSchema = z.enum(['private', 'public_anonymous', 'public_named']);
+
+export const volunteerProfileSchema = z.object({
+  id: z.string(),
+  displayName: z.string().min(1),
+  slug: z.string().min(1),
+  privacyMode: privacyModeSchema,
+  publicProfileEnabled: z.boolean(),
+  avatarColor: z.string().min(1),
+  bio: z.string().optional(),
+  joinedAt: z.string(),
+  lastActiveAt: z.string().nullable().optional(),
+  statsUpdatedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const volunteerProfileNodeSchema = z.object({
+  id: z.string(),
+  volunteerProfileId: z.string(),
+  nodeId: z.string(),
+  attachedAt: z.string(),
+  detachedAt: z.string().nullable().optional()
+});
+
+export const teamSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  description: z.string().default(''),
+  visibility: z.enum(['public', 'private']),
+  createdByVolunteerProfileId: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  statsUpdatedAt: z.string().nullable().optional()
+});
+
+export const teamMembershipSchema = z.object({
+  id: z.string(),
+  teamId: z.string(),
+  volunteerProfileId: z.string(),
+  role: z.enum(['member', 'captain']),
+  status: z.enum(['active', 'left', 'removed']),
+  joinedAt: z.string(),
+  leftAt: z.string().nullable().optional()
+});
+
+export const badgeDefinitionRecordSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: z.string(),
+  criteriaKind: z.string(),
+  criteriaValue: z.number().int().min(0),
+  iconName: z.string().optional(),
+  createdAt: z.string()
+});
+
+export const volunteerBadgeSchema = z.object({
+  id: z.string(),
+  volunteerProfileId: z.string(),
+  badgeSlug: z.string(),
+  awardedAt: z.string(),
+  sourceKind: z.string().optional(),
+  sourceId: z.string().optional()
+});
+
+export const statsWindowSchema = z.enum(['all_time', 'weekly', 'monthly']);
+
+export const volunteerStatsSnapshotSchema = z.object({
+  id: z.string(),
+  volunteerProfileId: z.string(),
+  window: statsWindowSchema,
+  windowStart: z.string().nullable().optional(),
+  windowEnd: z.string().nullable().optional(),
+  contributionScore: z.number().int().min(0),
+  sectionsProcessed: z.number().int().min(0),
+  packetsSubmitted: z.number().int().min(0),
+  formatValidatedSubmissions: z.number().int().min(0),
+  formatRejectedSubmissions: z.number().int().min(0),
+  consensusPassedContributions: z.number().int().min(0),
+  consensusFailedContributions: z.number().int().min(0),
+  humanReviewedAcceptedContributions: z.number().int().min(0),
+  idleMinutesDonated: z.number().int().min(0),
+  distinctActiveDays: z.number().int().min(0),
+  currentStreakDays: z.number().int().min(0),
+  longestStreakDays: z.number().int().min(0),
+  badgesCount: z.number().int().min(0),
+  computedAt: z.string()
+});
+
+export const teamStatsSnapshotSchema = volunteerStatsSnapshotSchema.omit({ volunteerProfileId: true, badgesCount: true }).extend({
+  teamId: z.string(),
+  memberCount: z.number().int().min(0),
+  activeMemberCount: z.number().int().min(0)
+});
+
 export const ingestionRunSchema = z.object({
   id: z.string(),
   sourceType: z.enum(['pubmed_abstract', 'pmc_oa_full_text', 'combined']),
@@ -177,6 +275,14 @@ export const databaseSchema = z.object({
   ingestionRuns: z.array(ingestionRunSchema).default([]),
   auditEvents: z.array(auditEventSchema).default([]),
   volunteerEnrollments: z.array(volunteerEnrollmentSchema).default([]),
+  volunteerProfiles: z.array(volunteerProfileSchema).default([]),
+  volunteerProfileNodes: z.array(volunteerProfileNodeSchema).default([]),
+  teams: z.array(teamSchema).default([]),
+  teamMemberships: z.array(teamMembershipSchema).default([]),
+  badgeDefinitions: z.array(badgeDefinitionRecordSchema).default([]),
+  volunteerBadges: z.array(volunteerBadgeSchema).default([]),
+  volunteerStatsSnapshots: z.array(volunteerStatsSnapshotSchema).default([]),
+  teamStatsSnapshots: z.array(teamStatsSnapshotSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -193,6 +299,15 @@ export type ExtractionResult = z.infer<typeof extractionResultSchema>;
 export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type VolunteerEnrollment = z.infer<typeof volunteerEnrollmentSchema>;
+export type PrivacyMode = z.infer<typeof privacyModeSchema>;
+export type VolunteerProfile = z.infer<typeof volunteerProfileSchema>;
+export type VolunteerProfileNode = z.infer<typeof volunteerProfileNodeSchema>;
+export type Team = z.infer<typeof teamSchema>;
+export type TeamMembership = z.infer<typeof teamMembershipSchema>;
+export type BadgeDefinitionRecord = z.infer<typeof badgeDefinitionRecordSchema>;
+export type VolunteerBadge = z.infer<typeof volunteerBadgeSchema>;
+export type VolunteerStatsSnapshot = z.infer<typeof volunteerStatsSnapshotSchema>;
+export type TeamStatsSnapshot = z.infer<typeof teamStatsSnapshotSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;
