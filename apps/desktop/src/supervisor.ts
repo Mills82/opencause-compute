@@ -28,6 +28,8 @@ export type WorkerRuntimeStatus = {
   logPath: string;
   credentialsPath: string;
   pid?: number;
+  lastExitCode?: number | null;
+  lastError?: string;
 };
 
 export type WorkerCommand =
@@ -39,6 +41,8 @@ export type WorkerCommand =
 
 export class WorkerSupervisor {
   private child: ChildProcessWithoutNullStreams | null = null;
+  private lastExitCode: number | null | undefined;
+  private lastError: string | undefined;
 
   constructor(private readonly config: WorkerSupervisorConfig) {}
 
@@ -50,7 +54,9 @@ export class WorkerSupervisor {
       appDir: this.config.appDir,
       logPath: path.join(this.config.appDir, 'worker.log'),
       credentialsPath: path.join(this.config.appDir, 'node.json'),
-      pid: this.child?.pid
+      pid: this.child?.pid,
+      lastExitCode: this.lastExitCode,
+      lastError: this.lastError
     };
   }
 
@@ -93,8 +99,12 @@ export class WorkerSupervisor {
     });
     this.child.stdout.on('data', (chunk) => { void this.appendWorkerLog(chunk.toString().trimEnd()); });
     this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
-    this.child.on('error', (error) => { void this.appendWorkerLog(`spawn error ${error.message}`); });
-    this.child.on('close', (code) => { void this.appendWorkerLog(`worker process exited code=${code ?? 'unknown'}`); });
+    this.child.on('error', (error) => { this.lastError = error.message; void this.appendWorkerLog(`spawn error ${error.message}`); });
+    this.child.on('close', (code) => {
+      this.lastExitCode = code;
+      void this.appendWorkerLog(`worker process exited code=${code ?? 'unknown'}`);
+      this.child = null;
+    });
     return this.status();
   }
 
@@ -209,6 +219,11 @@ export class WorkerSupervisor {
   async tailLog(maxBytes = 16_384): Promise<string> {
     const logPath = path.join(this.config.appDir, 'worker.log');
     const content = await readFile(logPath, 'utf8').catch(() => '');
+    return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
+  }
+
+  async registrationDebugLog(maxBytes = 16_384): Promise<string> {
+    const content = await readFile(path.join(this.config.appDir, 'registration-debug.log'), 'utf8').catch(() => '');
     return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
   }
 

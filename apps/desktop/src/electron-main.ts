@@ -21,6 +21,8 @@ function resolveStaticIndex(): string {
 }
 
 const workerEntry = resolveWorkerEntry();
+let cachedSupervisor: WorkerSupervisor | null = null;
+let cachedSupervisorKey = '';
 
 async function createWindow() {
   const win = new BrowserWindow({
@@ -40,7 +42,16 @@ async function createWindow() {
 
 async function supervisor() {
   const settings = await loadDesktopSettings(appDir);
-  return new WorkerSupervisor({
+  const key = JSON.stringify({
+    coordinatorUrl: settings.coordinatorUrl,
+    enrollmentCode: settings.enrollmentCode,
+    nodeId: settings.nodeId,
+    nodeToken: settings.nodeToken,
+    resourceControls: settings.resourceControls
+  });
+  if (cachedSupervisor && cachedSupervisorKey === key) return cachedSupervisor;
+  cachedSupervisorKey = key;
+  cachedSupervisor = new WorkerSupervisor({
     workerEntry,
     appDir,
     coordinatorUrl: settings.coordinatorUrl,
@@ -49,6 +60,7 @@ async function supervisor() {
     nodeToken: settings.nodeToken,
     resourceControls: settings.resourceControls
   });
+  return cachedSupervisor;
 }
 
 ipcMain.handle('desktop:get-state', async () => {
@@ -75,6 +87,8 @@ ipcMain.handle('desktop:get-state', async () => {
 
 ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknown) => {
   const settings = await updateDesktopSettings(appDir, update as Partial<DesktopSettings>);
+  cachedSupervisor = null;
+  cachedSupervisorKey = '';
   app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin });
   return redactedSettings(settings);
 });
@@ -97,6 +111,14 @@ ipcMain.handle('desktop:pause-worker', async () => {
 ipcMain.handle('desktop:stop-worker', async () => (await supervisor()).stop());
 ipcMain.handle('desktop:uninstall-local-state', async () => (await supervisor()).uninstallLocalState());
 ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLog());
+ipcMain.handle('desktop:diagnostics', async () => {
+  const sup = await supervisor();
+  return {
+    status: sup.status(),
+    workerLog: await sup.tailLog(),
+    registrationDebugLog: await sup.registrationDebugLog()
+  };
+});
 ipcMain.handle('desktop:register-worker', async (_event: unknown, enrollmentCode: unknown) => {
   if (typeof enrollmentCode !== 'string' || enrollmentCode.trim().length < 8) throw new Error('enrollment_code_required');
   return (await supervisor()).register(enrollmentCode.trim());

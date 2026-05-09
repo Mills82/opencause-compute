@@ -173,6 +173,7 @@
 
           <section>
             <h2>Activity and technical details</h2>
+            <button id="diagnostics">Show diagnostics</button>
             <details>
               <summary class="small">Show technical details</summary>
               <pre id="output"></pre>
@@ -313,7 +314,7 @@
           runtimeMessage.innerHTML = `${latestState.modelRuntime.message}<br><span class="${latestState.modelRuntime.available ? 'ready' : 'blocked'}">Ollama: ${latestState.modelRuntime.available ? 'available' : 'not found'}</span>`;
           ollamaHelp.classList.toggle('hidden', latestState.modelRuntime.available);
           if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
-          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : 'Worker is not running.');
+          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (latestState.runtime.running ? `Worker running with pid ${latestState.runtime.pid}.` : `Worker is not running.${latestState.runtime.lastExitCode !== undefined ? ' Last exit code: ' + latestState.runtime.lastExitCode + '.' : ''}${latestState.runtime.lastError ? ' Last error: ' + latestState.runtime.lastError : ''}`);
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
           openProfile.disabled = !profileSetupUrl;
           profileMessage.textContent = profileSetupUrl ? 'Profile setup link is available for this registered worker.' : (registered() ? 'No profile setup link found. Re-register or request a fresh profile setup link.' : 'Register this worker to receive a profile setup link.');
@@ -355,6 +356,7 @@
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { output.textContent = await api.tailLog(); };
+      document.getElementById('diagnostics').onclick = async () => { output.textContent = JSON.stringify(await api.diagnostics(), null, 2); };
       document.getElementById('toggle-enrollment-code').onclick = () => {
         const showing = enrollmentCode.type === 'text';
         enrollmentCode.type = showing ? 'password' : 'text';
