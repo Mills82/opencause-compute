@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -105,8 +105,8 @@ export class WorkerSupervisor {
       OPENCAUSE_APP_DIR: this.config.appDir,
       ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
     };
-    if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = require('node:fs').readFileSync(publicKeyPath, 'utf8');
-    if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = require('node:fs').readFileSync(keyIdPath, 'utf8').trim();
+    if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
+    if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
     return env;
   }
 
