@@ -31,7 +31,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [x] Add audit logs for admin actions, node registration/revocation, claims, submissions, ingestion, and validation decisions.
 - [x] Add public `/volunteer` form with Turnstile widget and email delivery for one-time enrollment codes.
 - [x] Add Postgres-backed rate-limit buckets for hosted/serverless-safe abuse control.
-- [ ] Add edge/provider abuse monitoring and alerting before broad high-traffic launch.
+- [x] Add baseline abuse monitoring snapshot and alert-destination readiness gate; add edge/provider monitoring before broad high-traffic launch.
 
 ## Deployment/env checklist
 

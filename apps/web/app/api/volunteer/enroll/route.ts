@@ -40,6 +40,14 @@ export async function POST(request: Request) {
 
   const turnstileOk = await verifyTurnstile(parsed.data.turnstileToken, clientIp(request));
   if (!turnstileOk) {
+    await withDb((db) => {
+      recordAuditEvent(db, {
+        actorType: 'system',
+        action: 'volunteer_enrollment.challenge_failed',
+        targetType: 'volunteer_enrollment',
+        metadata: { email: parsed.data.email.toLowerCase(), ip: clientIp(request) }
+      });
+    });
     return NextResponse.json({ error: 'challenge_failed' }, { status: 403 });
   }
 

@@ -29,6 +29,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
   const hasEnrollmentEmail = Boolean(process.env.RESEND_API_KEY && process.env.ENROLLMENT_EMAIL_FROM);
   const hasDownload = Boolean(process.env.NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL);
   const downloadStage = process.env.NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE ?? 'prototype';
+  const hasAbuseAlerting = Boolean(process.env.ABUSE_ALERT_WEBHOOK_URL || process.env.ABUSE_ALERT_EMAIL_TO);
 
   const items: ReadinessItem[] = [
     item('env', 'Hosted environment validation', env.ok ? 'pass' : 'fail', env.ok ? 'Required hosted env vars are present.' : `Missing: ${env.missing.join(', ')}`),
@@ -40,7 +41,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
     item('desktop_signing', 'Signed installer', 'fail', 'Windows artifact path exists, but signing is not implemented/verified.'),
     item('desktop_qa', 'Clean-machine desktop QA', 'fail', 'Windows release QA checklist has not been completed.'),
     item('sandbox', 'Worker sandbox/resource enforcement', 'fail', 'Worker safety model is documented but not fully implemented/tested for public release.'),
-    item('rate_limits', 'Distributed abuse controls', 'warn', 'Best-effort in-process rate limits exist; broad public launch needs durable/distributed controls.'),
+    item('rate_limits', 'Distributed abuse controls', hasAbuseAlerting ? 'pass' : 'warn', hasAbuseAlerting ? 'Postgres-backed limits plus abuse alert destination are configured.' : 'Postgres-backed limits exist when DATABASE_URL is present; configure abuse alerting before broad traffic.'),
     item('consensus', 'Consensus validation maturity', 'warn', 'Initial structural consensus exists; semantic comparison/reviewer tooling/exports remain.'),
     item('ncbi', 'NCBI ingestion robustness', 'warn', 'Backoff/retry exists; WebEnv/history batching for large jobs remains.'),
     item('audit', 'Audit/observability', db.auditEvents.length >= 0 ? 'pass' : 'warn', 'Audit events and ingestion runs are tracked.'),
