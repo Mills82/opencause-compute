@@ -7,12 +7,12 @@
     "dev": "next dev",
     "build": "rm -rf .next && next build",
     "start": "next start",
-    "typecheck": "next build --no-lint",
+    "typecheck": "next build",
     "test": "vitest run"
   },
   "dependencies": {
     "@opencause/shared": "file:../../packages/shared",
-    "next": "^14.2.35",
+    "next": "^16.2.6",
     "pg": "^8.13.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",

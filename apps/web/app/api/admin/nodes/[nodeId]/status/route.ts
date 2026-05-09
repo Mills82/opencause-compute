@@ -9,7 +9,8 @@ const requestSchema = z.object({
   status: z.enum(['online', 'offline', 'suspended', 'revoked'])
 });
 
-export async function POST(request: Request, { params }: { params: { nodeId: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ nodeId: string }> }) {
+  const { nodeId } = await params;
   const rateLimit = checkNamedRateLimit(request, 'adminApi');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
@@ -22,7 +23,7 @@ export async function POST(request: Request, { params }: { params: { nodeId: str
   }
 
   const node = await withDb((db) => {
-    const existing = db.nodes.find((candidate) => candidate.id === params.nodeId);
+    const existing = db.nodes.find((candidate) => candidate.id === nodeId);
     if (!existing) throw new Error('node_not_found');
     existing.status = parsed.data.status;
     if (parsed.data.status === 'revoked') existing.revokedAt = new Date().toISOString();

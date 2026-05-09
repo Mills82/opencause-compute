@@ -12,7 +12,7 @@ async function expectedCookieValue(): Promise<string | null> {
     .join('');
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isProtectedUi = protectedUiPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 

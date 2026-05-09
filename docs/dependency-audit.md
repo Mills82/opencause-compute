@@ -14,18 +14,8 @@ After these upgrades, build/typecheck/test passed across all workspaces.
 
 ## Remaining audit findings
 
-`npm audit` currently reports only:
-
-- `next` — high severity, direct dependency
-- `postcss` — moderate transitive via Next
-
-NPM reports the available fix as a major upgrade to Next 16.x. Do not apply this with `npm audit fix --force` without a deliberate migration pass because the web app is currently on Next 14 and the upgrade may require framework/runtime changes.
+The app has been migrated to Next 16.2.6 and the prior high-severity Next finding is gone. `npm audit` currently reports two moderate findings involving `next`/`postcss`; npm suggests a nonsensical semver-major downgrade path to Next 9.3.3, so this needs advisory-level review rather than force-fix automation.
 
 ## Public launch implication
 
-Broad public launch should include either:
-
-1. a successful Next 16 migration with full route/auth/API regression testing, or
-2. a documented security exception if the specific advisory does not affect this deployment.
-
-Private alpha/public demo can continue with this documented risk while the site remains low-traffic, admin surfaces protected, and no public worker enrollment is enabled.
+Broad public launch should include advisory-level review of the remaining moderate audit findings and either a safe dependency update when available or a documented exception if the advisories do not affect this deployment.

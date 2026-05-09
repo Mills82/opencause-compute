@@ -7,7 +7,8 @@ import { checkNamedRateLimit, rateLimitResponse } from '../../../../../../lib/ra
 
 const requestSchema = z.object({ status: z.enum(['issued', 'revoked']) });
 
-export async function POST(request: Request, { params }: { params: { enrollmentId: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ enrollmentId: string }> }) {
+  const { enrollmentId } = await params;
   const rateLimit = checkNamedRateLimit(request, 'adminApi');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   if (!isAdminAuthorized(request)) {
@@ -20,7 +21,7 @@ export async function POST(request: Request, { params }: { params: { enrollmentI
   }
 
   const enrollment = await withDb((db) => {
-    const existing = db.volunteerEnrollments.find((candidate) => candidate.id === params.enrollmentId);
+    const existing = db.volunteerEnrollments.find((candidate) => candidate.id === enrollmentId);
     if (!existing) throw new Error('enrollment_not_found');
     if (existing.status === 'used') throw new Error('enrollment_already_used');
     existing.status = parsed.data.status;

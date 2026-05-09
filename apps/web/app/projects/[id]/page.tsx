@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation';
 import { getProjectById } from '../../../lib/queries';
 import { validationLevel } from '../../../lib/validation-labels';
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const data = await getProjectById(params.id);
+export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = await getProjectById(id);
   if (!data) {
     notFound();
   }
