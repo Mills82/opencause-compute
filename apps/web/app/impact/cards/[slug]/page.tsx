@@ -28,6 +28,7 @@ export default async function ImpactCardPage({ params }: { params: Promise<{ slu
           <p className="text-xs text-slate-400">Candidate extraction and validation work, not medical conclusions or clinical findings.</p>
         </div>
       </article>
+      <a className="text-sm text-slate-400 underline" href={`/report-public-content?targetType=impact_card&targetSlug=${card.slug}`}>Report this card</a>
     </section>
   );
 }

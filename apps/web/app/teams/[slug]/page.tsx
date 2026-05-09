@@ -21,6 +21,7 @@ export default async function TeamProfilePage({ params }: { params: Promise<{ sl
         <div className="rounded-xl border border-line bg-panel p-5"><p className="text-2xl font-semibold">{(stats?.consensusPassedContributions ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Consensus-passed candidate facts</p></div>
       </div>
       <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">Team metrics aggregate eligible member contributions. These metrics are candidate extraction and validation work, not medical conclusions.</p>
+      <a className="text-sm text-slate-400 underline" href={`/report-public-content?targetType=team&targetSlug=${team.slug}`}>Report this team</a>
     </section>
   );
 }

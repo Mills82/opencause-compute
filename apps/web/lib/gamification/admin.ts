@@ -29,6 +29,9 @@ export function listGamificationAdmin(db: DatabaseState) {
       memberships: db.teamMemberships.filter((membership) => membership.teamId === team.id),
       stats: db.teamStatsSnapshots.find((stats) => stats.teamId === team.id && stats.window === 'all_time') ?? null
     })),
+    impactCards: db.impactCards,
+    publicReports: db.publicReports,
+    openPublicReportCount: db.publicReports.filter((report) => report.status === 'open').length,
     badgeDefinitions: db.badgeDefinitions
   };
 }

@@ -13,10 +13,11 @@ export default async function AdminGamificationPage() {
         <p className="text-slate-300">Protected setup view for volunteer profiles, privacy posture, teams, badges, and recompute status. Public self-service profile/team management is intentionally not live yet.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <article className="rounded-xl border border-line bg-panel p-4"><p className="text-sm text-slate-300">Volunteer profiles</p><p className="text-2xl font-semibold text-accent">{data.profiles.length}</p></article>
         <article className="rounded-xl border border-line bg-panel p-4"><p className="text-sm text-slate-300">Public profiles</p><p className="text-2xl font-semibold text-accent">{data.profiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private').length}</p></article>
         <article className="rounded-xl border border-line bg-panel p-4"><p className="text-sm text-slate-300">Teams</p><p className="text-2xl font-semibold text-accent">{data.teams.length}</p></article>
+        <article className="rounded-xl border border-line bg-panel p-4"><p className="text-sm text-slate-300">Open reports</p><p className="text-2xl font-semibold text-accent">{data.openPublicReportCount}</p></article>
       </div>
 
       <article className="rounded-xl border border-line bg-panel p-4">
@@ -36,6 +37,13 @@ export default async function AdminGamificationPage() {
         ) : <p className="mt-4 text-sm text-slate-300">No teams yet. Create teams through the protected admin API while public self-service is deferred.</p>}
       </article>
 
+      <article className="rounded-xl border border-line bg-panel p-4">
+        <h2 className="text-lg font-medium">Public reports</h2>
+        {data.publicReports.length ? (
+          <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-slate-300"><tr><th className="py-2">Status</th><th>Target</th><th>Reason</th><th>Created</th></tr></thead><tbody>{data.publicReports.slice(0, 10).map((report) => <tr key={report.id} className="border-t border-line/70 text-slate-300"><td className="py-2">{report.status}</td><td>{report.targetType}:{report.targetSlug ?? report.targetId}</td><td>{report.reason}</td><td>{report.createdAt}</td></tr>)}</tbody></table></div>
+        ) : <p className="mt-4 text-sm text-slate-300">No public reports yet.</p>}
+      </article>
+
       <article className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">
         <h2 className="text-lg font-medium text-white">Protected API examples</h2>
         <pre className="mt-3 overflow-x-auto rounded border border-line/70 p-3">{`PATCH /api/admin/gamification/profiles/:profileId
@@ -46,6 +54,9 @@ POST /api/admin/gamification/teams
 
 POST /api/admin/gamification/teams/:teamId/members
 { "volunteerProfileId": "...", "role": "member", "status": "active" }
+
+POST /api/admin/gamification/moderate
+{ "targetType": "team", "targetId": "...", "moderationStatus": "hidden", "note": "reason" }
 
 POST /api/admin/gamification/recompute`}</pre>
       </article>

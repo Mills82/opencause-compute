@@ -26,6 +26,7 @@ export default async function VolunteerProfilePage({ params }: { params: Promise
       </div>
       <div className="rounded-xl border border-line bg-panel p-5"><h2 className="text-xl font-semibold">Badges</h2>{badges.length ? <ul className="mt-3 flex flex-wrap gap-2 text-sm text-slate-300">{badges.map((badge) => <li key={badge.badgeSlug} className="rounded-full border border-line px-3 py-1">{badge.badgeSlug}</li>)}</ul> : <p className="mt-2 text-sm text-slate-300">Badges will appear after eligible contributions.</p>}</div>
       <div className="rounded-xl border border-line bg-panel p-5"><h2 className="text-xl font-semibold">Recent impact</h2><p className="mt-2 text-sm text-slate-300">{latestDigest?.previewText ?? 'Recent impact will appear after eligible contributions.'}</p></div>
+      <a className="text-sm text-slate-400 underline" href={`/report-public-content?targetType=volunteer_profile&targetSlug=${profile.slug}`}>Report this profile</a>
     </section>
   );
 }
