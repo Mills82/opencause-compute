@@ -34,21 +34,47 @@ function getCronConfig() {
     projectName,
     projectDescription,
     pubmedQuery: process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
-    pubmedRetmax: parseEnvInt(process.env.CRON_PUBMED_RETMAX, 12, 1, 100),
+    pubmedRetmax: parseEnvInt(process.env.CRON_PUBMED_RETMAX, 100, 1, 250),
+    queueTarget: parseEnvInt(process.env.CRON_QUEUE_TARGET, 1000, 1, 10000),
+    maxPacketsPerRun: parseEnvInt(process.env.CRON_MAX_PACKETS_PER_RUN, 100, 1, 250),
     pmcQuery: process.env.CRON_PMC_OA_QUERY ?? process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
     pmcRetmax: parseEnvInt(process.env.CRON_PMC_OA_RETMAX, 6, 1, 50)
   };
 }
 
+async function queueSnapshot() {
+  return withDb((db) => {
+    const packetIdsWithResults = new Set(db.results.map((result) => result.workPacketId));
+    const awaitingIndependentValidation = db.workPackets.filter((packet) => packet.status === 'queued' && packetIdsWithResults.has(packet.id)).length;
+    const availableToFirstPass = db.workPackets.filter((packet) => packet.status === 'queued' && !packetIdsWithResults.has(packet.id)).length;
+    return {
+      totalPackets: db.workPackets.length,
+      queuedPackets: db.workPackets.filter((packet) => packet.status === 'queued').length,
+      availableToFirstPass,
+      awaitingIndependentValidation,
+      completedPackets: db.workPackets.filter((packet) => packet.status === 'completed').length,
+      claimedPackets: db.workPackets.filter((packet) => packet.status === 'claimed').length
+    };
+  });
+}
+
 async function runIngestion() {
   const config = getCronConfig();
+  const beforeQueue = await queueSnapshot();
+  const queueDeficit = Math.max(0, config.queueTarget - beforeQueue.totalPackets);
+  const pubmedRetmax = Math.min(config.pubmedRetmax, config.maxPacketsPerRun, queueDeficit || config.pubmedRetmax);
+  const pmcRetmax = queueDeficit > pubmedRetmax ? Math.min(config.pmcRetmax, config.maxPacketsPerRun - pubmedRetmax, queueDeficit - pubmedRetmax) : 0;
+
+  if (queueDeficit <= 0) {
+    return { skipped: true, reason: 'queue_target_met', queueTarget: config.queueTarget, beforeQueue };
+  }
 
   const run = await withDb((db) =>
     startIngestionRun(db, {
       sourceType: 'combined',
       mode: 'cron',
       query: `${config.pubmedQuery} | ${config.pmcQuery}`,
-      retmax: config.pubmedRetmax + config.pmcRetmax,
+      retmax: pubmedRetmax + pmcRetmax,
       usedNcbiEmail: Boolean(process.env.NCBI_EMAIL),
       usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY)
     })
@@ -58,13 +84,14 @@ async function runIngestion() {
     const [pubmedRecords, pmcReport] = await Promise.all([
       fetchPubMedRecords({
       query: config.pubmedQuery,
-      retmax: config.pubmedRetmax,
+      retmax: pubmedRetmax,
+      retstart: beforeQueue.totalPackets,
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
     }),
       ingestPmcOaFullTextWithReport({
       query: config.pmcQuery,
-      retmax: config.pmcRetmax,
+      retmax: pmcRetmax,
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
       })
@@ -99,7 +126,7 @@ async function runIngestion() {
 
     const completedRun = completeIngestionRun(db, run.id, {
       fetchedCount: pubmedRecords.length + pmcReport.sources.length,
-      skippedCount: Math.max(config.pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount,
+      skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount,
       failedCount: pmcReport.failures.length,
       failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`),
       packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated,
@@ -108,6 +135,8 @@ async function runIngestion() {
 
     return {
       project,
+      queueTarget: config.queueTarget,
+      beforeQueue,
       pubmedFetched: pubmedRecords.length,
       pmcChunksFetched: pmcReport.sources.length,
       packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated,
@@ -119,7 +148,7 @@ async function runIngestion() {
     };
   });
 
-    return output;
+    return { ...output, afterQueue: await queueSnapshot() };
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'cron_ingest_failed';
     const failedRun = await withDb((db) =>

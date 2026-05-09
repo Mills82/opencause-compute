@@ -5,7 +5,7 @@
   "crons": [
     {
       "path": "/api/admin/ingest/cron",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 * * * *"
     }
   ],
   "outputDirectory": "apps/web/.next"

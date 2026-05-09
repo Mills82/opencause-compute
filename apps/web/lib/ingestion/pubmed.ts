@@ -15,6 +15,7 @@ export type PubMedSourceRecord = {
 export type PubMedIngestOptions = {
   query: string;
   retmax: number;
+  retstart?: number;
   email?: string;
   apiKey?: string;
   requestDelayMs?: number;
@@ -95,6 +96,7 @@ function buildSearchParams(options: PubMedIngestOptions): URLSearchParams {
       term: options.query,
       retmode: 'json',
       retmax: String(options.retmax),
+      retstart: String(options.retstart ?? 0),
       sort: 'relevance'
     }),
     options
