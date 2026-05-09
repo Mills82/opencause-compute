@@ -103,6 +103,7 @@ The hosted web app is intentionally split between a public landing surface and a
 
 - `/` and `/about` are safe public informational pages.
 - `/admin`, `/projects`, `/work-packets`, `/results`, and `/nodes` are private-alpha coordinator pages and require the admin cookie set by `/admin/login`.
+- `/api/projects`, `/api/work-packets`, and `/api/results` are admin-readable in private alpha so public users cannot enumerate coordinator state.
 - Use `ADMIN_UI_PASSWORD` for the browser login. If it is not set, the app falls back to `ADMIN_API_KEY` for private-alpha operations.
 - Do not expose `ADMIN_API_KEY` in client-side code. Browser admin actions authenticate with the HTTP-only admin cookie.
 - Hosted deployments should set `OPENCAUSE_HOSTED=true` and must provide `DATABASE_URL`, `SIGNING_SECRET`, `ADMIN_API_KEY`, and `NCBI_EMAIL`. If cron ingestion is enabled, also set `CRON_SECRET`.
