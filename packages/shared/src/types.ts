@@ -117,6 +117,25 @@ export const extractedFactRecordSchema = extractedFactSchema.extend({
   sourceUrl: z.string().url()
 });
 
+export const ingestionRunSchema = z.object({
+  id: z.string(),
+  sourceType: z.enum(['pubmed_abstract', 'pmc_oa_full_text', 'combined']),
+  mode: z.enum(['manual', 'cron']),
+  status: z.enum(['running', 'completed', 'failed', 'partial_failed']),
+  query: z.string(),
+  retmax: z.number().int(),
+  startedAt: z.string(),
+  completedAt: z.string().nullable(),
+  fetchedCount: z.number().int().min(0),
+  skippedCount: z.number().int().min(0),
+  failedCount: z.number().int().min(0),
+  failureReasons: z.array(z.string()),
+  packetsCreated: z.number().int().min(0),
+  packetsSkipped: z.number().int().min(0),
+  usedNcbiEmail: z.boolean(),
+  usedNcbiApiKey: z.boolean()
+});
+
 export const workerControlConfigSchema = z.object({
   paused: z.boolean(),
   idleMode: z.enum(['user-and-cpu', 'cpu-only']),
@@ -133,6 +152,7 @@ export const databaseSchema = z.object({
   claims: z.array(workClaimSchema),
   results: z.array(extractionResultSchema),
   facts: z.array(extractedFactRecordSchema),
+  ingestionRuns: z.array(ingestionRunSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -147,5 +167,6 @@ export type WorkClaim = z.infer<typeof workClaimSchema>;
 export type ResultProvenance = z.infer<typeof resultProvenanceSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
 export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
+export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;

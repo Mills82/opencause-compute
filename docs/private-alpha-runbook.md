@@ -109,7 +109,8 @@ The hosted web app is intentionally split between a public landing surface and a
 - Hosted deployments should set `OPENCAUSE_HOSTED=true` and must provide `DATABASE_URL`, `PACKET_SIGNING_PRIVATE_KEY`, `PACKET_SIGNING_PUBLIC_KEY`, `ADMIN_API_KEY`, and `NCBI_EMAIL`. If cron ingestion is enabled, also set `CRON_SECRET`.
 - Set `NODE_ENROLLMENT_CODES` to comma-separated private-alpha invite codes before exposing node registration. Hosted registration fails closed when no enrollment code is configured. Workers must include a valid `enrollmentCode` to register.
 - Admins can suspend or revoke a worker with `POST /api/admin/nodes/:nodeId/status`; suspended/revoked nodes cannot authenticate, heartbeat, claim, or submit.
-- `GET /api/health` returns non-sensitive deployment, queue, node, and result counts for launch checks. It must never include raw environment values or secrets.
+- `GET /api/health` returns non-sensitive deployment, queue, node, result, and ingestion-run counts for launch checks. It must never include raw environment values or secrets.
+- `GET /api/admin/ingestion-runs` returns recent admin-only ingestion run history, including fetched/skipped/failed counts and failure reasons.
 
 This split is sufficient for controlled private-alpha demos only. Before real public volunteer launch, close the remaining blockers in `docs/public-launch-checklist.md`.
 

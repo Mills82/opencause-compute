@@ -61,7 +61,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [ ] Include registered tool/email on NCBI requests.
 - [ ] Honor 3 req/s without API key and 10 req/s with API key.
 - [ ] Add backoff/retry and batching/history for larger jobs.
-- [ ] Track ingestion runs with fetched/skipped/failed counts, failure reasons, source type, query, retmax, and timestamps.
+- [x] Track ingestion runs with fetched/skipped/failed counts, failure reasons, source type, query, retmax, and timestamps.
 
 ## Final go/no-go
 

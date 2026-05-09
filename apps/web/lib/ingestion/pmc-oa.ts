@@ -4,6 +4,16 @@ import { fetchPubMedRecords } from './pubmed';
 
 const PMC_OA_BASE = 'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi';
 
+export type PmcOaFailure = { pmcid?: string; pmid: string; reason: string };
+
+export type PmcOaIngestReport = {
+  recordsFetched: number;
+  pmcRecords: number;
+  sources: PmcOaSource[];
+  failures: PmcOaFailure[];
+  skippedCount: number;
+};
+
 export type PmcOaSource = {
   title: string;
   sourceText: string;
@@ -161,13 +171,13 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function ingestPmcOaFullText(options: {
+export async function ingestPmcOaFullTextWithReport(options: {
   query: string;
   retmax: number;
   email?: string;
   apiKey?: string;
   perRecordDelayMs?: number;
-}): Promise<PmcOaSource[]> {
+}): Promise<PmcOaIngestReport> {
   const records = await fetchPubMedRecords({
     query: options.query,
     retmax: options.retmax,
@@ -177,13 +187,12 @@ export async function ingestPmcOaFullText(options: {
 
   const pmcRecords = records.filter((record) => Boolean(record.pmcid));
   const out: PmcOaSource[] = [];
+  const failures: PmcOaFailure[] = [];
   const delayMs = options.perRecordDelayMs ?? 400;
 
   for (const record of pmcRecords) {
     const pmcid = record.pmcid;
-    if (!pmcid) {
-      continue;
-    }
+    if (!pmcid) continue;
 
     try {
       const fullText = await fetchPmcOaFullText(pmcid);
@@ -191,9 +200,7 @@ export async function ingestPmcOaFullText(options: {
 
       for (let index = 0; index < chunks.length; index += 1) {
         const chunk = chunks[index];
-        if (!chunk) {
-          continue;
-        }
+        if (!chunk) continue;
         const chunkNum = index + 1;
         out.push({
           title: `${record.title} (chunk ${chunkNum}/${chunks.length})`,
@@ -203,12 +210,28 @@ export async function ingestPmcOaFullText(options: {
           sourcePublishedAt: record.sourcePublishedAt
         });
       }
-    } catch {
-      // Skip records that fail full-text retrieval/parsing and continue.
+    } catch (error) {
+      failures.push({ pmid: record.pmid, pmcid, reason: error instanceof Error ? error.message : 'pmc_oa_unknown_error' });
     }
 
     await sleep(delayMs);
   }
 
-  return out;
+  return {
+    recordsFetched: records.length,
+    pmcRecords: pmcRecords.length,
+    sources: out,
+    failures,
+    skippedCount: records.length - pmcRecords.length
+  };
+}
+
+export async function ingestPmcOaFullText(options: {
+  query: string;
+  retmax: number;
+  email?: string;
+  apiKey?: string;
+  perRecordDelayMs?: number;
+}): Promise<PmcOaSource[]> {
+  return (await ingestPmcOaFullTextWithReport(options)).sources;
 }

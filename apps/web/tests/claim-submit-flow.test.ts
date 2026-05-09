@@ -20,6 +20,7 @@ function emptyDb(): DatabaseState {
     claims: [],
     results: [],
     facts: [],
+    ingestionRuns: [],
     workerControl: {
       paused: false,
       idleMode: 'user-and-cpu',

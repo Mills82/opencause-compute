@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { withDb } from '../../../../../lib/db';
 import { createWorkPacketsFromSources, getOrCreateProject } from '../../../../../lib/coordinator';
+import { completeIngestionRun, startIngestionRun } from '../../../../../lib/ingestion/runs';
 import { isAdminAuthorized, isCronAuthorized } from '../../../../../lib/admin-auth';
 import { fetchPubMedRecords } from '../../../../../lib/ingestion/pubmed';
-import { ingestPmcOaFullText } from '../../../../../lib/ingestion/pmc-oa';
+import { ingestPmcOaFullTextWithReport } from '../../../../../lib/ingestion/pmc-oa';
 
 const DEFAULT_QUERY = 'cancer biomarker response resistance';
 const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
@@ -41,20 +42,32 @@ function getCronConfig() {
 async function runIngestion() {
   const config = getCronConfig();
 
-  const [pubmedRecords, pmcSources] = await Promise.all([
-    fetchPubMedRecords({
+  const run = await withDb((db) =>
+    startIngestionRun(db, {
+      sourceType: 'combined',
+      mode: 'cron',
+      query: `${config.pubmedQuery} | ${config.pmcQuery}`,
+      retmax: config.pubmedRetmax + config.pmcRetmax,
+      usedNcbiEmail: Boolean(process.env.NCBI_EMAIL),
+      usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY)
+    })
+  );
+
+  try {
+    const [pubmedRecords, pmcReport] = await Promise.all([
+      fetchPubMedRecords({
       query: config.pubmedQuery,
       retmax: config.pubmedRetmax,
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
     }),
-    ingestPmcOaFullText({
+      ingestPmcOaFullTextWithReport({
       query: config.pmcQuery,
       retmax: config.pmcRetmax,
       email: process.env.NCBI_EMAIL,
       apiKey: process.env.NCBI_API_KEY
-    })
-  ]);
+      })
+    ]);
 
   const pubmedSources = pubmedRecords.map((record) => ({
     title: record.title,
@@ -79,22 +92,44 @@ async function runIngestion() {
 
     const pmcOa = createWorkPacketsFromSources(db, {
       projectId: project.id,
-      sources: pmcSources,
+      sources: pmcReport.sources,
       extractor: 'local-llm-v1'
+    });
+
+    const completedRun = completeIngestionRun(db, run.id, {
+      fetchedCount: pubmedRecords.length + pmcReport.sources.length,
+      skippedCount: Math.max(config.pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount,
+      failedCount: pmcReport.failures.length,
+      failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`),
+      packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated,
+      packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped
     });
 
     return {
       project,
       pubmedFetched: pubmedRecords.length,
-      pmcChunksFetched: pmcSources.length,
+      pmcChunksFetched: pmcReport.sources.length,
       packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated,
       packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped,
       pubmed,
-      pmcOa
+      pmcOa,
+      pmcFailures: pmcReport.failures,
+      run: completedRun
     };
   });
 
-  return output;
+    return output;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'cron_ingest_failed';
+    const failedRun = await withDb((db) =>
+      completeIngestionRun(db, run.id, {
+        status: 'failed',
+        failedCount: 1,
+        failureReasons: [reason]
+      })
+    );
+    throw Object.assign(new Error(reason), { run: failedRun });
+  }
 }
 
 export async function GET(request: Request) {

@@ -15,6 +15,7 @@ const EMPTY_DB: DatabaseState = {
   claims: [],
   results: [],
   facts: [],
+  ingestionRuns: [],
   workerControl: {
     paused: false,
     idleMode: 'user-and-cpu',
@@ -108,6 +109,9 @@ export async function loadDb(): Promise<DatabaseState> {
     const parsed = JSON.parse(raw) as Partial<DatabaseState>;
     if (!parsed.workerControl) {
       parsed.workerControl = { ...EMPTY_DB.workerControl };
+    }
+    if (!parsed.ingestionRuns) {
+      parsed.ingestionRuns = [];
     }
     return databaseSchema.parse(parsed);
   } catch {
