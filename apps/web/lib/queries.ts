@@ -25,7 +25,9 @@ export async function getDashboardData() {
     workerControl: db.workerControl,
     ingestionRunCount: db.ingestionRuns.length,
     failedIngestionRunCount: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length,
-    recentIngestionRuns: db.ingestionRuns.slice(0, 5)
+    recentIngestionRuns: db.ingestionRuns.slice(0, 5),
+    auditEventCount: db.auditEvents.length,
+    recentAuditEvents: db.auditEvents.slice(0, 5)
   };
 }
 

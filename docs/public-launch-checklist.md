@@ -69,7 +69,8 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [x] Admin dashboard shows baseline queue, claim, node, worker-control, and ingestion health without database spelunking.
 - [x] Baseline private-alpha incident response path is documented in `docs/incident-response.md`.
-- [ ] Add durable structured audit logs for admin actions, registration/revocation, claims, submissions, ingestion, and validation decisions.
+- [x] Add baseline structured audit events for admin actions, registration/revocation, claims, submissions, ingestion, and validation decisions in current state model.
+- [ ] Move audit events to durable relational `audit_events` table during storage cutover.
 
 ## Final go/no-go
 

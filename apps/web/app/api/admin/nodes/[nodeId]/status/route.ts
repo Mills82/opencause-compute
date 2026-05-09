@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAdminAuthorized } from '../../../../../../lib/admin-auth';
 import { withDb } from '../../../../../../lib/db';
+import { recordAuditEvent } from '../../../../../../lib/audit';
 
 const requestSchema = z.object({
   status: z.enum(['online', 'offline', 'suspended', 'revoked'])
@@ -23,6 +24,13 @@ export async function POST(request: Request, { params }: { params: { nodeId: str
     existing.status = parsed.data.status;
     if (parsed.data.status === 'revoked') existing.revokedAt = new Date().toISOString();
     if (parsed.data.status === 'suspended') existing.suspendedAt = new Date().toISOString();
+    recordAuditEvent(db, {
+      actorType: 'admin',
+      action: 'node.status.updated',
+      targetType: 'node',
+      targetId: existing.id,
+      metadata: { status: parsed.data.status }
+    });
     return existing;
   }).catch((error: unknown) => {
     if (error instanceof Error && error.message === 'node_not_found') return null;

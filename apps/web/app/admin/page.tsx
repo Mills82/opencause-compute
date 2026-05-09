@@ -17,7 +17,8 @@ export default async function AdminDashboardPage() {
     ['Results', data.resultCount],
     ['Format-validated results', data.validatedCount],
     ['Validation failures', data.failedValidationCount],
-    ['Failed ingestion runs', data.failedIngestionRunCount]
+    ['Failed ingestion runs', data.failedIngestionRunCount],
+    ['Audit events', data.auditEventCount]
   ] as const;
 
   return (
@@ -108,6 +109,30 @@ export default async function AdminDashboardPage() {
           </div>
         ) : (
           <p className="mt-4 text-sm text-slate-300">No ingestion runs recorded yet.</p>
+        )}
+      </article>
+
+      <article className="rounded-xl border border-line bg-panel p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-medium">Recent audit events</h3>
+            <p className="text-sm text-slate-300">Security and operations history for admin/node/cron/system actions.</p>
+          </div>
+          <a className="rounded border border-line px-3 py-2 text-sm" href="/api/admin/audit-events">
+            JSON
+          </a>
+        </div>
+        {data.recentAuditEvents.length ? (
+          <ul className="mt-4 space-y-2 text-sm text-slate-300">
+            {data.recentAuditEvents.map((event) => (
+              <li key={event.id} className="rounded border border-line/70 p-2">
+                <span className="text-white">{event.action}</span> · {event.actorType} · {event.createdAt}
+                {event.targetType ? <span> · {event.targetType}:{event.targetId}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-slate-300">No audit events recorded yet.</p>
         )}
       </article>
 

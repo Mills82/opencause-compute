@@ -18,6 +18,7 @@ import {
 import { signWorkPacketPayload } from './signing';
 import { createNodeToken, hashNodeToken } from './node-auth';
 import { isHostedMode } from './runtime-config';
+import { recordAuditEvent } from './audit';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
@@ -114,6 +115,14 @@ export function registerNode(
     enrollmentCodeHash
   };
   db.nodes.push(node);
+  recordAuditEvent(db, {
+    actorType: 'node',
+    actorId: node.id,
+    action: 'node.registered',
+    targetType: 'node',
+    targetId: node.id,
+    metadata: { platform: node.platform, version: node.version, capabilities: node.capabilities }
+  });
   const { nodeTokenHash: _nodeTokenHash, enrollmentCodeHash: _enrollmentCodeHash, ...publicNode } = node;
   return { ...publicNode, node: publicNode, nodeToken };
 
@@ -272,6 +281,14 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
 
   packet.status = 'claimed';
   packet.updatedAt = now.toISOString();
+  recordAuditEvent(db, {
+    actorType: 'node',
+    actorId: nodeId,
+    action: 'work.claim.created',
+    targetType: 'work_packet',
+    targetId: packet.id,
+    metadata: { claimId }
+  });
 
   return {
     claimId,
@@ -380,6 +397,19 @@ export function submitResult(
 
   db.results.push(record);
   db.facts.push(...facts);
+  recordAuditEvent(db, {
+    actorType: 'node',
+    actorId: input.nodeId,
+    action: 'work.submit.completed',
+    targetType: 'work_packet',
+    targetId: packet.id,
+    metadata: {
+      claimId: input.claimId,
+      resultId: record.id,
+      formatValidated: record.formatValidated,
+      validationErrors: record.validationErrors.length
+    }
+  });
 
   return { record, facts, workPacket: packet };
 }
@@ -536,11 +566,25 @@ export function updateWorkerControl(db: DatabaseState, update: WorkerControlUpda
     ...update,
     updatedAt: new Date().toISOString()
   };
+  recordAuditEvent(db, {
+    actorType: 'admin',
+    action: 'worker_control.updated',
+    targetType: 'worker_control',
+    targetId: 'singleton',
+    metadata: update
+  });
   return db.workerControl;
 }
 
 export function triggerRunNow(db: DatabaseState): WorkerControlConfig {
   db.workerControl.runNowToken += 1;
   db.workerControl.updatedAt = new Date().toISOString();
+  recordAuditEvent(db, {
+    actorType: 'admin',
+    action: 'worker_control.run_now',
+    targetType: 'worker_control',
+    targetId: 'singleton',
+    metadata: { runNowToken: db.workerControl.runNowToken }
+  });
   return db.workerControl;
 }

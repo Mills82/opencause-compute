@@ -12,6 +12,7 @@ function emptyDb(): DatabaseState {
     results: [],
     facts: [],
     ingestionRuns: [],
+    auditEvents: [],
     workerControl: {
       paused: false,
       idleMode: 'user-and-cpu',

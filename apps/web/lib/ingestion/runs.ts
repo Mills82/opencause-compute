@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseState, IngestionRun } from '@opencause/shared';
+import { recordAuditEvent } from '../audit';
 
 export type StartIngestionRunInput = Pick<
   IngestionRun,
@@ -32,6 +33,13 @@ export function startIngestionRun(db: DatabaseState, input: StartIngestionRunInp
   };
   db.ingestionRuns.unshift(run);
   db.ingestionRuns = db.ingestionRuns.slice(0, 100);
+  recordAuditEvent(db, {
+    actorType: input.mode === 'cron' ? 'cron' : 'admin',
+    action: 'ingestion.started',
+    targetType: 'ingestion_run',
+    targetId: run.id,
+    metadata: { sourceType: input.sourceType, query: input.query, retmax: input.retmax }
+  });
   return run;
 }
 
@@ -50,5 +58,19 @@ export function completeIngestionRun(
   run.failureReasons = input.failureReasons ?? run.failureReasons;
   run.packetsCreated = input.packetsCreated ?? run.packetsCreated;
   run.packetsSkipped = input.packetsSkipped ?? run.packetsSkipped;
+  recordAuditEvent(db, {
+    actorType: run.mode === 'cron' ? 'cron' : 'admin',
+    action: `ingestion.${run.status}`,
+    targetType: 'ingestion_run',
+    targetId: run.id,
+    metadata: {
+      sourceType: run.sourceType,
+      fetchedCount: run.fetchedCount,
+      skippedCount: run.skippedCount,
+      failedCount: run.failedCount,
+      packetsCreated: run.packetsCreated,
+      packetsSkipped: run.packetsSkipped
+    }
+  });
   return run;
 }

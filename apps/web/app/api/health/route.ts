@@ -23,7 +23,8 @@ export async function GET() {
       nodes: db.nodes.length,
       results: db.results.length,
       ingestionRuns: db.ingestionRuns.length,
-      failedIngestionRuns: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length
+      failedIngestionRuns: db.ingestionRuns.filter((run) => run.status === 'failed' || run.status === 'partial_failed').length,
+      auditEvents: db.auditEvents.length
     }
   });
 }

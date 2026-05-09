@@ -117,6 +117,17 @@ export const extractedFactRecordSchema = extractedFactSchema.extend({
   sourceUrl: z.string().url()
 });
 
+export const auditEventSchema = z.object({
+  id: z.string(),
+  actorType: z.enum(['admin', 'cron', 'node', 'system']),
+  actorId: z.string().optional(),
+  action: z.string(),
+  targetType: z.string().optional(),
+  targetId: z.string().optional(),
+  metadata: z.record(z.unknown()).default({}),
+  createdAt: z.string()
+});
+
 export const ingestionRunSchema = z.object({
   id: z.string(),
   sourceType: z.enum(['pubmed_abstract', 'pmc_oa_full_text', 'combined']),
@@ -153,6 +164,7 @@ export const databaseSchema = z.object({
   results: z.array(extractionResultSchema),
   facts: z.array(extractedFactRecordSchema),
   ingestionRuns: z.array(ingestionRunSchema).default([]),
+  auditEvents: z.array(auditEventSchema).default([]),
   workerControl: workerControlConfigSchema
 });
 
@@ -167,6 +179,7 @@ export type WorkClaim = z.infer<typeof workClaimSchema>;
 export type ResultProvenance = z.infer<typeof resultProvenanceSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
 export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
+export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;
 export type DatabaseState = z.infer<typeof databaseSchema>;

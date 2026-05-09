@@ -41,7 +41,7 @@ Revoked/suspended nodes cannot authenticate, heartbeat, claim, or submit. Requir
 - Rotate affected secrets immediately.
 - Revoke affected nodes.
 - Pause work if packet authenticity or worker trust is uncertain.
-- Check ingestion run history and result provenance before trusting new outputs.
+- Check ingestion run history, result provenance, and `/api/admin/audit-events` before trusting new outputs.
 
 ## Science-risk incident
 
