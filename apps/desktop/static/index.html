@@ -148,6 +148,12 @@
             <h2>Worker dashboard</h2>
             <p id="worker-message">Checking worker...</p>
             <p id="version-message" class="small"></p>
+            <div class="grid">
+              <div><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
+              <div><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
+              <div><strong id="dashboard-work">—</strong><p class="small">Completed work</p></div>
+            </div>
+            <p class="small">Resource telemetry such as CPU/GPU usage and temperatures will appear after hardware telemetry is added.</p>
             <div class="dashboard-actions">
           <button id="start" class="primary">Resume / start worker</button>
           <button id="run-now">Run once now</button>
@@ -209,6 +215,11 @@
       const progressSteps = document.getElementById('progress-steps');
       const setupProgressBar = document.getElementById('setup-progress-bar');
       const setupSummary = document.getElementById('setup-summary');
+      const setupIntro = document.getElementById('setup-intro');
+      const registrationStep = document.getElementById('registration-step');
+      const dashboardRuntime = document.getElementById('dashboard-runtime');
+      const dashboardModel = document.getElementById('dashboard-model');
+      const dashboardWork = document.getElementById('dashboard-work');
       let latestState = null;
       let ollamaPoll = null;
       let modelDownloadPoll = null;
@@ -250,6 +261,10 @@
           </div>`).join('');
         setupProgressBar.style.width = `${Math.round((doneCount / steps.length) * 100)}%`;
         setupSummary.textContent = doneCount === steps.length ? 'Setup complete. You can leave the worker running or pause it anytime.' : `${doneCount} of ${steps.length} setup steps complete.`;
+        setupIntro.classList.toggle('hidden', registered() && latestState?.modelRuntime?.available && selectedModelInstalled());
+        dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
+        dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
+        dashboardWork.textContent = 'See web impact dashboard';
       }
 
       function statusLabel(status) {
@@ -318,6 +333,7 @@
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
           openProfile.disabled = !profileSetupUrl;
           profileMessage.textContent = profileSetupUrl ? 'Profile setup link is available for this registered worker.' : (registered() ? 'No profile setup link found. Re-register or request a fresh profile setup link.' : 'Register this worker to receive a profile setup link.');
+          registrationStep.classList.toggle('hidden', registered());
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
           renderModels(latestState.modelRuntime);
