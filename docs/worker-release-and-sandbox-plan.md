@@ -37,6 +37,7 @@ npm run start -w @opencause/worker -- uninstall-local-state
 - Startup-on-login controls.
 - Resource settings UI.
 - Worker version display.
+- Desktop settings now pass idle mode, minimum idle seconds, schedule, and max CPU percent into the worker loop.
 - Update mechanism.
 
 ### Sandbox and resource controls
@@ -76,6 +77,8 @@ Current enforcement:
 - `mock-extractor-v1` is test-only and requires explicit mock allowance.
 - local LLM endpoints must be localhost/loopback.
 - worker credential/log paths are asserted to remain inside the configured app data directory.
+- Ed25519 or configured fallback signatures are verified before extraction.
+- Desktop resource settings are passed to worker idle/resource gates for loop execution.
 
 Still needed before broad public launch:
 
@@ -83,3 +86,4 @@ Still needed before broad public launch:
 - stronger runtime process isolation.
 - model download hash verification if the desktop app manages models.
 - memory/GPU/battery/temperature controls.
+- clean-machine verification that resource controls behave correctly in the packaged app.

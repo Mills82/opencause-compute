@@ -40,7 +40,7 @@ export function publicLaunchReadiness(db: DatabaseState): PublicLaunchReadiness 
     item('download', 'Desktop worker download', hasDownload ? (downloadStage === 'public' ? 'pass' : 'warn') : 'fail', hasDownload ? `Download configured at stage=${downloadStage}.` : 'No public/prototype worker download URL is configured.'),
     item('desktop_signing', 'Signed installer', 'fail', 'Windows artifact path exists, but signing is not implemented/verified.'),
     item('desktop_qa', 'Clean-machine desktop QA', 'fail', 'Windows release QA checklist has not been completed.'),
-    item('sandbox', 'Worker sandbox/resource enforcement', 'fail', 'Worker safety model is documented but not fully implemented/tested for public release.'),
+    item('sandbox', 'Worker sandbox/resource enforcement', 'warn', 'Worker enforces app-dir boundaries, approved extractor/runtime policy, localhost model endpoint, signature verification, and desktop resource controls; clean-machine sandbox/resource QA still required.'),
     item('rate_limits', 'Distributed abuse controls', hasAbuseAlerting ? 'pass' : 'warn', hasAbuseAlerting ? 'Postgres-backed limits plus abuse alert destination are configured.' : 'Postgres-backed limits exist when DATABASE_URL is present; configure abuse alerting before broad traffic.'),
     item('consensus', 'Consensus validation maturity', 'warn', 'Initial structural consensus exists; semantic comparison/reviewer tooling/exports remain.'),
     item('ncbi', 'NCBI ingestion robustness', 'warn', 'Backoff/retry exists; WebEnv/history batching for large jobs remains.'),

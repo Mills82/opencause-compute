@@ -40,6 +40,25 @@ describe('worker supervisor contract', () => {
     ]);
   });
 
+  it('passes desktop resource controls to worker loop arguments', () => {
+    const controlled = new WorkerSupervisor({
+      workerEntry: '/tmp/worker.js',
+      appDir: '/tmp/opencause-worker',
+      coordinatorUrl: 'https://opencause.appassist.ai',
+      resourceControls: {
+        idleMode: 'user-and-cpu',
+        minIdleSeconds: 300,
+        maxCpuPercent: 25,
+        schedule: 'idle-only'
+      }
+    });
+
+    expect(controlled.buildArgs({ kind: 'loop' })).toContain('--max-cpu-percent');
+    expect(controlled.buildArgs({ kind: 'loop' })).toContain('25');
+    expect(controlled.buildArgs({ kind: 'loop' })).toContain('--min-idle-seconds');
+    expect(controlled.buildArgs({ kind: 'loop' })).toContain('300');
+  });
+
   it('reports configured false when worker entry is missing', () => {
     expect(supervisor.status()).toMatchObject({ configured: false, running: false });
   });

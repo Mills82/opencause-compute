@@ -11,6 +11,12 @@ export type WorkerSupervisorConfig = {
   nodeId?: string;
   nodeToken?: string;
   intervalMs?: number;
+  resourceControls?: {
+    idleMode: 'user-and-cpu' | 'cpu-only';
+    minIdleSeconds: number;
+    maxCpuPercent: number;
+    schedule: 'always' | 'idle-only' | 'manual';
+  };
 };
 
 export type WorkerRuntimeStatus = {
@@ -47,6 +53,13 @@ export class WorkerSupervisor {
 
   buildArgs(command: WorkerCommand): string[] {
     const args = [this.config.workerEntry, command.kind, '--server', this.config.coordinatorUrl];
+
+    const controls = this.config.resourceControls;
+    if (controls && (command.kind === 'run-once' || command.kind === 'loop')) {
+      args.push('--idle-mode', controls.schedule === 'always' ? 'cpu-only' : controls.idleMode);
+      args.push('--min-idle-seconds', String(controls.schedule === 'always' ? 0 : controls.minIdleSeconds));
+      args.push('--max-cpu-percent', String(controls.maxCpuPercent));
+    }
 
     if (command.kind === 'register') {
       args.push('--enrollment-code', command.enrollmentCode);

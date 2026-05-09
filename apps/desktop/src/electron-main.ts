@@ -45,7 +45,8 @@ async function supervisor() {
     coordinatorUrl: settings.coordinatorUrl,
     enrollmentCode: settings.enrollmentCode,
     nodeId: settings.nodeId,
-    nodeToken: settings.nodeToken
+    nodeToken: settings.nodeToken,
+    resourceControls: settings.resourceControls
   });
 }
 
@@ -76,7 +77,10 @@ ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknow
 });
 
 ipcMain.handle('desktop:start-worker', async () => {
-  await updateDesktopSettings(appDir, { localPaused: false });
+  const settings = await updateDesktopSettings(appDir, { localPaused: false });
+  if (settings.resourceControls.schedule === 'manual') {
+    return (await supervisor()).status();
+  }
   return (await supervisor()).startLoop();
 });
 ipcMain.handle('desktop:pause-worker', async () => {

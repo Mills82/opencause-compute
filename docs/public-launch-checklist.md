@@ -57,7 +57,7 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 - [ ] Implement code signing plan in `docs/code-signing-plan.md`.
 - [x] Worker release/sandbox target model is documented in `docs/worker-release-and-sandbox-plan.md`.
 - [x] Add approved extractor manifest and localhost/app-dir safety checks.
-- [ ] Worker sandbox/resource model is fully implemented and tested for public release.
+- [x] Worker sandbox/resource model enforces app-dir boundaries, approved extractor/runtime policy, localhost model endpoint, signature verification, and desktop resource controls; clean-machine QA still required before public release.
 
 ## Legal/trust checklist
 
