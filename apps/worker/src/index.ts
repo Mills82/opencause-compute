@@ -1,4 +1,4 @@
-import { appendFile, chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -10,8 +10,8 @@ import {
   type WorkPacketPayload,
   type WorkerControlConfig
 } from '@opencause/shared';
-import { checkHostIdle, type IdleConfig, type IdleMode } from './idle';
-import { LOCAL_LLM_PROMPT_VERSION, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm';
+import { checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
+import { LOCAL_LLM_PROMPT_VERSION, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
 
 type JsonValue = Record<string, unknown>;
 type ExtractorMode = 'local-llm' | 'mock';
@@ -21,13 +21,20 @@ const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
 const PACKET_SIGNING_PUBLIC_KEY = process.env.PACKET_SIGNING_PUBLIC_KEY;
 const PACKET_SIGNING_KEY_ID = process.env.PACKET_SIGNING_KEY_ID;
-const APP_DIR = process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute');
+const APP_DIR = path.resolve(process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute'));
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
 const NODE_PATH = path.join(APP_DIR, 'node.json');
 const WORKER_VERSION = process.env.WORKER_VERSION ?? '0.1.0';
 const PACKET_SCHEMA_VERSION = 'work-packet-v1';
 const RESULT_VALIDATION_VERSION = 'format-validation-v1';
 const localLlmConfig = readLocalLlmConfig();
+
+function assertSafeAppDir(): void {
+  const home = path.resolve(os.homedir());
+  if (APP_DIR === home || APP_DIR === path.parse(APP_DIR).root) {
+    throw new Error('unsafe_app_dir');
+  }
+}
 
 async function log(message: string): Promise<void> {
   await mkdir(APP_DIR, { recursive: true });
@@ -329,7 +336,30 @@ async function loop(
   }
 }
 
+async function status(): Promise<void> {
+  const credentials = await loadNodeCredentials();
+  const logInfo = await stat(LOG_PATH).catch(() => null);
+  const state = {
+    appDir: APP_DIR,
+    logPath: LOG_PATH,
+    credentialsPath: NODE_PATH,
+    registered: Boolean(credentials),
+    nodeId: credentials?.nodeId ?? null,
+    workerVersion: WORKER_VERSION,
+    platform: `${process.platform}-${process.arch}`,
+    logBytes: logInfo?.size ?? 0
+  };
+  process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
+}
+
+async function uninstallLocalState(): Promise<void> {
+  assertSafeAppDir();
+  await rm(APP_DIR, { recursive: true, force: true });
+  process.stdout.write(`Removed OpenCause Compute worker local state at ${APP_DIR}\n`);
+}
+
 async function main() {
+  assertSafeAppDir();
   const command = process.argv[2] ?? 'run-once';
   const server = arg('--server', DEFAULT_SERVER) as string;
   const idleConfig = readIdleConfig();
@@ -338,9 +368,19 @@ async function main() {
 
   enforceExtractorPolicy(extractorMode, mockAllowed);
 
+  if (command === 'status') {
+    await status();
+    return;
+  }
+
+  if (command === 'uninstall-local-state') {
+    await uninstallLocalState();
+    return;
+  }
+
   if (extractorMode === 'local-llm') {
     await verifyLocalLlmAvailable(localLlmConfig);
-    await log(`local llm ready endpoint=${localLlmConfig.endpoint} model=${localLlmConfig.model}`);
+    await log(`local llm ready endpointType=${endpointType(localLlmConfig.endpoint)} model=${localLlmConfig.model}`);
   }
 
   if (command === 'register') {

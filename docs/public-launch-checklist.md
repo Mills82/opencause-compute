@@ -43,8 +43,10 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 - [x] Worker records version, extractor version, model/runtime, prompt version/hash, schema version, validation version, timestamp, and platform capabilities.
 - [ ] Installer does not require normal volunteers to install Node/npm manually.
-- [ ] Worker has visible activity log, pause/resume, uninstall, startup-on-login control, resource settings, and version display.
-- [ ] Worker sandbox/resource model is documented.
+- [x] Private-alpha worker has visible activity log, coordinator pause handling, status command, and local-state uninstall command.
+- [ ] Public volunteer worker has one-click pause/resume, uninstall, startup-on-login control, resource settings, and version display in desktop UI.
+- [x] Worker release/sandbox target model is documented in `docs/worker-release-and-sandbox-plan.md`.
+- [ ] Worker sandbox/resource model is implemented and tested for public release.
 
 ## Legal/trust checklist
 
