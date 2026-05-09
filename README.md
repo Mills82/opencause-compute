@@ -121,4 +121,12 @@ Set `NODE_ENROLLMENT_CODES` to one or more comma-separated private-alpha invite 
 
 Hosted deployments require Ed25519 packet signing. `SIGNING_SECRET` is local/dev fallback only and should not be used as the only hosted signing configuration.
 
+Database migration scaffolding lives in `db/migrations`. Apply SQL migrations with:
+
+```bash
+DATABASE_URL=... npm run db:migrate
+```
+
+The current hosted app still uses the JSONB state implementation; see `docs/database-architecture.md` for the relational launch plan.
+
 OpenCause Compute remains private-alpha until the blockers in `docs/public-launch-checklist.md` are closed. Results are candidate, citation-backed extractions; format/schema validation is not scientific validation or medical advice.

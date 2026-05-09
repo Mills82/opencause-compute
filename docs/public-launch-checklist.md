@@ -31,9 +31,11 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## Deployment/env checklist
 
+- [x] Add relational database architecture plan and migration scaffolding.
 - [ ] `.env.example` includes coordinator, worker, hosted, and optional ingestion settings.
 - [ ] Hosted deployments fail clearly on missing required configuration.
 - [ ] File DB fallback is local/dev only.
+- [ ] Move hosted production from single-row JSONB state to relational tables.
 - [ ] Rollback procedure is documented and tested.
 
 ## Worker release checklist
