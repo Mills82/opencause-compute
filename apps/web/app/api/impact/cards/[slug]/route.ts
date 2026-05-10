@@ -16,6 +16,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     accentColor: card.accentColor,
     periodStart: card.periodStart,
     periodEnd: card.periodEnd,
-    disclaimer: 'OpenCause impact metrics describe candidate extraction and validation work, not medical conclusions or clinical findings.'
+    disclaimer: 'OpenCause impact metrics describe open-science processing, validation, and consensus activity — not medical conclusions or clinical findings.'
   });
 }

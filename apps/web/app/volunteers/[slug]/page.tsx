@@ -38,9 +38,9 @@ export default async function VolunteerProfilePage({ params }: { params: Promise
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Contribution score" value={stats?.contributionScore ?? 0} />
-        <Stat label="Paper sections processed" value={stats?.sectionsProcessed ?? 0} />
-        <Stat label="Format-validated submissions" value={stats?.formatValidatedSubmissions ?? 0} />
-        <Stat label="Consensus-passed candidate facts" value={stats?.consensusPassedContributions ?? 0} />
+        <Stat label="Literature sections processed" value={stats?.sectionsProcessed ?? 0} />
+        <Stat label="Structure-validated submissions" value={stats?.formatValidatedSubmissions ?? 0} />
+        <Stat label="Consensus-passed evidence candidates" value={stats?.consensusPassedContributions ?? 0} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -60,7 +60,7 @@ export default async function VolunteerProfilePage({ params }: { params: Promise
         </div>
       </div>
 
-      <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">Recognition metrics describe candidate extraction and validation work. They are not medical conclusions or clinical findings.</p>
+      <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">Recognition metrics describe open-science processing, validation, and consensus activity. They are not medical conclusions or clinical findings.</p>
       <a className="text-sm text-slate-400 underline" href={`/report-public-content?targetType=volunteer_profile&targetSlug=${profile.slug}`}>Report this profile</a>
     </section>
   );

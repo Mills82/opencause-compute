@@ -21,23 +21,23 @@ export default async function ImpactPage() {
       <div className="rounded-3xl border border-line bg-panel p-6 sm:p-8">
         <div className="max-w-3xl space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Impact dashboard</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Volunteer compute, measured carefully.</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Open-science contribution, measured transparently.</h1>
           <p className="text-lg text-slate-300">
-            OpenCause Compute turns idle computers into structured help for open science. These numbers represent candidate extraction and validation work, not medical conclusions.
+            OpenCause Compute turns spare compute into structured evidence work for open science. These numbers track processing, validation, and consensus progress — not clinical conclusions.
           </p>
         </div>
       </div>
 
       {!hasWork ? (
         <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">
-          OpenCause Compute is preparing its first volunteer compute runs. Once work begins, this page will show aggregate processing activity, format-validated submissions, and consensus-passed candidate facts.
+          OpenCause Compute is preparing its first volunteer compute runs. Once work begins, this page will show aggregate processing activity, structure-validated submissions, and consensus-passed evidence candidates.
         </p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Paper sections processed" value={impact.sectionsProcessed} emphasis />
-        <Metric label="Format-validated submissions" value={impact.formatValidatedSubmissions} emphasis />
-        <Metric label="Consensus-passed candidate facts" value={impact.consensusPassedContributions} />
+        <Metric label="Literature sections processed" value={impact.sectionsProcessed} emphasis />
+        <Metric label="Structure-validated submissions" value={impact.formatValidatedSubmissions} emphasis />
+        <Metric label="Consensus-passed evidence candidates" value={impact.consensusPassedContributions} />
         <Metric label="Volunteer profiles" value={impact.volunteers} />
         <Metric label="Active nodes" value={impact.activeNodes} />
         <Metric label="Public teams" value={impact.teams} />
@@ -46,9 +46,9 @@ export default async function ImpactPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-line bg-panel p-5">
           <h2 className="text-xl font-semibold">Current project</h2>
-          <p className="mt-2 text-slate-300">{impact.currentProject}: citation-backed candidate fact extraction from public/open biomedical literature.</p>
+          <p className="mt-2 text-slate-300">{impact.currentProject}: citation-backed evidence extraction from public/open biomedical literature.</p>
           <p className="mt-4 rounded-lg border border-line/70 bg-ink p-3 text-sm text-slate-300">
-            Candidate facts are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
+            Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
           </p>
         </div>
 

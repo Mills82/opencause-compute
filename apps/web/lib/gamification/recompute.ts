@@ -48,9 +48,9 @@ function digestPreview(input: Pick<ImpactDigest, 'sectionsProcessed' | 'formatVa
   if (!input.sectionsProcessed && !input.formatValidatedSubmissions && !input.consensusPassedContributions && !input.badgesAwarded) {
     return 'Your impact digest will appear after your worker completes eligible contributions.';
   }
-  const parts = [`This week your idle computer helped process ${input.sectionsProcessed.toLocaleString()} open-access paper section${input.sectionsProcessed === 1 ? '' : 's'}`];
-  parts.push(`${input.formatValidatedSubmissions.toLocaleString()} submission${input.formatValidatedSubmissions === 1 ? '' : 's'} passed format validation`);
-  parts.push(`${input.consensusPassedContributions.toLocaleString()} contributed to consensus-passed candidate fact${input.consensusPassedContributions === 1 ? '' : 's'}`);
+  const parts = [`This week your computer helped process ${input.sectionsProcessed.toLocaleString()} open-access paper section${input.sectionsProcessed === 1 ? '' : 's'}`];
+  parts.push(`${input.formatValidatedSubmissions.toLocaleString()} submission${input.formatValidatedSubmissions === 1 ? '' : 's'} passed structure validation`);
+  parts.push(`${input.consensusPassedContributions.toLocaleString()} contributed to consensus-passed evidence candidate${input.consensusPassedContributions === 1 ? '' : 's'}`);
   if (input.badgesAwarded) parts.push(`you earned ${input.badgesAwarded.toLocaleString()} badge${input.badgesAwarded === 1 ? '' : 's'}`);
   return `${parts.join(', ')}.`;
 }

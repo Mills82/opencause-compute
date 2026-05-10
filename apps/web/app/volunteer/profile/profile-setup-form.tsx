@@ -53,8 +53,8 @@ export function ProfileSetupForm({ token }: { token: string }) {
     <div className="space-y-5">
     <div className="grid gap-4 md:grid-cols-4">
       <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{(data.stats?.contributionScore ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Contribution score</p></div>
-      <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{(data.stats?.sectionsProcessed ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Sections processed</p></div>
-      <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{(data.stats?.formatValidatedSubmissions ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Format-validated</p></div>
+      <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{(data.stats?.sectionsProcessed ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Literature sections</p></div>
+      <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{(data.stats?.formatValidatedSubmissions ?? 0).toLocaleString()}</p><p className="text-sm text-slate-300">Structure-validated</p></div>
       <div className="rounded-xl border border-line bg-panel p-4"><p className="text-2xl font-semibold">{data.badges.length.toLocaleString()}</p><p className="text-sm text-slate-300">Badges</p></div>
     </div>
     <div className="rounded-xl border border-line bg-panel p-4"><h2 className="font-semibold">Weekly impact preview</h2><p className="mt-2 text-sm text-slate-300">{data.latestDigest?.previewText ?? 'Your impact digest will appear after your worker completes eligible contributions.'}</p></div>

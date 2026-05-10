@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <div className="space-y-2 text-slate-300">
         <h3 className="font-semibold text-white">What the worker sends back</h3>
         <p>
-          Workers submit candidate facts, summaries, validation warnings, node identifiers, worker version, platform/capability
+          Workers submit evidence candidates, summaries, validation warnings, node identifiers, worker version, platform/capability
           metadata, and model/extractor provenance needed for auditability.
         </p>
         <h3 className="font-semibold text-white">Local files</h3>

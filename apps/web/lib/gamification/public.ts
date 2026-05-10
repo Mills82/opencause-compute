@@ -27,7 +27,7 @@ export function buildImpactSummary(db: DatabaseState) {
     humanReviewedAcceptedContributions: sum('humanReviewedAcceptedContributions'),
     contributionScore: sum('contributionScore'),
     currentProject: 'Cancer Knowledge Miner',
-    disclaimer: 'These metrics describe candidate extraction and validation work. They are not medical conclusions or clinical findings.'
+    disclaimer: 'These metrics describe open-science processing, validation, and consensus activity. They are not medical conclusions or clinical findings.'
   };
 }
 

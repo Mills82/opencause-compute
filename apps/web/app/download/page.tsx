@@ -12,7 +12,7 @@ export default function DownloadPage() {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Download the OpenCause Compute Worker.</h1>
           <p className="text-slate-300">
             The worker app lets volunteers contribute spare compute to open science projects. It verifies signed work packets,
-            keeps activity visible, and returns citation-backed candidate facts with provenance.
+            keeps activity visible, and returns citation-backed evidence candidates with provenance.
           </p>
         </div>
       </div>
@@ -56,7 +56,7 @@ export default function DownloadPage() {
             <li>Verify checksums before installing when possible.</li>
             <li>You can pause worker activity, tune resource usage, and view logs.</li>
             <li>The worker processes open/public literature, not personal files.</li>
-            <li>Worker output is research-support evidence, not medical advice.</li>
+            <li>Worker output is research-support evidence for review, not medical advice.</li>
           </ul>
         </article>
       </div>
@@ -66,7 +66,7 @@ export default function DownloadPage() {
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           <div><p className="font-medium text-accent">Register</p><p>Use your one-time enrollment code to attach this computer to your volunteer profile.</p></div>
           <div><p className="font-medium text-accent">Choose resources</p><p>Select model quality, idle behavior, CPU limits, and when the worker may run.</p></div>
-          <div><p className="font-medium text-accent">Contribute</p><p>The worker claims signed packets, runs local extraction, and submits candidate facts for validation.</p></div>
+          <div><p className="font-medium text-accent">Process packets</p><p>The worker claims signed packets, runs local extraction, and submits structured evidence for validation.</p></div>
         </div>
       </article>
     </section>

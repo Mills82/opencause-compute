@@ -10,8 +10,8 @@ export default async function ResultsPage() {
     <section className="space-y-6">
       <div className="max-w-3xl space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Submissions</p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Extraction results</h1>
-        <p className="text-sm text-slate-300">Candidate facts are schema/format checked and citation-backed. They are not scientifically validated, clinically meaningful, or medical advice.</p>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Evidence extraction results</h1>
+        <p className="text-sm text-slate-300">Evidence candidates are structure-checked and citation-backed. They are not scientifically validated, clinically meaningful, or medical advice.</p>
       </div>
       {results.map((result) => (
         <article key={result.id} className="rounded-xl border border-line bg-panel p-4 sm:p-5">
@@ -21,11 +21,11 @@ export default async function ResultsPage() {
               <h2 className="mt-1 text-lg font-semibold">{validationLevel(result)}</h2>
               <p className="text-sm text-slate-300">{validationLevelDescription(validationLevel(result))}</p>
             </div>
-            <span className="w-fit rounded-full border border-line px-3 py-1 text-xs text-slate-300">{result.facts.length} fact{result.facts.length === 1 ? '' : 's'}</span>
+            <span className="w-fit rounded-full border border-line px-3 py-1 text-xs text-slate-300">{result.facts.length} evidence item{result.facts.length === 1 ? '' : 's'}</span>
           </div>
 
           <div className="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-3">
-            <div className="rounded border border-line/70 p-3"><p className="text-white">Format validated</p><p>{String(result.formatValidated ?? result.validated)}</p></div>
+            <div className="rounded border border-line/70 p-3"><p className="text-white">Structure validated</p><p>{String(result.formatValidated ?? result.validated)}</p></div>
             <div className="rounded border border-line/70 p-3"><p className="text-white">Consensus</p><p>{result.consensusStatus}</p></div>
             <div className="rounded border border-line/70 p-3"><p className="text-white">Review</p><p>{result.reviewStatus}</p></div>
           </div>

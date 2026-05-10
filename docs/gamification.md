@@ -24,7 +24,7 @@ idleScore = capped idleScoreRaw
 contributionScore = max(0, baseWorkScore + idleScore)
 ```
 
-Raw idle time is capped so leaderboards reward validated open-science work, not electricity use.
+Runtime is capped so leaderboards reward validated open-science work, reliability, and consensus progress — not simply leaving a machine on.
 
 ## Safe language
 

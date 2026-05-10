@@ -10,7 +10,7 @@ export default async function VolunteerProfileSetupPage({ searchParams }: { sear
         <p className="text-slate-300">Profiles default to private. You can opt into anonymous or named public recognition, and you can change this later with your setup link.</p>
       </div>
       {token ? <ProfileSetupForm token={token} /> : <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">Open this page from your worker registration profile setup link.</p>}
-      <p className="text-sm text-slate-400">OpenCause recognition metrics describe candidate extraction and validation work, not medical conclusions or clinical findings.</p>
+      <p className="text-sm text-slate-400">OpenCause recognition metrics describe open-science processing, validation, and consensus activity — not medical conclusions or clinical findings.</p>
     </section>
   );
 }

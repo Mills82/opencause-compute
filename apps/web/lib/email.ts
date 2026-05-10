@@ -44,7 +44,7 @@ export function enrollmentEmail(code: string): Pick<EmailMessage, 'subject' | 't
   const safeCode = escapeHtml(code);
   return {
     subject: 'Your OpenCause Compute worker enrollment code',
-    text: `Your OpenCause Compute worker enrollment code is:\n\n${code}\n\nUse this one-time code only on a computer you control. The worker contributes idle compute to AI-assisted open science by processing open-access research literature. OpenCause Compute is not medical advice.\n\nNext steps:\n1. Download or open the OpenCause Compute Worker.\n2. Enter this enrollment code when prompted.\n3. Keep activity logs visible and pause the worker whenever you need the machine back.\n\nIf you did not request this code, you can ignore this email.`,
+    text: `Your OpenCause Compute worker enrollment code is:\n\n${code}\n\nUse this one-time code only on a computer you control. The worker contributes spare compute to AI-assisted open science by processing open-access research literature. OpenCause Compute is not medical advice.\n\nNext steps:\n1. Download or open the OpenCause Compute Worker.\n2. Enter this enrollment code when prompted.\n3. Keep activity logs visible and pause the worker whenever you need the machine back.\n\nIf you did not request this code, you can ignore this email.`,
     html: `<!doctype html>
 <html>
   <body style="margin:0;background:#f6f8fb;color:#172033;font-family:Inter,Segoe UI,Arial,sans-serif;">
@@ -77,10 +77,10 @@ export function enrollmentEmail(code: string): Pick<EmailMessage, 'subject' | 't
                   <li>Keep activity logs visible and pause the worker whenever you need the machine back.</li>
                 </ol>
                 <p style="margin:0 0 12px;">
-                  The worker contributes idle compute to AI-assisted open science by processing open-access research literature into citation-backed candidate facts.
+                  The worker contributes spare compute to AI-assisted open science by processing open-access research literature into citation-backed evidence candidates.
                 </p>
                 <p style="margin:0;color:#6b7280;font-size:13px;">
-                  OpenCause Compute is not medical advice. Candidate facts require consensus and/or human review before scientific use. If you did not request this code, you can ignore this email.
+                  OpenCause Compute is not medical advice. Evidence candidates require consensus and/or human review before scientific use. If you did not request this code, you can ignore this email.
                 </p>
               </td>
             </tr>

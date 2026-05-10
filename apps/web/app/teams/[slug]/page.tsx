@@ -25,14 +25,14 @@ export default async function TeamProfilePage({ params }: { params: Promise<{ sl
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Members" value={stats?.memberCount ?? members.length} />
         <Stat label="Contribution score" value={stats?.contributionScore ?? 0} />
-        <Stat label="Format-validated submissions" value={stats?.formatValidatedSubmissions ?? 0} />
-        <Stat label="Consensus-passed candidate facts" value={stats?.consensusPassedContributions ?? 0} />
+        <Stat label="Structure-validated submissions" value={stats?.formatValidatedSubmissions ?? 0} />
+        <Stat label="Consensus-passed evidence candidates" value={stats?.consensusPassedContributions ?? 0} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-line bg-panel p-5">
           <h2 className="text-xl font-semibold">Team impact</h2>
-          <p className="mt-2 text-slate-300">Team metrics aggregate eligible member contributions. These metrics are candidate extraction and validation work, not medical conclusions.</p>
+          <p className="mt-2 text-slate-300">Team metrics aggregate eligible open-science contributions: processing, validation, and consensus activity. They are not medical conclusions.</p>
           {cards.length ? <div className="mt-4 flex flex-wrap gap-2">{cards.map((card) => <a key={card.slug} className="rounded border border-line px-3 py-2 text-sm hover:border-accent hover:no-underline" href={`/impact/cards/${card.slug}`}>Share card</a>)}</div> : null}
         </div>
 
