@@ -55,6 +55,7 @@
       .activity-card.ready { border-color: #2f8f56; }
       .activity-card.warning { border-color: #8a6d1d; }
       .activity-card.blocked { border-color: #8f3a35; }
+      .activity-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
       @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
       @media (max-width: 950px) { .layout.dashboard-mode #profile-step, .layout.dashboard-mode #settings-step { grid-column: 1 / -1; } }
     </style>
@@ -191,6 +192,7 @@
               <strong>Checking activity…</strong>
               <p class="small">Reading the latest worker log.</p>
             </div>
+            <div id="activity-actions" class="activity-actions hidden"></div>
             <p id="version-message" class="small"></p>
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
@@ -274,6 +276,7 @@
       const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
       const dashboardHint = document.getElementById('dashboard-hint');
       const activitySummary = document.getElementById('activity-summary');
+      const activityActions = document.getElementById('activity-actions');
       const latestLog = document.getElementById('latest-log');
       let latestState = null;
       let ollamaPoll = null;
@@ -355,6 +358,23 @@
         const when = activity?.at ? `<span class="pill">${activity.at}</span>` : '';
         const packet = activity?.packetId ? `<span class="pill">packet ${activity.packetId.slice(0, 8)}</span>` : '';
         activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong>${when}${packet}<p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p>`;
+        if (!activityActions) return;
+        const actions = [];
+        if (activity?.state === 'failed' && String(activity?.error || '').startsWith('local_llm_timeout')) {
+          actions.push('<button id="activity-open-settings" type="button">Adjust model/resources</button>');
+          actions.push('<button id="activity-run-now" type="button">Retry one packet now</button>');
+        } else if (activity?.state === 'waiting_idle') {
+          actions.push('<button id="activity-run-now" type="button">Run one packet now</button>');
+          actions.push('<button id="activity-open-settings" type="button">Review idle settings</button>');
+        } else if (activity?.state === 'unknown' || activity?.state === 'no_work') {
+          actions.push('<button id="activity-run-now" type="button">Check once now</button>');
+        }
+        activityActions.innerHTML = actions.join('');
+        activityActions.classList.toggle('hidden', actions.length === 0);
+        const settingsButton = document.getElementById('activity-open-settings');
+        if (settingsButton) settingsButton.onclick = () => { activeTab = 'settings'; updateProgress(); };
+        const runButton = document.getElementById('activity-run-now');
+        if (runButton) runButton.onclick = () => document.getElementById('run-now').click();
       }
 
       function statusLabel(status) {

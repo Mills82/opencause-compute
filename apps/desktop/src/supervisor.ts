@@ -329,7 +329,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
       state: 'failed',
       headline: error.startsWith('local_llm_timeout') ? 'Local model timed out before submitting' : 'Worker hit an error before submitting',
       detail: error.startsWith('local_llm_timeout')
-        ? 'The coordinator has work and the worker can claim it, but the local model needs more time or a lighter model/resource setting.'
+        ? 'The coordinator has work and the worker can claim it, but the local model timed out. Try the default small model, lower quality mode, or run one packet now after closing heavy apps.'
         : error,
       severity: 'blocked',
       at: latestFailure.at,

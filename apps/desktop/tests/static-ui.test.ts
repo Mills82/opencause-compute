@@ -47,4 +47,11 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');
   });
+
+  it('offers actionable worker activity troubleshooting', () => {
+    expect(html).toContain('activity-summary');
+    expect(html).toContain('Adjust model/resources');
+    expect(html).toContain('Retry one packet now');
+    expect(html).toContain('Review idle settings');
+  });
 });
