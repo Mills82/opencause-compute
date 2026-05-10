@@ -148,16 +148,18 @@
             <label>
               Quality mode
               <select id="quality-mode">
-                <option value="ultra">Ultra quality (32k context)</option>
-                <option value="balanced">High quality (16k context)</option>
-                <option value="budget">Balanced minimum (8k context)</option>
+                <option value="budget">Budget — lighter CPU, 8k context, shorter output</option>
+                <option value="balanced">Balanced — default beta-safe mode</option>
+                <option value="high">High — more context and longer output</option>
+                <option value="ultra">Ultra — largest context, advanced machines</option>
                 <option value="custom">Custom / advanced</option>
               </select>
             </label>
             <div class="grid">
               <label>
-                Coordinator URL
-                <input id="coordinator-url" type="url" />
+                Coordinator
+                <input id="coordinator-url" type="url" disabled />
+                <span class="small">Locked to the official coordinator in beta builds.</span>
               </label>
               <label>
                 Max CPU percent
@@ -166,6 +168,24 @@
               <label>
                 Minimum idle seconds
                 <input id="min-idle" type="number" min="10" max="3600" step="10" />
+              </label>
+              <label>
+                Context window
+                <select id="num-ctx">
+                  <option value="8192">8k — budget</option>
+                  <option value="12288">12k — balanced</option>
+                  <option value="16384">16k — high</option>
+                  <option value="32768">32k — ultra</option>
+                </select>
+              </label>
+              <label>
+                Max answer length
+                <select id="num-predict">
+                  <option value="900">900 — concise</option>
+                  <option value="1200">1200 — balanced</option>
+                  <option value="1800">1800 — detailed</option>
+                  <option value="2200">2200 — ultra</option>
+                </select>
               </label>
               <label>
                 Work schedule
@@ -266,6 +286,8 @@
       const coordinatorUrl = document.getElementById('coordinator-url');
       const maxCpu = document.getElementById('max-cpu');
       const minIdle = document.getElementById('min-idle');
+      const numCtx = document.getElementById('num-ctx');
+      const numPredict = document.getElementById('num-predict');
       const schedule = document.getElementById('schedule');
       const startup = document.getElementById('startup');
       const startMinimized = document.getElementById('start-minimized');
@@ -306,6 +328,12 @@
       let profileSetupUrl = null;
       let activeTab = 'overview';
       let settingsDirty = false;
+      const resourcePresets = {
+        budget: { maxCpuPercent: 35, minIdleSeconds: 300, schedule: 'idle-only', runOnBattery: false, numCtx: 8192, numPredict: 900 },
+        balanced: { maxCpuPercent: 55, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 1200 },
+        high: { maxCpuPercent: 70, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 1800 },
+        ultra: { maxCpuPercent: 85, minIdleSeconds: 60, schedule: 'idle-only', runOnBattery: false, numCtx: 32768, numPredict: 2200 }
+      };
 
       function editableFocused() {
         const el = document.activeElement;
@@ -532,8 +560,10 @@
             autoStartWorker.checked = latestState.settings.autoStartWorker;
             battery.checked = latestState.settings.resourceControls.runOnBattery;
             qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
+            numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
+            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 1200);
           }
-          modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
+          modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.recommendedNumPredict} answer length, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
           output.textContent = JSON.stringify(latestState, null, 2);
           updateProgress();
         } catch (error) {
@@ -557,12 +587,12 @@
         const installedSelection = selectedDropdownModelInstalled();
         const selectedModel = installedSelection ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
         const saved = await api.updateSettings({
-          coordinatorUrl: coordinatorUrl.value,
+
           startupOnLogin: startup.checked,
           startMinimized: startMinimized.checked,
           autoStartWorker: autoStartWorker.checked,
           setupCompletedAt: latestState?.settings?.setupCompletedAt || (registered() && latestState?.modelRuntime?.available && selectedModelInstalled() ? new Date().toISOString() : undefined),
-          modelRuntime: { model: selectedModel, qualityMode: qualityMode.value },
+          modelRuntime: { model: selectedModel, qualityMode: qualityMode.value, numCtx: Number(numCtx.value), numPredict: Number(numPredict.value) },
           resourceControls: { maxCpuPercent: Number(maxCpu.value), minIdleSeconds: Number(minIdle.value), schedule: schedule.value, runOnBattery: battery.checked }
         });
         settingsMessage.textContent = installedSelection ? 'Settings saved.' : 'Settings saved. Model selection was not applied because it is not downloaded yet.';
@@ -571,9 +601,20 @@
         await refresh();
       }
 
-      [coordinatorUrl, maxCpu, minIdle, schedule, startup, startMinimized, autoStartWorker, battery, qualityMode, modelSelect].forEach((input) => {
+      [maxCpu, minIdle, numCtx, numPredict, schedule, startup, startMinimized, autoStartWorker, battery, modelSelect].forEach((input) => {
         input.addEventListener('input', () => { settingsDirty = true; });
-        input.addEventListener('change', () => { settingsDirty = true; });
+        input.addEventListener('change', () => { settingsDirty = true; if (['max-cpu','min-idle','num-ctx','num-predict','schedule','battery'].includes(input.id)) qualityMode.value = 'custom'; });
+      });
+      qualityMode.addEventListener('change', () => {
+        settingsDirty = true;
+        const preset = resourcePresets[qualityMode.value];
+        if (!preset) return;
+        maxCpu.value = preset.maxCpuPercent;
+        minIdle.value = preset.minIdleSeconds;
+        schedule.value = preset.schedule;
+        battery.checked = preset.runOnBattery;
+        numCtx.value = preset.numCtx;
+        numPredict.value = preset.numPredict;
       });
 
       document.getElementById('refresh').onclick = refresh;

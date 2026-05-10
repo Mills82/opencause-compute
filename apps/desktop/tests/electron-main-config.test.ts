@@ -19,6 +19,8 @@ describe('electron main window config', () => {
     expect(source).toContain('validateExternalUrl(url)');
     expect(source).toContain('validateUninstallConfirmation(confirmation)');
     expect(source).toContain('dialog.showMessageBox');
+    expect(source).toContain('OPENCAUSE_DESKTOP_ALLOW_CUSTOM_COORDINATOR');
+    expect(source).toContain('custom_coordinator_disabled');
   });
 
   it('uses a dashboard-sized window and custom desktop menus', () => {

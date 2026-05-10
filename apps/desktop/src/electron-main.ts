@@ -68,7 +68,10 @@ function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
     if (typeof update.coordinatorUrl !== 'string') throw new Error('invalid_coordinatorUrl');
     const url = new URL(update.coordinatorUrl);
     if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') throw new Error('invalid_coordinatorUrl');
-    next.coordinatorUrl = url.toString().replace(/\/$/, '');
+    const normalized = url.toString().replace(/\/$/, '');
+    const allowCustom = process.env.OPENCAUSE_DESKTOP_ALLOW_CUSTOM_COORDINATOR === 'true' || !app.isPackaged;
+    if (!allowCustom && normalized !== 'https://opencause.appassist.ai') throw new Error('custom_coordinator_disabled');
+    next.coordinatorUrl = normalized;
   }
   next.localPaused = optionalBoolean(update.localPaused, 'localPaused');
   next.startupOnLogin = optionalBoolean(update.startupOnLogin, 'startupOnLogin');
@@ -93,7 +96,7 @@ function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
     const model = update.modelRuntime.model === undefined ? undefined : validateModelName(update.modelRuntime.model);
     next.modelRuntime = withoutUndefined({
       model,
-      qualityMode: optionalEnum(update.modelRuntime.qualityMode, 'qualityMode', ['budget', 'balanced', 'ultra', 'custom']),
+      qualityMode: optionalEnum(update.modelRuntime.qualityMode, 'qualityMode', ['budget', 'balanced', 'high', 'ultra', 'custom']),
       numCtx: optionalNumber(update.modelRuntime.numCtx, 'numCtx', 1024, 131_072),
       numPredict: optionalNumber(update.modelRuntime.numPredict, 'numPredict', 128, 16_384)
     }) as Partial<DesktopSettings['modelRuntime']> as DesktopSettings['modelRuntime'];

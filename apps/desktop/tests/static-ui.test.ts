@@ -81,4 +81,15 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('This model is not downloaded yet. Download it before applying it to the worker.');
   });
 
+  it('uses resource presets with custom override and keeps the coordinator locked', () => {
+    expect(html).toContain('Locked to the official coordinator in beta builds.');
+    expect(html).toContain('Budget — lighter CPU');
+    expect(html).toContain('High — more context and longer output');
+    expect(html).toContain('Ultra — largest context');
+    expect(html).toContain('Context window');
+    expect(html).toContain('Max answer length');
+    expect(html).toContain('resourcePresets');
+    expect(html).toContain("qualityMode.value = 'custom'");
+  });
+
 });
