@@ -186,20 +186,26 @@
           </section>
 
           <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
-            <h2>Worker dashboard</h2>
-            <p id="worker-message">Checking worker...</p>
+            <div style="display:flex; justify-content:space-between; gap:14px; align-items:flex-start; flex-wrap:wrap;">
+              <div>
+                <h2>Worker dashboard <span id="dashboard-status-pill" class="pill">Checking</span></h2>
+                <p id="worker-message">Checking worker...</p>
+              </div>
+              <div class="dashboard-actions">
+                <button id="start" class="primary">Start worker</button>
+                <button id="pause">Pause</button>
+                <button id="run-now">Run once now</button>
+              </div>
+            </div>
             <div id="preflight-summary" class="activity-card warning">
               <strong>Checking machine readiness…</strong>
               <p class="small">Verifying model, resource, and pause settings.</p>
             </div>
             <div id="activity-summary" class="activity-card warning">
-              <strong>Checking activity…</strong>
-              <p class="small">Reading the latest worker log.</p>
+              <strong>Checking current contribution…</strong>
+              <p class="small">Reading the latest worker activity.</p>
             </div>
             <div id="activity-actions" class="activity-actions hidden"></div>
-            <h3>Activity timeline</h3>
-            <div id="activity-timeline" class="log-card">No structured events yet.</div>
-            <p id="version-message" class="small"></p>
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
               <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
@@ -209,11 +215,11 @@
               <div class="stat-card"><strong id="dashboard-average-seconds">—</strong><p class="small">Avg seconds / submitted packet</p></div>
             </div>
             <p id="dashboard-hint" class="small">OpenCause will run when your resource settings allow it. Advanced details are available if something looks wrong.</p>
-            <div class="dashboard-actions">
-              <button id="start" class="primary">Start worker</button>
-              <button id="pause">Pause</button>
-              <button id="run-now">Run once now</button>
-            </div>
+            <details style="margin-top:14px;">
+              <summary>Latest activity timeline</summary>
+              <div id="activity-timeline" class="log-card" style="margin-top:10px;">No structured events yet.</div>
+            </details>
+            <p id="version-message" class="small"></p>
           </section>
 
           <section data-panel="activity" class="wide">
@@ -275,6 +281,7 @@
       const modelStep = document.getElementById('model-step');
       const registrationStep = document.getElementById('registration-step');
       const dashboardRuntime = document.getElementById('dashboard-runtime');
+      const dashboardStatusPill = document.getElementById('dashboard-status-pill');
       const dashboardModel = document.getElementById('dashboard-model');
       const startButton = document.getElementById('start');
       const saveStartButton = document.getElementById('save-start');
@@ -284,10 +291,7 @@
       const dashboardEligible = document.getElementById('dashboard-eligible');
       const dashboardSuccessRate = document.getElementById('dashboard-success-rate');
       const dashboardAverageSeconds = document.getElementById('dashboard-average-seconds');
-      const dashboardIdle = document.getElementById('dashboard-idle');
-      const dashboardCpu = document.getElementById('dashboard-cpu');
-      const dashboardGpu = document.getElementById('dashboard-gpu');
-      const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
+
       const dashboardHint = document.getElementById('dashboard-hint');
       const preflightSummary = document.getElementById('preflight-summary');
       const activitySummary = document.getElementById('activity-summary');
@@ -359,7 +363,9 @@
           panel.classList.toggle('hidden', setupComplete && !panelTabs.includes(activeTab));
         });
         document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
+        const statusText = latestState?.settings?.localPaused ? 'Paused' : latestState?.runtime?.running ? 'Running' : latestState?.preflight?.eligible ? 'Ready' : 'Waiting';
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
+        if (dashboardStatusPill) { dashboardStatusPill.textContent = statusText; dashboardStatusPill.className = `pill ${statusText === 'Running' || statusText === 'Ready' ? 'ready' : statusText === 'Paused' ? 'warning' : 'blocked'}`; }
         if (modelStepTitle) modelStepTitle.textContent = setupComplete ? 'Local model' : '2. Download a model';
         if (settingsStepTitle) settingsStepTitle.textContent = setupComplete ? 'Resource settings' : '4. Resource settings';
         if (startButton) {
@@ -377,10 +383,6 @@
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
         dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
-        if (dashboardIdle) dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
-        if (dashboardCpu) dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
-        if (dashboardGpu) dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
-        if (dashboardResourceReason) dashboardResourceReason.textContent = resources?.reason || '—';
         if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `Waiting: ${resources.reason}. Adjust Models & resources if needed.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
@@ -432,7 +434,9 @@
       }
 
       function renderModels(modelRuntime) {
-        const selected = modelRuntime.selectedModel;
+        const currentChoice = modelSelect.value;
+        const preserveUserChoice = Boolean(currentChoice) && settingsDirty && (activeTab === 'settings' || document.activeElement === modelSelect);
+        const selected = preserveUserChoice ? currentChoice : modelRuntime.selectedModel;
         modelSelect.innerHTML = modelRuntime.approvedModels.map(model =>
           `<option value="${model.id}" ${model.id === selected ? 'selected' : ''}>${modelLabel(model)}</option>`
         ).join('');

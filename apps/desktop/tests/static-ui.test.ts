@@ -67,4 +67,18 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain("Settings saved; worker running");
   });
 
+  it('prioritizes controls and keeps the activity timeline secondary', () => {
+    expect(html.indexOf('dashboard-status-pill')).toBeLessThan(html.indexOf('preflight-summary'));
+    expect(html.indexOf('id="start"')).toBeLessThan(html.indexOf('preflight-summary'));
+    expect(html.indexOf('Session stats')).toBe(-1);
+    expect(html.indexOf('activity-timeline')).toBeGreaterThan(html.indexOf('dashboard-average-seconds'));
+    expect(html).toContain('Latest activity timeline');
+  });
+
+  it('preserves an in-progress model dropdown choice while editing settings', () => {
+    expect(html).toContain('preserveUserChoice');
+    expect(html).toContain("settingsDirty && (activeTab === 'settings' || document.activeElement === modelSelect)");
+    expect(html).toContain('This model is not downloaded yet. Download it before applying it to the worker.');
+  });
+
 });
