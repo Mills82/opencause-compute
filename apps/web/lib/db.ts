@@ -137,6 +137,7 @@ async function ensureRelationalAddonSchema(client: PoolClient): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await client.query(`ALTER TABLE work_packets ADD COLUMN IF NOT EXISTS signed_payload JSONB`);
   await client.query(`CREATE INDEX IF NOT EXISTS extracted_claims_result_idx ON extracted_claims(result_id)`);
   await client.query(`CREATE INDEX IF NOT EXISTS extracted_claims_origin_type_idx ON extracted_claims(evidence_origin, evidence_type)`);
 }
@@ -513,7 +514,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
       await c.query('INSERT INTO volunteer_nodes(id,node_name,platform,version,status,capabilities,registered_at,last_heartbeat_at,node_token_hash,enrollment_code_hash,suspended_at,revoked_at) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12)', [node.id, node.nodeName, node.platform, node.version, node.status, JSON.stringify(node.capabilities), node.registeredAt, node.lastHeartbeatAt, node.nodeTokenHash, node.enrollmentCodeHash, node.suspendedAt, node.revokedAt]);
     }
     for (const packet of parsed.workPackets) {
-      await c.query('INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [packet.id, packet.projectId, packet.title, packet.sourceText, packet.sourceCitation, packet.sourceUrl, packet.sourcePublishedAt, packet.inputHash, packet.extractor, packet.signature, packet.status, packet.createdAt, packet.updatedAt]);
+      await c.query('INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14)', [packet.id, packet.projectId, packet.title, packet.sourceText, packet.sourceCitation, packet.sourceUrl, packet.sourcePublishedAt, packet.inputHash, packet.extractor, packet.signature, JSON.stringify(packet), packet.status, packet.createdAt, packet.updatedAt]);
     }
     for (const claim of parsed.claims) {
       await c.query('INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at,completed_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [claim.id, claim.workPacketId, claim.nodeId, claim.status, claim.claimedAt, claim.leaseExpiresAt, claim.completedAt]);

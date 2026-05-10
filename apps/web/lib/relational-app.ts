@@ -389,7 +389,7 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
       const now = new Date().toISOString();
       const payload: WorkPacketPayload = { id: randomUUID(), projectId: project.id, title: source.title, sourceText: source.sourceText, sourceCitation: source.sourceCitation, sourceUrl: source.sourceUrl, sourcePublishedAt: source.sourcePublishedAt, sectionTitle: source.sectionTitle, sectionType: source.sectionType as WorkPacketPayload['sectionType'], paragraphIndex: source.paragraphIndex, inputHash, extractor, createdAt: now };
       const signature = signWorkPacketPayload(payload);
-      await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'queued',$11,$11)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, now]);
+      await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,'queued',$12,$12)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, JSON.stringify(payload), now]);
       packetsCreated += 1;
     }
     await client.query('COMMIT');
