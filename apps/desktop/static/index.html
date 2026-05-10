@@ -543,7 +543,10 @@
           const stoppedDetail = runtime.lastMode === 'run-once'
             ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
             : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
-          const reasonText = latestState?.activity?.detail || latestState?.preflight?.reason || '';
+          const preflightEligible = Boolean(latestState?.preflight?.eligible);
+          const reasonText = preflightEligible
+            ? 'Ready to contribute. The worker will claim eligible work on the next check.'
+            : (latestState?.preflight?.reason || latestState?.activity?.detail || '');
           workerMessage.textContent = latestState.settings.localPaused ? 'Paused locally. Press Start worker when you want to contribute again.' : (runtime.running ? (reasonText || 'Worker is running.') : stoppedDetail);
           renderPreflight(latestState.preflight);
           renderActivity(latestState.activity, latestState.preflight);
