@@ -188,13 +188,13 @@ export async function registerNodeRelational(input: { nodeName: string; platform
   }
 }
 
-export async function heartbeatNodeRelational(nodeId: string, token: string | null): Promise<VolunteerNode | undefined> {
+export async function heartbeatNodeRelational(nodeId: string, token: string | null, capabilities?: string[]): Promise<VolunteerNode | undefined> {
   if (!enabled()) return undefined;
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
     await assertNodeAuthorized(client, nodeId, token);
-    const row = (await client.query("UPDATE volunteer_nodes SET status = 'online', last_heartbeat_at = NOW() WHERE id = $1 RETURNING *", [nodeId])).rows[0];
+    const row = (await client.query("UPDATE volunteer_nodes SET status = 'online', last_heartbeat_at = NOW(), capabilities = CASE WHEN $2::jsonb IS NULL THEN capabilities ELSE $2::jsonb END WHERE id = $1 RETURNING *", [nodeId, capabilities ? JSON.stringify(capabilities) : null])).rows[0];
     await client.query('COMMIT');
     return nodeFromRow(row);
   } catch (error) {

@@ -167,9 +167,9 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
   return credentials;
 }
 
-async function heartbeat(server: string, credentials: NodeCredentials): Promise<void> {
+async function heartbeat(server: string, credentials: NodeCredentials, extractorMode: ExtractorMode): Promise<void> {
   const nodeId = credentials.nodeId;
-  await post(server, '/api/nodes/heartbeat', { nodeId }, credentials.nodeToken);
+  await post(server, '/api/nodes/heartbeat', { nodeId, capabilities: extractorMode === 'local-llm' ? ['local-llm-v2', 'local-llm-v1'] : ['mock-extractor-v1'] }, credentials.nodeToken);
   await log(`heartbeat ${nodeId}`);
 }
 
@@ -426,7 +426,7 @@ async function loop(
 
   while (true) {
     try {
-      await heartbeat(server, credentials);
+      await heartbeat(server, credentials, extractorMode);
       const controlConfig = await getControlConfig(server);
       const effectiveIdleConfig = localIdleConfig;
       const runNowRequested = lastRunNowToken !== null && controlConfig.runNowToken !== lastRunNowToken;
@@ -503,7 +503,7 @@ async function main() {
   if (command === 'heartbeat') {
     const nodeToken = required(arg('--node-token', process.env.NODE_TOKEN), '--node-token');
     const nodeId = required(arg('--node-id'), '--node-id');
-    await heartbeat(server, { nodeId, nodeToken });
+    await heartbeat(server, { nodeId, nodeToken }, extractorMode);
     return;
   }
 
@@ -516,7 +516,7 @@ async function main() {
 
   if (command === 'run-once') {
     const credentials = (await loadNodeCredentials()) ?? (arg('--node-id') && arg('--node-token', process.env.NODE_TOKEN) ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token', process.env.NODE_TOKEN) as string } : await register(server, extractorMode));
-    await heartbeat(server, credentials);
+    await heartbeat(server, credentials, extractorMode);
     await runOnce(server, credentials, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
     return;
   }

@@ -152,7 +152,7 @@ export function registerNode(
 
 }
 
-export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode {
+export function heartbeatNode(db: DatabaseState, nodeId: string, capabilities?: string[]): VolunteerNode {
   const now = new Date();
   reconcileCoordinatorState(db, now);
 
@@ -165,6 +165,7 @@ export function heartbeatNode(db: DatabaseState, nodeId: string): VolunteerNode 
   }
   node.lastHeartbeatAt = now.toISOString();
   node.status = 'online';
+  if (capabilities?.length) node.capabilities = capabilities;
 
   const activeClaim = db.claims.find((claim) => claim.nodeId === nodeId && claim.status === 'claimed');
   if (activeClaim) {

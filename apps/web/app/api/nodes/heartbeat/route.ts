@@ -7,7 +7,8 @@ import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rat
 import { heartbeatNodeRelational } from '../../../../lib/relational-app';
 
 const requestSchema = z.object({
-  nodeId: z.string().min(1)
+  nodeId: z.string().min(1),
+  capabilities: z.array(z.string()).optional()
 });
 
 export async function POST(request: Request) {
@@ -21,10 +22,10 @@ export async function POST(request: Request) {
 
   try {
     const token = extractNodeToken(request);
-    const relationalNode = await heartbeatNodeRelational(parsed.data.nodeId, token);
+    const relationalNode = await heartbeatNodeRelational(parsed.data.nodeId, token, parsed.data.capabilities);
     const node = relationalNode ?? await withDb((db) => {
       if (!isNodeAuthorized(db, parsed.data.nodeId, token)) throw new Error('node_unauthorized');
-      return heartbeatNode(db, parsed.data.nodeId);
+      return heartbeatNode(db, parsed.data.nodeId, parsed.data.capabilities);
     });
     return NextResponse.json({ node });
   } catch (error) {
