@@ -184,4 +184,49 @@ describePg('real Postgres relational storage integration', () => {
     }
   });
 
+
+  it('keeps profile setup relational response camelCase-compatible and gamification admin mutations preserve worker state', async () => {
+    const pool = await freshDb();
+    try {
+      const repo = await import('../lib/relational-app');
+      process.env.OPENCAUSE_HOSTED = 'true';
+      const code = `occ_${randomBytes(18).toString('base64url')}`;
+      await repo.issueVolunteerEnrollmentRelational('admin-gamification@example.com', hashEnrollmentCode(code));
+      const registration = await repo.registerNodeRelational({ nodeName: 'g-node', platform: 'linux', version: '0.1.0', capabilities: [], enrollmentCode: code });
+      const setup = await repo.readProfileSetupRelational(registration.profileSetupToken);
+      await pool.query("INSERT INTO volunteer_stats_snapshots(id,volunteer_profile_id,stats_window,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,badges_count,computed_at) VALUES(gen_random_uuid(),$1,'all_time',5,1,1,1,0,0,0,0,0,1,1,1,0,NOW())", [setup.profile.id]);
+      await pool.query("INSERT INTO impact_digests(id,volunteer_profile_id,period_start,period_end,sections_processed,format_validated_submissions,consensus_passed_contributions,idle_minutes_donated,badges_awarded,team_rank,preview_text,created_at,delivered_at) VALUES(gen_random_uuid(),$1,NOW()-INTERVAL '7 days',NOW(),1,1,0,0,0,NULL,'preview',NOW(),NULL)", [setup.profile.id]);
+      const shaped = await repo.readProfileSetupRelational(registration.profileSetupToken);
+      expect(shaped.stats).toHaveProperty('volunteerProfileId', setup.profile.id);
+      expect(shaped.stats).toHaveProperty('contributionScore', 5);
+      expect(shaped.stats).not.toHaveProperty('volunteer_profile_id');
+      expect(shaped.latestDigest).toHaveProperty('volunteerProfileId', setup.profile.id);
+      expect(shaped.latestDigest).toHaveProperty('previewText', 'preview');
+      expect(shaped.latestDigest).not.toHaveProperty('volunteer_profile_id');
+
+      const updatedProfile = await repo.updateVolunteerProfileAdminRelational({ profileId: setup.profile.id, displayName: 'Admin Name', privacyMode: 'public_named', publicProfileEnabled: true });
+      expect(updatedProfile.displayName).toBe('Admin Name');
+      const team = await repo.createTeamAdminRelational({ name: 'Admin Team', description: 'D', visibility: 'public', createdByVolunteerProfileId: setup.profile.id });
+      expect(team.slug).toBe('admin-team');
+      const membership = await repo.setTeamMembershipAdminRelational({ teamId: team.id, volunteerProfileId: setup.profile.id, role: 'captain', status: 'active' });
+      expect(membership.role).toBe('captain');
+      await repo.moderatePublicTargetRelational({ targetType: 'volunteer_profile', targetId: setup.profile.id, moderationStatus: 'hidden', note: 'test' });
+      expect((await pool.query('SELECT public_profile_enabled, moderation_status FROM volunteer_profiles WHERE id=$1', [setup.profile.id])).rows[0]).toMatchObject({ public_profile_enabled: false, moderation_status: 'hidden' });
+
+      await repo.ingestSourcesRelational({ projectSlug: 'g', projectName: 'G', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/gamification-state' }], extractor: 'local-llm-v1' });
+      const packet = (await pool.query("UPDATE work_packets SET status='claimed' WHERE source_url='https://example.com/gamification-state' RETURNING id")).rows[0];
+      await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes')", [packet.id, registration.node.id]);
+      await pool.query("INSERT INTO extraction_results(id,work_packet_id,node_id,claim_id,extractor_version,result_hash,payload,summary,validated,format_validated,consensus_status,review_status,validation_errors,warnings,submitted_at,provenance) VALUES(gen_random_uuid(),$1,$2,gen_random_uuid(),'v','h','{}','ok',true,true,'consensus_pending','not_reviewed','[]','[]',NOW(),'{}')", [packet.id, registration.node.id]);
+      const summary = await repo.recomputeGamificationRelational();
+      expect(summary.profilesUpdated).toBeGreaterThanOrEqual(1);
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_claims WHERE status='claimed'")).rows[0].count)).toBe(1);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extraction_results')).rows[0].count)).toBe(1);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_profile_nodes WHERE volunteer_profile_id=$1 AND detached_at IS NULL', [setup.profile.id])).rows[0].count)).toBe(1);
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM audit_events WHERE action='public_moderation.updated'")).rows[0].count)).toBe(1);
+    } finally {
+      await pool.end();
+      delete process.env.OPENCAUSE_HOSTED;
+    }
+  });
+
 });

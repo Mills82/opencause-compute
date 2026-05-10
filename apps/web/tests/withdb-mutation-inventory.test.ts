@@ -18,12 +18,12 @@ const allowlisted = new Set([
   // Local/dev/admin batch workflows still intentionally use DatabaseState mutations until the next storage milestone.
   'app/api/admin/reset-test-state/route.ts',
   'app/api/admin/seed-demo-data/route.ts',
+  // These routes use targeted relational repositories first and withDb only as local/dev fallback.
   'app/api/admin/gamification/moderate/route.ts',
   'app/api/admin/gamification/profiles/[profileId]/route.ts',
   'app/api/admin/gamification/recompute/route.ts',
   'app/api/admin/gamification/teams/route.ts',
   'app/api/admin/gamification/teams/[teamId]/members/route.ts',
-  // These routes use targeted relational repositories first and withDb only as local/dev fallback.
   'app/api/admin/ingest/cron/route.ts',
   'app/api/admin/ingest/pmc-oa/route.ts',
   'app/api/admin/ingest/pubmed/route.ts',

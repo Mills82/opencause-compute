@@ -6,6 +6,8 @@ import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
 import { signWorkPacketPayload } from './signing';
 import { isHostedMode } from './runtime-config';
+import { loadDb } from './db';
+import { recomputeGamification } from './gamification/recompute';
 
 type IngestSource = { title: string; sourceText: string; sourceCitation: string; sourceUrl: string; sourcePublishedAt?: string };
 
@@ -370,6 +372,16 @@ function profileFromRow(row: any) {
   return { id: row.id, displayName: row.display_name, slug: row.slug, privacyMode: row.privacy_mode, publicProfileEnabled: Boolean(row.public_profile_enabled), avatarColor: row.avatar_color, bio: row.bio ?? undefined, setupTokenHash: row.setup_token_hash ?? undefined, setupTokenExpiresAt: iso(row.setup_token_expires_at), moderationStatus: row.moderation_status ?? 'ok', moderationNote: row.moderation_note ?? undefined, joinedAt: iso(row.joined_at)!, lastActiveAt: iso(row.last_active_at), statsUpdatedAt: iso(row.stats_updated_at), createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
 }
 
+function volunteerStatsFromRow(row: any) {
+  if (!row) return null;
+  return { id: row.id, volunteerProfileId: row.volunteer_profile_id, window: row.stats_window, windowStart: iso(row.window_start), windowEnd: iso(row.window_end), contributionScore: Number(row.contribution_score), sectionsProcessed: Number(row.sections_processed), packetsSubmitted: Number(row.packets_submitted), formatValidatedSubmissions: Number(row.format_validated_submissions), formatRejectedSubmissions: Number(row.format_rejected_submissions), consensusPassedContributions: Number(row.consensus_passed_contributions), consensusFailedContributions: Number(row.consensus_failed_contributions), humanReviewedAcceptedContributions: Number(row.human_reviewed_accepted_contributions), idleMinutesDonated: Number(row.idle_minutes_donated), distinctActiveDays: Number(row.distinct_active_days), currentStreakDays: Number(row.current_streak_days), longestStreakDays: Number(row.longest_streak_days), badgesCount: Number(row.badges_count), computedAt: iso(row.computed_at)! };
+}
+
+function impactDigestFromRow(row: any) {
+  if (!row) return null;
+  return { id: row.id, volunteerProfileId: row.volunteer_profile_id, periodStart: iso(row.period_start)!, periodEnd: iso(row.period_end)!, sectionsProcessed: Number(row.sections_processed), formatValidatedSubmissions: Number(row.format_validated_submissions), consensusPassedContributions: Number(row.consensus_passed_contributions), idleMinutesDonated: Number(row.idle_minutes_donated), badgesAwarded: Number(row.badges_awarded), teamRank: row.team_rank === null || row.team_rank === undefined ? null : Number(row.team_rank), previewText: row.preview_text, createdAt: iso(row.created_at)!, deliveredAt: iso(row.delivered_at) };
+}
+
 async function profileBySetupToken(client: PoolClient, token: string): Promise<any> {
   const hash = hashProfileSetupToken(token);
   const profile = (await client.query('SELECT * FROM volunteer_profiles WHERE setup_token_hash = $1 AND (setup_token_expires_at IS NULL OR setup_token_expires_at > NOW())', [hash])).rows[0];
@@ -392,8 +404,8 @@ export async function readProfileSetupRelational(token: string): Promise<any | u
     ]);
     return {
       profile: { id: profile.id, displayName: profile.displayName, slug: profile.slug, privacyMode: profile.privacyMode, publicProfileEnabled: profile.publicProfileEnabled, avatarColor: profile.avatarColor, bio: profile.bio ?? '' },
-      stats: stats.rows[0] ?? null,
-      latestDigest: digest.rows[0] ?? null,
+      stats: volunteerStatsFromRow(stats.rows[0]),
+      latestDigest: impactDigestFromRow(digest.rows[0]),
       impactCards: cards.rows.map((row) => ({ slug: row.slug, title: row.title })),
       badges: badges.rows.map((row) => ({ slug: row.badge_slug, awardedAt: iso(row.awarded_at)! })),
       teams: teams.rows.map((row) => ({ id: row.id, name: row.name, slug: row.slug, description: row.description }))
@@ -426,4 +438,160 @@ export async function updateProfileSetupRelational(input: { token: string; displ
     await client.query('COMMIT');
     return profileFromRow(row);
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function updateVolunteerProfileAdminRelational(input: { profileId: string; displayName?: string; privacyMode?: 'private' | 'public_anonymous' | 'public_named'; publicProfileEnabled?: boolean; bio?: string; avatarColor?: string }): Promise<any | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    const existing = (await client.query('SELECT * FROM volunteer_profiles WHERE id=$1', [input.profileId])).rows[0];
+    if (!existing) throw new Error('volunteer_profile_not_found');
+    let displayName = existing.display_name;
+    if (input.displayName !== undefined) displayName = input.displayName.trim().slice(0, 80) || existing.display_name;
+    const privacyMode = input.privacyMode ?? existing.privacy_mode;
+    let publicProfileEnabled = input.publicProfileEnabled ?? existing.public_profile_enabled;
+    if (privacyMode === 'private') publicProfileEnabled = false;
+    const bio = input.bio !== undefined ? input.bio.trim().slice(0, 240) : existing.bio;
+    const avatarColor = input.avatarColor !== undefined ? (input.avatarColor.trim().slice(0, 32) || existing.avatar_color) : existing.avatar_color;
+    const row = (await client.query('UPDATE volunteer_profiles SET display_name=$2, privacy_mode=$3, public_profile_enabled=$4, bio=$5, avatar_color=$6, updated_at=NOW() WHERE id=$1 RETURNING *', [input.profileId, displayName, privacyMode, publicProfileEnabled, bio, avatarColor])).rows[0];
+    return profileFromRow(row);
+  } finally {
+    client.release();
+  }
+}
+
+function slugifyRel(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'team';
+}
+
+async function uniqueTeamSlug(client: PoolClient, name: string): Promise<string> {
+  const root = slugifyRel(name);
+  let slug = root;
+  let suffix = 2;
+  while ((await client.query('SELECT 1 FROM teams WHERE slug=$1', [slug])).rowCount) slug = `${root}-${suffix++}`;
+  return slug;
+}
+
+function teamFromRow(row: any) {
+  return { id: row.id, name: row.name, slug: row.slug, description: row.description ?? '', visibility: row.visibility, createdByVolunteerProfileId: row.created_by_volunteer_profile_id, createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)!, statsUpdatedAt: iso(row.stats_updated_at), moderationStatus: row.moderation_status ?? 'ok', moderationNote: row.moderation_note ?? undefined };
+}
+
+function membershipFromRow(row: any) {
+  return { id: row.id, teamId: row.team_id, volunteerProfileId: row.volunteer_profile_id, role: row.role, status: row.status, joinedAt: iso(row.joined_at)!, leftAt: iso(row.left_at) };
+}
+
+export async function createTeamAdminRelational(input: { name: string; description?: string; visibility?: 'public' | 'private'; createdByVolunteerProfileId?: string }): Promise<any | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const name = input.name.trim().slice(0, 100);
+    if (!name) throw new Error('team_name_required');
+    if (input.createdByVolunteerProfileId && !(await client.query('SELECT 1 FROM volunteer_profiles WHERE id=$1', [input.createdByVolunteerProfileId])).rowCount) throw new Error('volunteer_profile_not_found');
+    const slug = await uniqueTeamSlug(client, name);
+    const team = (await client.query("INSERT INTO teams(id,name,slug,description,visibility,created_by_volunteer_profile_id,created_at,updated_at,stats_updated_at,moderation_status,moderation_note) VALUES($1,$2,$3,$4,$5,$6,NOW(),NOW(),NULL,'ok',NULL) RETURNING *", [randomUUID(), name, slug, input.description?.trim().slice(0, 500) ?? '', input.visibility ?? 'public', input.createdByVolunteerProfileId ?? null])).rows[0];
+    if (input.createdByVolunteerProfileId) await client.query("INSERT INTO team_memberships(id,team_id,volunteer_profile_id,role,status,joined_at,left_at) VALUES($1,$2,$3,'captain','active',NOW(),NULL)", [randomUUID(), team.id, input.createdByVolunteerProfileId]);
+    await client.query('COMMIT');
+    return teamFromRow(team);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function setTeamMembershipAdminRelational(input: { teamId: string; volunteerProfileId: string; role?: 'member' | 'captain'; status?: 'active' | 'left' | 'removed' }): Promise<any | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    if (!(await client.query('SELECT 1 FROM teams WHERE id=$1', [input.teamId])).rowCount) throw new Error('team_not_found');
+    if (!(await client.query('SELECT 1 FROM volunteer_profiles WHERE id=$1', [input.volunteerProfileId])).rowCount) throw new Error('volunteer_profile_not_found');
+    let row = (await client.query('SELECT * FROM team_memberships WHERE team_id=$1 AND volunteer_profile_id=$2 FOR UPDATE', [input.teamId, input.volunteerProfileId])).rows[0];
+    if (!row) {
+      row = (await client.query("INSERT INTO team_memberships(id,team_id,volunteer_profile_id,role,status,joined_at,left_at) VALUES($1,$2,$3,$4,$5,NOW(),CASE WHEN $5='active' THEN NULL ELSE NOW() END) RETURNING *", [randomUUID(), input.teamId, input.volunteerProfileId, input.role ?? 'member', input.status ?? 'active'])).rows[0];
+    } else {
+      row = (await client.query("UPDATE team_memberships SET role=$2,status=$3,left_at=CASE WHEN $3='active' THEN NULL ELSE NOW() END WHERE id=$1 RETURNING *", [row.id, input.role ?? row.role, input.status ?? row.status])).rows[0];
+    }
+    await client.query('COMMIT');
+    return membershipFromRow(row);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function moderatePublicTargetRelational(input: { targetType: 'volunteer_profile' | 'team' | 'impact_card'; targetId: string; moderationStatus: 'ok' | 'hidden' | 'flagged'; note?: string }): Promise<{ ok: true } | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    let result;
+    if (input.targetType === 'volunteer_profile') {
+      result = await client.query("UPDATE volunteer_profiles SET moderation_status=$2, moderation_note=$3, public_profile_enabled=CASE WHEN $2='hidden' THEN false ELSE public_profile_enabled END, updated_at=NOW() WHERE id=$1 RETURNING id", [input.targetId, input.moderationStatus, input.note ?? null]);
+    } else if (input.targetType === 'team') {
+      result = await client.query('UPDATE teams SET moderation_status=$2, moderation_note=$3, updated_at=NOW() WHERE id=$1 RETURNING id', [input.targetId, input.moderationStatus, input.note ?? null]);
+    } else {
+      result = await client.query("UPDATE impact_cards SET moderation_status=$2, moderation_note=$3, public_enabled=CASE WHEN $2='hidden' THEN false ELSE public_enabled END WHERE id=$1 RETURNING id", [input.targetId, input.moderationStatus, input.note ?? null]);
+    }
+    if (!result.rowCount) throw new Error('target_not_found');
+    await appendAuditEventRelational({ actorType: 'admin', action: 'public_moderation.updated', targetType: input.targetType, targetId: input.targetId, metadata: { moderationStatus: input.moderationStatus, note: input.note } }, client);
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function recomputeGamificationRelational(): Promise<{ profilesUpdated: number; teamsUpdated: number; badgesAwarded: number; badgeDefinitionsSeeded: number } | undefined> {
+  if (!enabled()) return undefined;
+  const db = await loadDb();
+  const summary = recomputeGamification(db);
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM impact_cards');
+    await client.query('DELETE FROM impact_digests');
+    await client.query('DELETE FROM team_stats_snapshots');
+    await client.query('DELETE FROM volunteer_stats_snapshots');
+    await client.query('DELETE FROM volunteer_badges');
+    await client.query('DELETE FROM badge_definitions');
+    for (const profile of db.volunteerProfiles) {
+      await client.query('UPDATE volunteer_profiles SET last_active_at=$2, stats_updated_at=$3, updated_at=$4 WHERE id=$1', [profile.id, profile.lastActiveAt, profile.statsUpdatedAt, profile.updatedAt]);
+    }
+    for (const team of db.teams) {
+      await client.query('UPDATE teams SET stats_updated_at=$2, updated_at=$3 WHERE id=$1', [team.id, team.statsUpdatedAt, team.updatedAt]);
+    }
+    for (const definition of db.badgeDefinitions) {
+      await client.query('INSERT INTO badge_definitions(id,slug,name,description,category,criteria_kind,criteria_value,icon_name,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)', [definition.id, definition.slug, definition.name, definition.description, definition.category, definition.criteriaKind, definition.criteriaValue, definition.iconName, definition.createdAt]);
+    }
+    for (const badge of db.volunteerBadges) {
+      await client.query('INSERT INTO volunteer_badges(id,volunteer_profile_id,badge_slug,awarded_at,source_kind,source_id) VALUES($1,$2,$3,$4,$5,$6)', [badge.id, badge.volunteerProfileId, badge.badgeSlug, badge.awardedAt, badge.sourceKind, badge.sourceId]);
+    }
+    for (const stats of db.volunteerStatsSnapshots) {
+      await client.query('INSERT INTO volunteer_stats_snapshots(id,volunteer_profile_id,stats_window,window_start,window_end,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,badges_count,computed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)', [stats.id, stats.volunteerProfileId, stats.window, stats.windowStart, stats.windowEnd, stats.contributionScore, stats.sectionsProcessed, stats.packetsSubmitted, stats.formatValidatedSubmissions, stats.formatRejectedSubmissions, stats.consensusPassedContributions, stats.consensusFailedContributions, stats.humanReviewedAcceptedContributions, stats.idleMinutesDonated, stats.distinctActiveDays, stats.currentStreakDays, stats.longestStreakDays, stats.badgesCount, stats.computedAt]);
+    }
+    for (const stats of db.teamStatsSnapshots) {
+      await client.query('INSERT INTO team_stats_snapshots(id,team_id,stats_window,window_start,window_end,contribution_score,sections_processed,packets_submitted,format_validated_submissions,format_rejected_submissions,consensus_passed_contributions,consensus_failed_contributions,human_reviewed_accepted_contributions,idle_minutes_donated,distinct_active_days,current_streak_days,longest_streak_days,member_count,active_member_count,computed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)', [stats.id, stats.teamId, stats.window, stats.windowStart, stats.windowEnd, stats.contributionScore, stats.sectionsProcessed, stats.packetsSubmitted, stats.formatValidatedSubmissions, stats.formatRejectedSubmissions, stats.consensusPassedContributions, stats.consensusFailedContributions, stats.humanReviewedAcceptedContributions, stats.idleMinutesDonated, stats.distinctActiveDays, stats.currentStreakDays, stats.longestStreakDays, stats.memberCount, stats.activeMemberCount, stats.computedAt]);
+    }
+    for (const digest of db.impactDigests) {
+      await client.query('INSERT INTO impact_digests(id,volunteer_profile_id,period_start,period_end,sections_processed,format_validated_submissions,consensus_passed_contributions,idle_minutes_donated,badges_awarded,team_rank,preview_text,created_at,delivered_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [digest.id, digest.volunteerProfileId, digest.periodStart, digest.periodEnd, digest.sectionsProcessed, digest.formatValidatedSubmissions, digest.consensusPassedContributions, digest.idleMinutesDonated, digest.badgesAwarded, digest.teamRank, digest.previewText, digest.createdAt, digest.deliveredAt]);
+    }
+    for (const card of db.impactCards) {
+      await client.query('INSERT INTO impact_cards(id,volunteer_profile_id,team_id,card_type,slug,title,subtitle,metric_label,metric_value,accent_color,public_enabled,moderation_status,moderation_note,period_start,period_end,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)', [card.id, card.volunteerProfileId, card.teamId, card.cardType, card.slug, card.title, card.subtitle, card.metricLabel, card.metricValue, card.accentColor, card.publicEnabled, card.moderationStatus ?? 'ok', card.moderationNote, card.periodStart, card.periodEnd, card.createdAt]);
+    }
+    await client.query('COMMIT');
+    return summary;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }

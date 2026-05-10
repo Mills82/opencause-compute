@@ -4,6 +4,7 @@ import { isAdminAuthorized } from '../../../../../../lib/admin-auth';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../../lib/rate-limit';
 import { withDb } from '../../../../../../lib/db';
 import { updateVolunteerProfileAdmin } from '../../../../../../lib/gamification/admin';
+import { updateVolunteerProfileAdminRelational } from '../../../../../../lib/relational-app';
 
 const schema = z.object({
   displayName: z.string().optional(),
@@ -21,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pr
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { profileId } = await params;
   try {
-    const profile = await withDb((db) => updateVolunteerProfileAdmin(db, { profileId, ...parsed.data }));
+    const profile = (await updateVolunteerProfileAdminRelational({ profileId, ...parsed.data })) ?? await withDb((db) => updateVolunteerProfileAdmin(db, { profileId, ...parsed.data }));
     return NextResponse.json({ profile });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'update_failed' }, { status: 400 });

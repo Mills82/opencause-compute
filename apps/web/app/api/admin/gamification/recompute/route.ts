@@ -3,9 +3,10 @@ import { isAdminAuthorized, isCronAuthorized } from '../../../../../lib/admin-au
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { withDb } from '../../../../../lib/db';
 import { recomputeGamification } from '../../../../../lib/gamification/recompute';
+import { recomputeGamificationRelational } from '../../../../../lib/relational-app';
 
 async function runRecompute() {
-  const summary = await withDb((db) => recomputeGamification(db));
+  const summary = (await recomputeGamificationRelational()) ?? await withDb((db) => recomputeGamification(db));
   return NextResponse.json(summary);
 }
 

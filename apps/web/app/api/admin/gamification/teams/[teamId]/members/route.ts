@@ -4,6 +4,7 @@ import { isAdminAuthorized } from '../../../../../../../lib/admin-auth';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../../../lib/rate-limit';
 import { withDb } from '../../../../../../../lib/db';
 import { setTeamMembershipAdmin } from '../../../../../../../lib/gamification/admin';
+import { setTeamMembershipAdminRelational } from '../../../../../../../lib/relational-app';
 
 const schema = z.object({
   volunteerProfileId: z.string().min(1),
@@ -19,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tea
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const { teamId } = await params;
   try {
-    const membership = await withDb((db) => setTeamMembershipAdmin(db, { teamId, ...parsed.data }));
+    const membership = (await setTeamMembershipAdminRelational({ teamId, ...parsed.data })) ?? await withDb((db) => setTeamMembershipAdmin(db, { teamId, ...parsed.data }));
     return NextResponse.json({ membership });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'membership_update_failed' }, { status: 400 });

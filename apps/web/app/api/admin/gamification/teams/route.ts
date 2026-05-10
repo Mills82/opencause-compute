@@ -4,6 +4,7 @@ import { isAdminAuthorized } from '../../../../../lib/admin-auth';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { withDb } from '../../../../../lib/db';
 import { createTeamAdmin } from '../../../../../lib/gamification/admin';
+import { createTeamAdminRelational } from '../../../../../lib/relational-app';
 
 const schema = z.object({
   name: z.string().min(1),
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   try {
-    const team = await withDb((db) => createTeamAdmin(db, parsed.data));
+    const team = (await createTeamAdminRelational(parsed.data)) ?? await withDb((db) => createTeamAdmin(db, parsed.data));
     return NextResponse.json({ team });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'team_create_failed' }, { status: 400 });
