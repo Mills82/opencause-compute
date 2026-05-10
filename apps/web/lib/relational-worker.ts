@@ -164,7 +164,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
          SELECT 1 FROM work_claims prior
          WHERE prior.work_packet_id = work_packets.id
          AND prior.node_id = $1
-         AND prior.status = 'completed'
+         AND prior.status IN ('completed', 'failed')
        )
        ORDER BY created_at
        LIMIT 1
@@ -187,6 +187,35 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
     await recordAuditEvent(client, { actorType: 'node', actorId: nodeId, action: 'work.claim.created', targetType: 'work_packet', targetId: packet.id, metadata: { claimId } });
     await client.query('COMMIT');
     return { claimId, packet: packetPayloadFromRow(packet), signature: packet.signature };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function failClaimRelational(input: {
+  nodeId: string;
+  token: string | null;
+  claimId: string;
+  workPacketId: string;
+  reason: string;
+}): Promise<{ ok: true } | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await assertNodeAuthorized(client, input.nodeId, input.token);
+    const claimRow = (await client.query('SELECT * FROM work_claims WHERE id = $1 FOR UPDATE', [input.claimId])).rows[0];
+    if (!claimRow) throw new Error('claim_not_found');
+    if (claimRow.node_id !== input.nodeId || claimRow.work_packet_id !== input.workPacketId) throw new Error('claim_mismatch');
+    if (claimRow.status !== 'claimed') throw new Error(`claim_${claimRow.status}`);
+    await client.query("UPDATE work_claims SET status = 'failed', completed_at = NOW() WHERE id = $1", [input.claimId]);
+    await client.query("UPDATE work_packets SET status = 'queued', updated_at = NOW() WHERE id = $1", [input.workPacketId]);
+    await recordAuditEvent(client, { actorType: 'node', actorId: input.nodeId, action: 'work.claim.failed', targetType: 'work_packet', targetId: input.workPacketId, metadata: { claimId: input.claimId, reason: input.reason } });
+    await client.query('COMMIT');
+    return { ok: true };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

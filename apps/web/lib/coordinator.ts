@@ -284,7 +284,7 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
     }
   }
 
-  const packet = db.workPackets.find((p) => p.status === 'queued' && !db.claims.some((claim) => claim.workPacketId === p.id && claim.nodeId === nodeId && claim.status === 'completed'));
+  const packet = db.workPackets.find((p) => p.status === 'queued' && !db.claims.some((claim) => claim.workPacketId === p.id && claim.nodeId === nodeId && (claim.status === 'completed' || claim.status === 'failed')));
   if (!packet) {
     return null;
   }
@@ -316,6 +316,32 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
     packet: buildPacketPayload(packet),
     signature: packet.signature
   };
+}
+
+export function failClaim(
+  db: DatabaseState,
+  input: { nodeId: string; claimId: string; workPacketId: string; reason: string }
+): { ok: true } {
+  const packet = db.workPackets.find((p) => p.id === input.workPacketId);
+  if (!packet) throw new Error('work_packet_not_found');
+  const claim = db.claims.find((c) => c.id === input.claimId);
+  if (!claim || claim.nodeId !== input.nodeId || claim.workPacketId !== packet.id || claim.status !== 'claimed') {
+    throw new Error('invalid_claim');
+  }
+  const now = new Date().toISOString();
+  claim.status = 'failed';
+  claim.completedAt = now;
+  packet.status = 'queued';
+  packet.updatedAt = now;
+  recordAuditEvent(db, {
+    actorType: 'node',
+    actorId: input.nodeId,
+    action: 'work.claim.failed',
+    targetType: 'work_packet',
+    targetId: packet.id,
+    metadata: { claimId: input.claimId, reason: input.reason }
+  });
+  return { ok: true };
 }
 
 export function submitResult(

@@ -48,7 +48,7 @@ export const workPacketPayloadSchema = z.object({
 
 export const workPacketSchema = workPacketPayloadSchema.extend({
   signature: z.string(),
-  status: z.enum(['queued', 'claimed', 'completed']),
+  status: z.enum(['queued', 'claimed', 'completed', 'failed']),
   updatedAt: z.string()
 });
 
@@ -71,7 +71,7 @@ export const workClaimSchema = z.object({
   id: z.string(),
   workPacketId: z.string(),
   nodeId: z.string(),
-  status: z.enum(['claimed', 'completed', 'expired']),
+  status: z.enum(['claimed', 'completed', 'expired', 'failed']),
   claimedAt: z.string(),
   leaseExpiresAt: z.string(),
   completedAt: z.string().nullable()

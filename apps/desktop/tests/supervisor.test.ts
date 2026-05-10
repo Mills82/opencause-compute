@@ -102,4 +102,15 @@ describe('worker supervisor contract', () => {
     expect(summary).toMatchObject({ state: 'failed', severity: 'blocked', error: 'local_llm_timeout:180000' });
     expect(summary.headline).toContain('timed out');
   });
+
+  it('treats idle gate blocks as waiting, not errors', () => {
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] run failed local_llm_invalid_json\n[2026-05-10T01:48:00.883Z] idle gate blocked run reason=user_not_idle cpu=11% userIdle=4s\n');
+    expect(summary).toMatchObject({ state: 'waiting_idle', severity: 'warning' });
+  });
+
+  it('summarizes reported claim failures as skipped packets', () => {
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:46:00.883Z] reported failed claim packet packet-1 reason=local_llm_invalid_json\n');
+    expect(summary).toMatchObject({ state: 'failed', severity: 'warning', packetId: 'packet-1' });
+    expect(summary.headline).toContain('Skipped');
+  });
 });

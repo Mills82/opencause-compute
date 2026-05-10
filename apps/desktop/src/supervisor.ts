@@ -311,6 +311,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
   const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
   const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal '));
+  const latestFailedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported failed claim packet'));
   const packetId = latestClaim?.message.match(/claimed packet\s+([^\s]+)/)?.[1];
 
   if (latest?.message.includes('signature verified')) {
@@ -321,6 +322,21 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
       severity: 'ready',
       at: latest.at,
       packetId
+    };
+  }
+  if (latest?.message.includes('idle gate blocked')) {
+    const reason = latest.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
+    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latest.at };
+  }
+  if (latestFailedReport && (!latestSubmitted || (latestFailedReport.at ?? '') > (latestSubmitted.at ?? ''))) {
+    const packetIdFromReport = latestFailedReport.message.match(/reported failed claim packet\s+([^\s]+)/)?.[1];
+    return {
+      state: 'failed',
+      headline: 'Skipped a packet after repeated local failures',
+      detail: 'The worker reported the repeated packet failure to the coordinator and will move on to another eligible packet.',
+      severity: 'warning',
+      at: latestFailedReport.at,
+      packetId: packetIdFromReport ?? packetId
     };
   }
   if (latestFailure && (!latestSubmitted || (latestFailure.at ?? '') > (latestSubmitted.at ?? ''))) {
@@ -336,10 +352,6 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
       packetId,
       error
     };
-  }
-  if (latest?.message.includes('idle gate blocked')) {
-    const reason = latest.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
-    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latest.at };
   }
   if (latest?.message.includes('no work available')) {
     return { state: 'no_work', headline: 'Coordinator has no eligible packets for this worker', detail: 'The worker checked in successfully but did not receive a packet.', severity: 'warning', at: latest.at };

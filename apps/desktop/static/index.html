@@ -348,7 +348,8 @@
         if (dashboardCpu) dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
         if (dashboardGpu) dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
         if (dashboardResourceReason) dashboardResourceReason.textContent = resources?.reason || '—';
-        if (dashboardHint) dashboardHint.textContent = latestState?.activity?.detail || (resources ? (resources.eligible ? 'Ready for the next worker check.' : `Waiting: ${resources.reason}. Adjust Models & resources if needed.`) : 'Waiting for worker status.');
+        if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `Waiting: ${resources.reason}. Adjust Models & resources if needed.` : '';
+        if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
 
       function renderActivity(activity) {

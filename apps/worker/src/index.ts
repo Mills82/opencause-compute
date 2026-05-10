@@ -215,6 +215,22 @@ async function submit(
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
 
+async function reportClaimFailed(
+  server: string,
+  credentials: NodeCredentials,
+  claimId: string,
+  packetId: string,
+  reason: string
+): Promise<void> {
+  await post(server, '/api/work/fail', {
+    nodeId: credentials.nodeId,
+    claimId,
+    workPacketId: packetId,
+    reason: reason.slice(0, 500)
+  }, credentials.nodeToken);
+  await log(`reported failed claim packet ${packetId} reason=${reason}`);
+}
+
 function endpointType(endpoint: string): string {
   if (endpoint.startsWith('http://127.0.0.1') || endpoint.startsWith('http://localhost')) return 'localhost';
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return 'remote-http';
@@ -279,7 +295,8 @@ async function runOnce(
   idleConfig: IdleConfig,
   extractorMode: ExtractorMode,
   mockAllowed: boolean,
-  bypassIdleGate = false
+  bypassIdleGate = false,
+  failureAttempts: Map<string, number> = new Map()
 ): Promise<void> {
   if (!bypassIdleGate) {
     const idleDecision = await checkHostIdle(idleConfig);
@@ -308,8 +325,20 @@ async function runOnce(
   }
 
   await log(`signature verified for packet ${claimed.packet.id}`);
-  const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
-  await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
+  try {
+    const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
+    await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
+    failureAttempts.delete(claimed.packet.id);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    const attempts = (failureAttempts.get(claimed.packet.id) ?? 0) + 1;
+    failureAttempts.set(claimed.packet.id, attempts);
+    if (attempts >= 2) {
+      await reportClaimFailed(server, credentials, claimed.claimId, claimed.packet.id, reason);
+      failureAttempts.delete(claimed.packet.id);
+    }
+    throw error;
+  }
 }
 
 async function loop(
@@ -322,6 +351,7 @@ async function loop(
 ): Promise<void> {
   await log(`loop started intervalMs=${intervalMs} idleMode=${localIdleConfig.mode} minIdleSeconds=${localIdleConfig.minIdleSeconds} maxCpuPercent=${localIdleConfig.maxCpuPercent}`);
   let lastRunNowToken: number | null = null;
+  const failureAttempts = new Map<string, number>();
 
   while (true) {
     try {
@@ -334,7 +364,7 @@ async function loop(
         await log('paused by coordinator control settings');
       } else {
       try {
-        await runOnce(server, credentials, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested);
+        await runOnce(server, credentials, effectiveIdleConfig, extractorMode, mockAllowed, runNowRequested, failureAttempts);
       } catch (error) {
         await log(`run failed ${error instanceof Error ? error.message : String(error)}`);
       }
