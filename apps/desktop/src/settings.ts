@@ -10,6 +10,9 @@ export type DesktopSettings = {
   nodeToken?: string;
   localPaused: boolean;
   startupOnLogin: boolean;
+  startMinimized: boolean;
+  autoStartWorker: boolean;
+  setupCompletedAt?: string;
   resourceControls: {
     idleMode: 'user-and-cpu' | 'cpu-only';
     minIdleSeconds: number;
@@ -33,10 +36,13 @@ export const defaultDesktopSettings: DesktopSettings = {
   coordinatorUrl: 'https://opencause.appassist.ai',
   localPaused: false,
   startupOnLogin: false,
+  startMinimized: false,
+  autoStartWorker: false,
+  setupCompletedAt: undefined,
   resourceControls: {
     idleMode: 'user-and-cpu',
     minIdleSeconds: 120,
-    maxCpuPercent: 35,
+    maxCpuPercent: 70,
     runOnBattery: false,
     schedule: 'idle-only'
   },

@@ -38,6 +38,8 @@ export type WorkerRuntimeStatus = {
   lastMode?: 'loop' | 'run-once';
   lastStartedAt?: string;
   lastExitedAt?: string;
+  runStartedAt?: string;
+  packetsCompletedThisRun: number;
 };
 
 export type WorkerCommand =
@@ -54,6 +56,8 @@ export class WorkerSupervisor {
   private lastMode: 'loop' | 'run-once' | undefined;
   private lastStartedAt: string | undefined;
   private lastExitedAt: string | undefined;
+  private runStartedAt: string | undefined;
+  private packetsCompletedThisRun = 0;
 
   constructor(private readonly config: WorkerSupervisorConfig) {}
 
@@ -70,7 +74,9 @@ export class WorkerSupervisor {
       lastError: this.lastError,
       lastMode: this.lastMode,
       lastStartedAt: this.lastStartedAt,
-      lastExitedAt: this.lastExitedAt
+      lastExitedAt: this.lastExitedAt,
+      runStartedAt: this.runStartedAt,
+      packetsCompletedThisRun: this.packetsCompletedThisRun
     };
   }
 
@@ -126,11 +132,17 @@ export class WorkerSupervisor {
     const [entry, ...args] = this.buildArgs(options.forceNow ? { kind: 'run-once', forceNow: true } : { kind: 'loop' });
     this.lastMode = options.forceNow ? 'run-once' : 'loop';
     this.lastStartedAt = new Date().toISOString();
+    this.runStartedAt = this.lastStartedAt;
+    this.packetsCompletedThisRun = 0;
     this.lastExitedAt = undefined;
     this.lastExitCode = undefined;
     this.lastError = undefined;
     this.child = spawn(process.execPath, [entry, ...args], { env: this.workerEnv() });
-    this.child.stdout.on('data', (chunk) => { void this.appendWorkerLog(chunk.toString().trimEnd()); });
+    this.child.stdout.on('data', (chunk) => {
+      const text = chunk.toString().trimEnd();
+      if (text.includes('submitted result')) this.packetsCompletedThisRun += (text.match(/submitted result/g) ?? []).length;
+      void this.appendWorkerLog(text);
+    });
     this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
     this.child.on('error', (error) => { this.lastError = error.message; void this.appendWorkerLog(`spawn error ${error.message}`); });
     this.child.on('close', (code) => {

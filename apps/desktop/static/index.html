@@ -171,7 +171,9 @@
                 </select>
               </label>
             </div>
-            <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in</label>
+            <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in to Windows</label>
+            <label><input id="start-minimized" type="checkbox" /> Start minimized</label>
+            <label><input id="auto-start-worker" type="checkbox" /> Automatically resume/start worker when the app opens</label>
             <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
             <button id="save-settings" class="primary">Save settings</button>
             <button id="save-start" class="primary">Save and start worker</button>
@@ -185,12 +187,13 @@
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
               <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
-              <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed work</p></div>
+              <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed this run</p></div>
               <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resource eligibility</p></div>
             </div>
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-idle">—</strong><p class="small">User idle time</p></div>
               <div class="stat-card"><strong id="dashboard-cpu">—</strong><p class="small">CPU usage</p></div>
+              <div class="stat-card"><strong id="dashboard-gpu">—</strong><p class="small">GPU usage / temp</p></div>
               <div class="stat-card"><strong id="dashboard-resource-reason">—</strong><p class="small">Current resource decision</p></div>
             </div>
             <h3>Latest worker log</h3>
@@ -255,6 +258,8 @@
       const minIdle = document.getElementById('min-idle');
       const schedule = document.getElementById('schedule');
       const startup = document.getElementById('startup');
+      const startMinimized = document.getElementById('start-minimized');
+      const autoStartWorker = document.getElementById('auto-start-worker');
       const battery = document.getElementById('battery');
       const progressSteps = document.getElementById('progress-steps');
       const setupProgressBar = document.getElementById('setup-progress-bar');
@@ -272,6 +277,7 @@
       const dashboardEligible = document.getElementById('dashboard-eligible');
       const dashboardIdle = document.getElementById('dashboard-idle');
       const dashboardCpu = document.getElementById('dashboard-cpu');
+      const dashboardGpu = document.getElementById('dashboard-gpu');
       const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
       const latestLog = document.getElementById('latest-log');
       let latestState = null;
@@ -316,7 +322,7 @@
         const steps = setupSteps();
         const active = currentStepId();
         const doneCount = steps.filter(step => step.done).length;
-        const setupComplete = registered() && latestState?.modelRuntime?.available && selectedModelInstalled();
+        const setupComplete = Boolean(latestState?.settings?.setupCompletedAt) || (registered() && latestState?.modelRuntime?.available && selectedModelInstalled());
         progressSteps.innerHTML = steps.map((step, index) => `
           <div class="step ${step.id === active ? 'active' : ''}">
             <div class="step-number ${step.done ? 'step-done' : step.id === active ? 'step-action' : ''}">${step.done ? '✓' : index + 1}</div>
@@ -337,11 +343,12 @@
         document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
-        dashboardWork.textContent = 'See web impact dashboard';
+        dashboardWork.textContent = String(latestState?.runtime?.packetsCompletedThisRun ?? 0);
         const resources = latestState?.resources;
         dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
         dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
         dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
+        dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
         dashboardResourceReason.textContent = resources?.reason || '—';
       }
 
@@ -427,6 +434,8 @@
             minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
             schedule.value = latestState.settings.resourceControls.schedule;
             startup.checked = latestState.settings.startupOnLogin;
+            startMinimized.checked = latestState.settings.startMinimized;
+            autoStartWorker.checked = latestState.settings.autoStartWorker;
             battery.checked = latestState.settings.resourceControls.runOnBattery;
             qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
           }
@@ -454,6 +463,9 @@
         const saved = await api.updateSettings({
           coordinatorUrl: coordinatorUrl.value,
           startupOnLogin: startup.checked,
+          startMinimized: startMinimized.checked,
+          autoStartWorker: autoStartWorker.checked,
+          setupCompletedAt: latestState?.settings?.setupCompletedAt || (registered() && latestState?.modelRuntime?.available && selectedModelInstalled() ? new Date().toISOString() : undefined),
           modelRuntime: { model: modelSelect.value, qualityMode: qualityMode.value },
           resourceControls: { maxCpuPercent: Number(maxCpu.value), minIdleSeconds: Number(minIdle.value), schedule: schedule.value, runOnBattery: battery.checked }
         });
@@ -463,7 +475,7 @@
         await refresh();
       }
 
-      [coordinatorUrl, maxCpu, minIdle, schedule, startup, battery, qualityMode, modelSelect].forEach((input) => {
+      [coordinatorUrl, maxCpu, minIdle, schedule, startup, startMinimized, autoStartWorker, battery, qualityMode, modelSelect].forEach((input) => {
         input.addEventListener('input', () => { settingsDirty = true; });
         input.addEventListener('change', () => { settingsDirty = true; });
       });

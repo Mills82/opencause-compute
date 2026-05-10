@@ -85,6 +85,7 @@ export async function resourceStatus(settings: DesktopSettings) {
       : !userIdleOk
         ? userIdleSeconds === null ? 'user_idle_unavailable' : 'user_not_idle'
         : 'ok';
+  const gpu = await gpuStatus();
   return {
     schedule: controls.schedule,
     idleMode: controls.idleMode,
@@ -93,7 +94,24 @@ export async function resourceStatus(settings: DesktopSettings) {
     cpuPercent,
     maxCpuPercent: controls.maxCpuPercent,
     eligible,
-    reason
+    reason,
+    gpu
+  };
+}
+
+export async function gpuStatus(): Promise<{ available: boolean; name?: string; utilizationPercent?: number; memoryUsedMiB?: number; memoryTotalMiB?: number; temperatureC?: number; source?: string; message?: string }> {
+  if (process.platform !== 'win32') return { available: false, message: 'GPU telemetry currently supported on Windows/NVIDIA only.' };
+  const output = await runCommand('nvidia-smi', ['--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu', '--format=csv,noheader,nounits']);
+  if (!output) return { available: false, source: 'nvidia-smi', message: 'NVIDIA GPU telemetry unavailable.' };
+  const [name, util, used, total, temp] = output.split('\n')[0].split(',').map((part) => part.trim());
+  return {
+    available: true,
+    name,
+    utilizationPercent: Number(util),
+    memoryUsedMiB: Number(used),
+    memoryTotalMiB: Number(total),
+    temperatureC: Number(temp),
+    source: 'nvidia-smi'
   };
 }
 

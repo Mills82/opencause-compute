@@ -26,6 +26,7 @@ let cachedSupervisor: WorkerSupervisor | null = null;
 let cachedSupervisorKey = '';
 
 async function createWindow() {
+  const settings = await loadDesktopSettings(appDir);
   const win = new BrowserWindow({
     width: 980,
     height: 720,
@@ -39,6 +40,10 @@ async function createWindow() {
   });
 
   await win.loadFile(resolveStaticIndex());
+  if (settings.startMinimized) win.minimize();
+  if (settings.autoStartWorker && !settings.localPaused && settings.resourceControls.schedule !== 'manual') {
+    void supervisor().then((sup) => sup.startLoop());
+  }
 }
 
 async function supervisor() {
@@ -96,7 +101,7 @@ ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknow
   const settings = await updateDesktopSettings(appDir, update as Partial<DesktopSettings>);
   cachedSupervisor = null;
   cachedSupervisorKey = '';
-  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin });
+  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startMinimized });
   return redactedSettings(settings);
 });
 
