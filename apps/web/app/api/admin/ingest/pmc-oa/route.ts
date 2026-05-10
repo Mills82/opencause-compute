@@ -32,14 +32,15 @@ export async function POST(request: Request) {
       fetchedChunks: report.sources.length,
       recordsFetched: report.recordsFetched,
       pmcRecords: report.pmcRecords,
+      documentsIngested: report.documentsIngested,
       failures: report.failures,
       packetsCreated: relationalPackets.packetsCreated,
       packetsSkipped: relationalPackets.packetsSkipped,
-      run: await completeIngestionRunRelational(run.id, { fetchedCount: report.sources.length, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPackets.packetsCreated, packetsSkipped: relationalPackets.packetsSkipped })
+      run: await completeIngestionRunRelational(run.id, { fetchedCount: report.documentsIngested, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPackets.packetsCreated, packetsSkipped: relationalPackets.packetsSkipped })
     } : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: options.projectSlug, name: options.projectName, description: options.projectDescription });
       const packetSummary = createWorkPacketsFromSources(db, { projectId: project.id, sources: report.sources, extractor: 'local-llm-v1' });
-      const completedRun = completeIngestionRun(db, run.id, { fetchedCount: report.sources.length, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: packetSummary.packetsCreated, packetsSkipped: packetSummary.packetsSkipped });
+      const completedRun = completeIngestionRun(db, run.id, { fetchedCount: report.documentsIngested, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: packetSummary.packetsCreated, packetsSkipped: packetSummary.packetsSkipped });
       return { project, fetchedChunks: report.sources.length, recordsFetched: report.recordsFetched, pmcRecords: report.pmcRecords, failures: report.failures, ...packetSummary, run: completedRun };
     });
     return NextResponse.json({ ingest: output });

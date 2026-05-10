@@ -13,6 +13,7 @@ export type PubMedSourceRecord = {
 };
 
 export type PubMedIngestOptions = {
+  db?: 'pubmed' | 'pmc';
   query: string;
   retmax: number;
   retstart?: number;
@@ -92,7 +93,7 @@ export function parsePubMedXml(xml: string): PubMedSourceRecord[] {
 function buildSearchParams(options: PubMedIngestOptions): URLSearchParams {
   return appendNcbiParams(
     new URLSearchParams({
-      db: 'pubmed',
+      db: options.db ?? 'pubmed',
       term: options.query,
       retmode: 'json',
       retmax: String(options.retmax),
@@ -112,7 +113,7 @@ export function parsePubMedSearchCount(searchJson: unknown): number {
 export async function fetchPubMedRecordCount(options: Omit<PubMedIngestOptions, 'retmax'>): Promise<number> {
   const searchParams = appendNcbiParams(
     new URLSearchParams({
-      db: 'pubmed',
+      db: options.db ?? 'pubmed',
       term: options.query,
       retmode: 'json',
       retmax: '0'

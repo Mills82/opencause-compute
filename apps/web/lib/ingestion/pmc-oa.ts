@@ -10,6 +10,7 @@ export type PmcOaFailure = { pmcid?: string; pmid: string; reason: string };
 export type PmcOaIngestReport = {
   recordsFetched: number;
   pmcRecords: number;
+  documentsIngested: number;
   sources: PmcOaSource[];
   failures: PmcOaFailure[];
   skippedCount: number;
@@ -188,6 +189,7 @@ export async function ingestPmcOaFullTextWithReport(options: {
   const pmcRecords = records.filter((record) => Boolean(record.pmcid));
   const out: PmcOaSource[] = [];
   const failures: PmcOaFailure[] = [];
+  let documentsIngested = 0;
   const delayMs = options.perRecordDelayMs ?? ncbiDelayMs(options);
 
   for (const record of pmcRecords) {
@@ -197,6 +199,7 @@ export async function ingestPmcOaFullTextWithReport(options: {
     try {
       const fullText = await fetchPmcOaFullText(pmcid, options);
       const chunks = chunkArticleText(fullText, 3500);
+      if (chunks.length > 0) documentsIngested += 1;
 
       for (let index = 0; index < chunks.length; index += 1) {
         const chunk = chunks[index];
@@ -220,6 +223,7 @@ export async function ingestPmcOaFullTextWithReport(options: {
   return {
     recordsFetched: records.length,
     pmcRecords: pmcRecords.length,
+    documentsIngested,
     sources: out,
     failures,
     skippedCount: records.length - pmcRecords.length

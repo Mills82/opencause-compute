@@ -3,13 +3,13 @@ import type { DatabaseState, ProjectCorpusEstimate } from '@opencause/shared';
 import { fetchPubMedRecordCount } from '../ingestion/pubmed';
 
 export const CKM_PROJECT_SLUG = 'cancer-knowledge-miner';
-export const DEFAULT_CKM_QUERY = 'cancer biomarker response resistance';
-export const PROGRESS_ESTIMATE_METHOD = 'mean_packets_per_ingested_document';
+export const DEFAULT_CKM_QUERY = 'cancer AND open access[filter]';
+export const PROGRESS_ESTIMATE_METHOD = 'pmc_open_access_documents_times_mean_packets_per_full_text_document';
 
 export function computePacketEstimateInputs(db: DatabaseState) {
   const completedRuns = db.ingestionRuns.filter((run) =>
     (run.status === 'completed' || run.status === 'partial_failed')
-    && (run.sourceType === 'pubmed_abstract' || run.sourceType === 'pmc_oa_full_text' || run.sourceType === 'combined')
+    && (run.sourceType === 'pmc_oa_full_text' || run.sourceType === 'combined')
   );
   const ingestedDocumentCount = completedRuns.reduce((total, run) => total + run.fetchedCount, 0);
   const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated, 0);
@@ -17,11 +17,11 @@ export function computePacketEstimateInputs(db: DatabaseState) {
   return { ingestedDocumentCount, packetsCreatedFromIngestedDocuments, averagePacketsPerDocument };
 }
 
-export async function buildPubMedCorpusEstimateInput(options: { query: string; db: DatabaseState; email?: string; apiKey?: string }) {
-  const eligibleDocumentCount = await fetchPubMedRecordCount({ query: options.query, email: options.email, apiKey: options.apiKey });
+export async function buildPmcCorpusEstimateInput(options: { query: string; db: DatabaseState; email?: string; apiKey?: string }) {
+  const eligibleDocumentCount = await fetchPubMedRecordCount({ db: 'pmc', query: options.query, email: options.email, apiKey: options.apiKey });
   const inputs = computePacketEstimateInputs(options.db);
   return {
-    corpusSource: 'pubmed' as const,
+    corpusSource: 'pmc_oa' as const,
     query: options.query,
     eligibleDocumentCount,
     ...inputs,
