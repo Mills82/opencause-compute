@@ -35,6 +35,15 @@ describe('electron main window config', () => {
     expect(source).toContain('OpenCause Compute Website');
   });
 
+  it('only starts hidden for OS login launches and shows manual launches maximized', () => {
+    expect(source).toContain("const loginLaunchArg = '--opencause-open-at-login'");
+    expect(source).toContain('function isLoginStartupLaunch');
+    expect(source).toContain('settings.startMinimized && isLoginStartupLaunch()');
+    expect(source).toContain('win.maximize()');
+    expect(source).toContain('app.on(\'second-instance\'');
+    expect(source).toContain('args: settings.startupOnLogin ? [loginLaunchArg] : []');
+  });
+
   it('stops the active worker before replacing cached supervisor settings', () => {
     expect(source).toContain('const previousSupervisor = cachedSupervisor');
     expect(source).toContain('previousSupervisor?.stop()');

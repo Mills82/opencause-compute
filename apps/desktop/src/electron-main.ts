@@ -26,6 +26,12 @@ let cachedSupervisor: WorkerSupervisor | null = null;
 let cachedSupervisorKey = '';
 let mainWindow: BrowserWindowType | null = null;
 let tray: Tray | null = null;
+const loginLaunchArg = '--opencause-open-at-login';
+const singleInstanceLock = app.requestSingleInstanceLock();
+
+if (!singleInstanceLock) {
+  app.quit();
+}
 
 function assertTrustedIpc(event: IpcMainInvokeEvent) {
   if (mainWindow && event.sender.id !== mainWindow.webContents.id) throw new Error('untrusted_ipc_sender');
@@ -155,9 +161,15 @@ function validateUninstallConfirmation(value: unknown): { confirmed: true } {
   return { confirmed: true };
 }
 
-function showMainWindow() {
+function isLoginStartupLaunch(): boolean {
+  const loginItem = app.getLoginItemSettings();
+  return process.argv.includes(loginLaunchArg) || Boolean(loginItem.wasOpenedAtLogin || loginItem.wasOpenedAsHidden);
+}
+
+function showMainWindow(maximize = false) {
   if (!mainWindow) return;
   mainWindow.show();
+  if (maximize) mainWindow.maximize();
   mainWindow.focus();
 }
 
@@ -170,7 +182,7 @@ function installApplicationMenu() {
     {
       label: 'File',
       submenu: [
-        { label: 'Show Dashboard', accelerator: 'CmdOrCtrl+1', click: showMainWindow },
+        { label: 'Show Dashboard', accelerator: 'CmdOrCtrl+1', click: () => showMainWindow(true) },
         { label: 'Refresh Status', accelerator: 'CmdOrCtrl+R', click: () => mainWindow?.reload() },
         { type: 'separator' },
         { label: 'Hide to Tray', accelerator: 'CmdOrCtrl+W', click: () => mainWindow?.hide() },
@@ -204,7 +216,7 @@ function installApplicationMenu() {
     {
       label: 'Window',
       submenu: [
-        { label: 'Show OpenCause Compute', click: showMainWindow },
+        { label: 'Show OpenCause Compute', click: () => showMainWindow(true) },
         { label: 'Fit to Dashboard', click: setDashboardSize },
         { type: 'separator' },
         { role: 'minimize' },
@@ -230,10 +242,10 @@ function ensureTray(win: BrowserWindowType) {
   tray = new Tray(image);
   tray.setToolTip('OpenCause Compute Worker');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show OpenCause Compute', click: showMainWindow },
+    { label: 'Show OpenCause Compute', click: () => showMainWindow(true) },
     { label: 'Quit', click: () => { app.quit(); } }
   ]));
-  tray.on('click', showMainWindow);
+  tray.on('click', () => showMainWindow(true));
 }
 
 async function createWindow() {
@@ -262,7 +274,12 @@ async function createWindow() {
     }
   });
   await win.loadFile(resolveStaticIndex());
-  if (settings.startMinimized) win.hide();
+  const startHidden = settings.startMinimized && isLoginStartupLaunch();
+  if (startHidden) {
+    win.hide();
+  } else {
+    win.maximize();
+  }
   if (settings.autoStartWorker && settings.resourceControls.schedule !== 'manual') {
     void updateDesktopSettings(appDir, { localPaused: false }).then(() => supervisor()).then((sup) => sup.startLoop());
   }
@@ -336,7 +353,7 @@ ipcMain.handle('desktop:update-settings', async (event, update: unknown) => {
   previousSupervisor?.stop();
   cachedSupervisor = null;
   cachedSupervisorKey = '';
-  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startMinimized });
+  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startMinimized, args: settings.startupOnLogin ? [loginLaunchArg] : [] });
   return redactedSettings(settings);
 });
 
@@ -407,10 +424,11 @@ ipcMain.handle('desktop:open-external', async (event, url: unknown) => {
 
 app.whenReady().then(createWindow);
 app.on('before-quit', () => { (app as typeof app & { isQuitting?: boolean }).isQuitting = true; });
+app.on('second-instance', () => { showMainWindow(true); });
 app.on('window-all-closed', () => {
   // Keep running in the tray unless the user explicitly quits.
 });
 app.on('activate', () => {
-  if (mainWindow) { showMainWindow(); return; }
+  if (mainWindow) { showMainWindow(true); return; }
   void createWindow();
 });
