@@ -79,9 +79,9 @@ export default async function ImpactPage() {
               {progress.estimatedTotalPackets ? (
                 <>Estimated from {progress.eligibleDocumentCount?.toLocaleString()} eligible documents and {progress.ingestedDocumentCount.toLocaleString()} ingested documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
               ) : progress.eligibleDocumentCount ? (
-                <>Progress denominator will appear after at least {progress.sampleMinimumDocuments} ingested documents. Current sample: {progress.ingestedDocumentCount.toLocaleString()} documents, {progress.packetsCreatedFromIngestedDocuments.toLocaleString()} packets.</>
+                <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Packet estimate will appear after at least {progress.sampleMinimumDocuments} full-text documents are ingested. Current full-text sample: {progress.ingestedDocumentCount.toLocaleString()} documents, {progress.packetsCreatedFromIngestedDocuments.toLocaleString()} packets.</>
               ) : (
-                <>Estimated corpus size is not configured yet. Structure-validated throughput is shown separately above.</>
+                <>Eligible open-access cancer document count has not been refreshed yet. Structure-validated throughput is shown separately above.</>
               )}
             </p>
           </div>

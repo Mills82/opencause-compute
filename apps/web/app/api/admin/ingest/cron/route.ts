@@ -9,6 +9,7 @@ import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/
 import { completeIngestionRunRelational, ingestSourcesRelational, queueSnapshotRelational, startIngestionRunRelational } from '../../../../../lib/relational-app';
 
 const DEFAULT_QUERY = 'cancer biomarker response resistance';
+const DEFAULT_PMC_OA_QUERY = 'cancer AND open access[filter]';
 const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
 const DEFAULT_PROJECT_NAME = 'Cancer Knowledge Miner';
 const DEFAULT_PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed facts.';
@@ -32,8 +33,9 @@ function getCronConfig() {
     pubmedRetmax: parseEnvInt(process.env.CRON_PUBMED_RETMAX, 100, 1, 250),
     queueTarget: parseEnvInt(process.env.CRON_QUEUE_TARGET, 1000, 1, 10000),
     maxPacketsPerRun: parseEnvInt(process.env.CRON_MAX_PACKETS_PER_RUN, 100, 1, 250),
-    enablePmcOa: process.env.CRON_ENABLE_PMC_OA === 'true',
-    pmcQuery: process.env.CRON_PMC_OA_QUERY ?? process.env.CRON_PUBMED_QUERY ?? DEFAULT_QUERY,
+    enablePmcOa: process.env.CRON_ENABLE_PMC_OA !== 'false',
+    enablePubMedFallback: process.env.CRON_ENABLE_PUBMED_FALLBACK === 'true',
+    pmcQuery: process.env.CRON_PMC_OA_QUERY ?? DEFAULT_PMC_OA_QUERY,
     pmcRetmax: parseEnvInt(process.env.CRON_PMC_OA_RETMAX, 6, 1, 50)
   };
 }
@@ -60,12 +62,14 @@ async function runIngestion() {
   const config = getCronConfig();
   const beforeQueue = await queueSnapshot();
   const queueDeficit = Math.max(0, config.queueTarget - beforeQueue.totalPackets);
-  const pubmedRetmax = Math.min(config.maxPacketsPerRun, queueDeficit);
-  const pmcRetmax = config.enablePmcOa && queueDeficit > pubmedRetmax ? Math.min(config.pmcRetmax, config.maxPacketsPerRun - pubmedRetmax, queueDeficit - pubmedRetmax) : 0;
+  const pmcRetmax = config.enablePmcOa ? Math.min(config.pmcRetmax, config.maxPacketsPerRun, queueDeficit) : 0;
+  const pubmedRetmax = config.enablePubMedFallback ? Math.min(config.pubmedRetmax, config.maxPacketsPerRun - pmcRetmax, queueDeficit - pmcRetmax) : 0;
 
   if (queueDeficit <= 0) return { skipped: true, reason: 'queue_target_met', queueTarget: config.queueTarget, beforeQueue };
 
-  const run = (await startIngestionRunRelational({ sourceType: 'combined', mode: 'cron', query: `${config.pubmedQuery} | ${config.pmcQuery}`, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) })) ?? await withDb((db) => startIngestionRun(db, { sourceType: 'combined', mode: 'cron', query: `${config.pubmedQuery} | ${config.pmcQuery}`, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) }));
+  const sourceType = pmcRetmax > 0 && pubmedRetmax === 0 ? 'pmc_oa_full_text' : pubmedRetmax > 0 && pmcRetmax === 0 ? 'pubmed_abstract' : 'combined';
+  const runQuery = sourceType === 'pmc_oa_full_text' ? config.pmcQuery : sourceType === 'pubmed_abstract' ? config.pubmedQuery : `${config.pubmedQuery} | ${config.pmcQuery}`;
+  const run = (await startIngestionRunRelational({ sourceType, mode: 'cron', query: runQuery, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) })) ?? await withDb((db) => startIngestionRun(db, { sourceType, mode: 'cron', query: runQuery, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) }));
 
   try {
     const [pubmedRecords, pmcReport] = await Promise.all([
