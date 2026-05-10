@@ -172,10 +172,12 @@
               <label>
                 Context window
                 <select id="num-ctx">
-                  <option value="8192">8k — budget</option>
-                  <option value="12288">12k — balanced</option>
-                  <option value="16384">16k — high</option>
+                  <option value="12288">12k — budget</option>
+                  <option value="16384">16k — balanced</option>
+                  <option value="24576">24k — high</option>
                   <option value="32768">32k — ultra</option>
+                  <option value="49152">48k — extended</option>
+                  <option value="65536">64k — maximum</option>
                 </select>
               </label>
               <label>
@@ -331,10 +333,10 @@
       let activeTab = 'overview';
       let settingsDirty = false;
       const resourcePresets = {
-        budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 8192, numPredict: 1800 },
-        balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 1800 },
-        high: { maxCpuPercent: 75, minIdleSeconds: 90, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 1800 },
-        ultra: { maxCpuPercent: 85, minIdleSeconds: 60, schedule: 'idle-only', runOnBattery: false, numCtx: 32768, numPredict: 1800 }
+        budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 3000 },
+        balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 3000 },
+        high: { maxCpuPercent: 75, minIdleSeconds: 90, schedule: 'idle-only', runOnBattery: false, numCtx: 24576, numPredict: 3000 },
+        ultra: { maxCpuPercent: 85, minIdleSeconds: 60, schedule: 'idle-only', runOnBattery: false, numCtx: 32768, numPredict: 3000 }
       };
 
       function editableFocused() {
@@ -566,7 +568,7 @@
             battery.checked = latestState.settings.resourceControls.runOnBattery;
             qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
             numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
-            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 1800);
+            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 3000);
           }
           modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.recommendedNumPredict} answer length, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
           output.textContent = JSON.stringify(latestState, null, 2);

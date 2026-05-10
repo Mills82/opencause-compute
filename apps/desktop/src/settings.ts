@@ -52,7 +52,7 @@ export const defaultDesktopSettings: DesktopSettings = {
     endpointType: 'localhost',
     model: DEFAULT_LOCAL_MODEL,
     qualityMode: 'balanced',
-    numCtx: 8192,
+    numCtx: 16384,
     numPredict: 1200,
     approvedModels: APPROVED_LOCAL_MODELS
   }

@@ -175,6 +175,12 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
       `SELECT * FROM work_packets
        WHERE status = 'queued'
        AND extractor = ANY($2::text[])
+       AND (
+         COALESCE(($3->>'qualityTier'), 'balanced') NOT IN ('budget') OR char_length(source_text) <= 6000
+       )
+       AND (
+         COALESCE(($3->>'qualityTier'), 'balanced') NOT IN ('balanced') OR char_length(source_text) <= 10000
+       )
        AND NOT EXISTS (
          SELECT 1 FROM work_claims prior
          WHERE prior.work_packet_id = work_packets.id
@@ -184,7 +190,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
        ORDER BY created_at
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
-      [nodeId, node.capabilities ?? []]
+      [nodeId, node.capabilities ?? [], node.hostSnapshot ?? {}]
     );
     const packet = packetResult.rows[0];
     if (!packet) {
