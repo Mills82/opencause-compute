@@ -16,10 +16,12 @@ describe('desktop static first-run UI', () => {
   });
 
   it('exposes public volunteer controls for pause, resources, startup, version, and local data removal', () => {
-    expect(html).toContain('Resume / start worker');
-    expect(html).toContain('Pause worker');
+    expect(html).toContain('Start worker');
+    expect(html).toContain('Pause');
     expect(html).toContain('Max CPU percent');
-    expect(html).toContain('Start OpenCause Compute when I sign in');
+    expect(html).toContain('Start OpenCause Compute when I sign in to Windows');
+    expect(html).toContain('Start minimized');
+    expect(html).toContain('Automatically resume/start worker when the app opens');
     expect(html).toContain('App version:');
     expect(html).toContain('Remove local worker data');
   });
@@ -38,8 +40,9 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Save and start worker');
   });
 
-  it('hides raw state behind technical details and reports model download status', () => {
-    expect(html).toContain('Show technical details');
+  it('keeps advanced troubleshooting available and reports model download status', () => {
+    expect(html).toContain('Show setup checklist and technical details');
+    expect(html).toContain('Show diagnostics');
     expect(html).toContain('download-status');
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');

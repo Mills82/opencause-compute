@@ -190,43 +190,28 @@
               <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed this run</p></div>
               <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resource eligibility</p></div>
             </div>
-            <div class="grid">
-              <div class="stat-card"><strong id="dashboard-idle">—</strong><p class="small">User idle time</p></div>
-              <div class="stat-card"><strong id="dashboard-cpu">—</strong><p class="small">CPU usage</p></div>
-              <div class="stat-card"><strong id="dashboard-gpu">—</strong><p class="small">GPU usage / temp</p></div>
-              <div class="stat-card"><strong id="dashboard-resource-reason">—</strong><p class="small">Current resource decision</p></div>
-            </div>
-            <h3>Latest worker log</h3>
-            <pre id="latest-log" class="log-card">No log lines yet.</pre>
-            <p class="small">Resource telemetry such as CPU/GPU usage and temperatures will appear after hardware telemetry is added.</p>
+            <p id="dashboard-hint" class="small">OpenCause will run when your resource settings allow it. Advanced details are available if something looks wrong.</p>
             <div class="dashboard-actions">
-          <button id="start" class="primary">Resume / start worker</button>
-          <button id="run-now">Run once now</button>
-          <button id="pause">Pause worker</button>
-              <button id="stop">Stop process</button>
-              <button id="log">Tail log</button>
+              <button id="start" class="primary">Start worker</button>
+              <button id="pause">Pause</button>
+              <button id="run-now">Run once now</button>
             </div>
-          </section>
-
-          <section data-panel="activity">
-            <h2>Uninstall and local data</h2>
-            <p>
-              Removing the app from Windows Apps/Programs removes the application. Use this button first if you also want to remove
-              local worker credentials, enrollment state, and logs from this computer.
-            </p>
-            <button id="uninstall-state" class="danger">Remove local worker data</button>
-          </section>
-
-          <section data-panel="activity">
-            <h2>Setup checklist</h2>
-            <div id="screens"></div>
           </section>
 
           <section data-panel="activity" class="wide">
-            <h2>Activity and technical details</h2>
-            <button id="diagnostics">Show diagnostics</button>
+            <h2>Advanced</h2>
+            <p class="small">Use these tools only when troubleshooting or preparing to remove this worker from the computer.</p>
+            <div class="dashboard-actions">
+              <button id="log">Refresh log</button>
+              <button id="diagnostics">Show diagnostics</button>
+              <button id="stop">Stop process</button>
+              <button id="uninstall-state" class="danger">Remove local worker data</button>
+            </div>
+            <h3>Latest worker log</h3>
+            <pre id="latest-log" class="log-card">No log lines yet.</pre>
             <details>
-              <summary class="small">Show technical details</summary>
+              <summary class="small">Show setup checklist and technical details</summary>
+              <div id="screens"></div>
               <pre id="output"></pre>
             </details>
           </section>
@@ -279,6 +264,7 @@
       const dashboardCpu = document.getElementById('dashboard-cpu');
       const dashboardGpu = document.getElementById('dashboard-gpu');
       const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
+      const dashboardHint = document.getElementById('dashboard-hint');
       const latestLog = document.getElementById('latest-log');
       let latestState = null;
       let ollamaPoll = null;
@@ -346,10 +332,11 @@
         dashboardWork.textContent = String(latestState?.runtime?.packetsCompletedThisRun ?? 0);
         const resources = latestState?.resources;
         dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
-        dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
-        dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
-        dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
-        dashboardResourceReason.textContent = resources?.reason || '—';
+        if (dashboardIdle) dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
+        if (dashboardCpu) dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
+        if (dashboardGpu) dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
+        if (dashboardResourceReason) dashboardResourceReason.textContent = resources?.reason || '—';
+        if (dashboardHint && resources) dashboardHint.textContent = resources.eligible ? 'Ready to work when packets are available.' : `Waiting: ${resources.reason}. Adjust Models & resources if needed.`;
       }
 
       function statusLabel(status) {
