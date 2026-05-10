@@ -188,11 +188,17 @@
           <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
             <h2>Worker dashboard</h2>
             <p id="worker-message">Checking worker...</p>
+            <div id="preflight-summary" class="activity-card warning">
+              <strong>Checking machine readiness…</strong>
+              <p class="small">Verifying model, resource, and pause settings.</p>
+            </div>
             <div id="activity-summary" class="activity-card warning">
               <strong>Checking activity…</strong>
               <p class="small">Reading the latest worker log.</p>
             </div>
             <div id="activity-actions" class="activity-actions hidden"></div>
+            <h3>Activity timeline</h3>
+            <div id="activity-timeline" class="log-card">No structured events yet.</div>
             <p id="version-message" class="small"></p>
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
@@ -283,7 +289,9 @@
       const dashboardGpu = document.getElementById('dashboard-gpu');
       const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
       const dashboardHint = document.getElementById('dashboard-hint');
+      const preflightSummary = document.getElementById('preflight-summary');
       const activitySummary = document.getElementById('activity-summary');
+      const activityTimeline = document.getElementById('activity-timeline');
       const activityActions = document.getElementById('activity-actions');
       const latestLog = document.getElementById('latest-log');
       let latestState = null;
@@ -375,6 +383,20 @@
         if (dashboardResourceReason) dashboardResourceReason.textContent = resources?.reason || '—';
         if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `Waiting: ${resources.reason}. Adjust Models & resources if needed.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
+      }
+
+      function renderPreflight(preflight) {
+        if (!preflightSummary) return;
+        const severity = preflight?.eligible ? 'ready' : 'warning';
+        preflightSummary.className = `activity-card ${severity}`;
+        const checks = preflight?.checks || {};
+        preflightSummary.innerHTML = `<strong class="${severity}">${preflight?.eligible ? 'This machine can contribute comfortably now' : 'Waiting before contributing'}</strong><p class="small">${preflight?.reason || 'Checking machine readiness.'}</p><span class="pill">Ollama: ${checks.ollama ? 'ok' : 'needed'}</span><span class="pill">Model: ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources: ${checks.resources ? 'eligible' : 'waiting'}</span><span class="pill">Paused: ${checks.paused ? 'yes' : 'no'}</span>`;
+      }
+
+      function renderTimeline(timeline) {
+        if (!activityTimeline) return;
+        const events = Array.isArray(timeline) ? timeline : [];
+        activityTimeline.innerHTML = events.length ? events.map(event => `<div class="small"><strong class="${event.severity || 'warning'}">${event.label}</strong> <span class="pill">${event.at || ''}</span><br>${event.detail}</div>`).join('<hr style="border-color:#25314d">') : 'No structured events yet.';
       }
 
       function renderActivity(activity) {
@@ -473,7 +495,9 @@
             ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
             : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
           workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (runtime.running ? `Worker running with pid ${runtime.pid}. ${latestState.activity?.headline || ''}` : stoppedDetail);
+          renderPreflight(latestState.preflight);
           renderActivity(latestState.activity);
+          renderTimeline(latestState.timeline);
           const log = await api.tailLog();
           latestLog.textContent = log || 'No log lines yet.';
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;

@@ -38,3 +38,21 @@ describe('local llm helpers', () => {
     expect(normalized.facts[0].confidence).toBe(0.7);
   });
 });
+
+import { afterEach, vi } from 'vitest';
+import { verifyLocalLlmAvailable } from '../src/local-llm';
+
+const originalFetch = globalThis.fetch;
+afterEach(() => { globalThis.fetch = originalFetch; vi.restoreAllMocks(); });
+
+describe('local llm preflight', () => {
+  it('requires the selected Ollama model to be installed before claiming work', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [{ name: 'other-model' }] }), { status: 200 })) as typeof fetch;
+    await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'llama3.2:3b', timeoutMs: 1000, options: {} })).rejects.toThrow('local_llm_model_missing:llama3.2:3b');
+  });
+
+  it('passes when the selected Ollama model is installed', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [{ name: 'llama3.2:3b' }] }), { status: 200 })) as typeof fetch;
+    await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'llama3.2:3b', timeoutMs: 1000, options: {} })).resolves.toBeUndefined();
+  });
+});

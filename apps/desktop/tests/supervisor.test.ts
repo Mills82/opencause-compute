@@ -112,3 +112,13 @@ describe('worker supervisor contract', () => {
     expect(summary.headline).toContain('Skipped');
   });
 });
+
+import { buildActivityTimeline } from '../src/supervisor';
+
+describe('structured activity timeline', () => {
+  it('turns worker log lines into structured timeline events', () => {
+    const events = buildActivityTimeline('[2026-05-10T01:00:00.000Z] claimed packet packet-1\n[2026-05-10T01:01:00.000Z] submitted result result-1 validated=true\n');
+    expect(events[0]).toMatchObject({ kind: 'submitting_result', severity: 'ready' });
+    expect(events[1]).toMatchObject({ kind: 'claiming_work', severity: 'ready' });
+  });
+});

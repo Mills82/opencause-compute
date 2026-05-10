@@ -170,6 +170,7 @@ ipcMain.handle('desktop:get-state', async () => {
   const sup = await supervisor();
   const runtime = sup.status();
   const activity = await sup.activitySummary();
+  const timeline = await sup.activityTimeline();
   const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   const resources = await resourceStatus(settings);
@@ -178,6 +179,12 @@ ipcMain.handle('desktop:get-state', async () => {
     settings: redactedSettings(settings),
     runtime,
     activity,
+    timeline,
+    preflight: {
+      eligible: Boolean(modelRuntime.available && modelRuntime.selectedModelInstalled && resources.eligible && !settings.localPaused),
+      reason: !modelRuntime.available ? 'Ollama is not installed or not reachable.' : !modelRuntime.selectedModelInstalled ? `${settings.modelRuntime.model} is not downloaded yet.` : settings.localPaused ? 'Worker is paused.' : resources.eligible ? 'Machine is eligible to contribute now.' : resources.reason,
+      checks: { ollama: modelRuntime.available, modelInstalled: modelRuntime.selectedModelInstalled, resources: resources.eligible, paused: settings.localPaused }
+    },
     profileSetupUrl: credentials?.profileSetupUrl,
     modelRuntime,
     resources,

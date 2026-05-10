@@ -52,6 +52,8 @@ export type WorkerRuntimeStatus = {
   stats: WorkerSessionStats;
 };
 
+export type WorkerTimelineEvent = { at?: string; kind: string; label: string; detail: string; severity: 'ready' | 'warning' | 'blocked' };
+
 export type WorkerActivitySummary = {
   state: 'running_model' | 'waiting_idle' | 'no_work' | 'submitted' | 'failed' | 'heartbeat' | 'idle' | 'unknown';
   headline: string;
@@ -316,6 +318,10 @@ export class WorkerSupervisor {
     return summarizeWorkerLog(await this.tailLog());
   }
 
+  async activityTimeline(): Promise<WorkerTimelineEvent[]> {
+    return buildActivityTimeline(await this.tailLog(32_768));
+  }
+
   async registrationDebugLog(maxBytes = 16_384): Promise<string> {
     const content = await readFile(path.join(this.config.appDir, 'registration-debug.log'), 'utf8').catch(() => '');
     const redacted = redactSensitive(content);
@@ -327,6 +333,25 @@ export class WorkerSupervisor {
     await rm(this.config.appDir, { recursive: true, force: true });
     return this.status();
   }
+}
+
+export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  return lines.map<WorkerTimelineEvent>((line) => {
+    const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
+    const at = match?.[1];
+    const message = match?.[2] ?? line;
+    if (message.includes('claimed packet')) return { at, kind: 'claiming_work', label: 'Claimed work', detail: message, severity: 'ready' };
+    if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: message, severity: 'ready' };
+    if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: message, severity: 'ready' };
+    if (message.includes('reported released claim')) return { at, kind: 'claim_released', label: 'Released claim', detail: message, severity: 'warning' };
+    if (message.includes('reported failed claim')) return { at, kind: 'claim_failed', label: 'Reported failed claim', detail: message, severity: 'warning' };
+    if (message.includes('idle gate blocked')) return { at, kind: 'blocked_resources', label: 'Waiting for resources', detail: message, severity: 'warning' };
+    if (message.includes('run failed') || message.includes('fatal ')) return { at, kind: 'worker_error', label: 'Worker error', detail: message, severity: 'blocked' };
+    if (message.includes('no work available')) return { at, kind: 'no_work', label: 'No work available', detail: message, severity: 'warning' };
+    if (message.includes('heartbeat')) return { at, kind: 'heartbeat', label: 'Coordinator heartbeat', detail: message, severity: 'ready' };
+    return { at, kind: 'log', label: 'Worker log', detail: message, severity: 'warning' };
+  }).slice(-12).reverse();
 }
 
 export function summarizeWorkerLog(content: string): WorkerActivitySummary {
@@ -342,6 +367,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal '));
   const latestIdleBlock = [...parsed].reverse().find((entry) => entry.message.includes('idle gate blocked'));
   const latestFailedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported failed claim packet'));
+  const latestReleasedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported released claim packet'));
   const packetId = latestClaim?.message.match(/claimed packet\s+([^\s]+)/)?.[1];
 
   if (latest?.message.includes('signature verified')) {
@@ -357,6 +383,10 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   if (latestIdleBlock && (!latestSubmitted || (latestIdleBlock.at ?? '') > (latestSubmitted.at ?? '')) && (!latestFailure || (latestIdleBlock.at ?? '') > (latestFailure.at ?? ''))) {
     const reason = latestIdleBlock.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
     return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latestIdleBlock.at };
+  }
+  if (latestReleasedReport && (!latestSubmitted || (latestReleasedReport.at ?? '') > (latestSubmitted.at ?? ''))) {
+    const packetIdFromReport = latestReleasedReport.message.match(/reported released claim packet\s+([^\s]+)/)?.[1];
+    return { state: 'waiting_idle', headline: 'Released a claim without marking worker failure', detail: 'The worker gave the packet back because local resource or policy checks changed after claim.', severity: 'warning', at: latestReleasedReport.at, packetId: packetIdFromReport ?? packetId };
   }
   if (latestFailedReport && (!latestSubmitted || (latestFailedReport.at ?? '') > (latestSubmitted.at ?? ''))) {
     const packetIdFromReport = latestFailedReport.message.match(/reported failed claim packet\s+([^\s]+)/)?.[1];

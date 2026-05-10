@@ -356,7 +356,7 @@ export function releaseClaim(
     throw new Error('invalid_claim');
   }
   const now = new Date().toISOString();
-  claim.status = 'failed';
+  claim.status = 'released';
   claim.completedAt = now;
   packet.status = 'queued';
   packet.updatedAt = now;

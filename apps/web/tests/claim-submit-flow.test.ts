@@ -97,7 +97,7 @@ describe('claim/submit flow', () => {
 
     releaseClaim(db, { nodeId: node.id, claimId: claim.claimId, workPacketId: claim.packet.id, reason: 'user_not_idle' });
 
-    expect(db.claims.find((candidate) => candidate.id === claim.claimId)?.status).toBe('failed');
+    expect(db.claims.find((candidate) => candidate.id === claim.claimId)?.status).toBe('released');
     expect(db.workPackets.find((packet) => packet.id === claim.packet.id)?.status).toBe('queued');
     expect(db.auditEvents.some((event) => event.action === 'work.claim.released')).toBe(true);
   });

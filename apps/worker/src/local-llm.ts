@@ -159,6 +159,11 @@ export async function verifyLocalLlmAvailable(config: LocalLlmConfig): Promise<v
   if (!response.ok) {
     throw new Error(`local_llm_unavailable:${response.status}`);
   }
+  const json = (await response.json()) as { models?: Array<{ name?: string; model?: string }> };
+  const installed = (json.models ?? []).map((model) => model.name ?? model.model).filter(Boolean);
+  if (!installed.includes(config.model)) {
+    throw new Error(`local_llm_model_missing:${config.model}`);
+  }
 }
 
 export function localLlmPromptHash(): string {

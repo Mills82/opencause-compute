@@ -256,7 +256,7 @@ export async function releaseClaimRelational(input: {
       return { ok: true };
     }
     if (claimRow.status !== 'claimed') throw new Error(`claim_${claimRow.status}`);
-    await client.query("UPDATE work_claims SET status = 'failed', completed_at = NOW() WHERE id = $1", [input.claimId]);
+    await client.query("UPDATE work_claims SET status = 'released', completed_at = NOW() WHERE id = $1", [input.claimId]);
     await client.query("UPDATE work_packets SET status = 'queued', updated_at = NOW() WHERE id = $1", [input.workPacketId]);
     await recordAuditEvent(client, { actorType: 'node', actorId: input.nodeId, action: 'work.claim.released', targetType: 'work_packet', targetId: input.workPacketId, metadata: { claimId: input.claimId, reason: input.reason } });
     await client.query('COMMIT');

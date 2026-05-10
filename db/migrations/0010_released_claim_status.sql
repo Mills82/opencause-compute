@@ -1,0 +1,5 @@
+-- work_claims.status is TEXT without a CHECK constraint, so no DDL is required.
+-- New releases are written as status='released' to separate resource/pause/model-missing releases
+-- from worker/extractor failures. Existing historical released audit events are intentionally
+-- left unchanged because their claim id lives inside JSON audit metadata and production cleanup
+-- should be reviewed before rewriting old reputation data.
