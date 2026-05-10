@@ -38,9 +38,7 @@ describe('worker supervisor contract', () => {
       '--interval-ms',
       '10000',
       '--node-id',
-      'node-1',
-      '--node-token',
-      'token-1'
+      'node-1'
     ]);
   });
 

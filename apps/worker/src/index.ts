@@ -13,6 +13,7 @@ import {
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
 import { LOCAL_LLM_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
+import { redactSensitive } from './redaction.js';
 
 type JsonValue = Record<string, unknown>;
 type ExtractorMode = 'local-llm' | 'mock';
@@ -41,7 +42,7 @@ function assertSafeAppDir(): void {
 
 async function log(message: string): Promise<void> {
   await mkdir(APP_DIR, { recursive: true });
-  const line = `[${new Date().toISOString()}] ${message}\n`;
+  const line = `[${new Date().toISOString()}] ${redactSensitive(message)}\n`;
   await appendFile(LOG_PATH, line, 'utf8');
   process.stdout.write(line);
 }
@@ -158,7 +159,7 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
   const credentials = { nodeId: response.node.id, nodeToken: response.nodeToken, profileSetupToken: response.profileSetupToken, profileSetupUrl };
   await saveNodeCredentials(credentials);
   await log(`registered node ${response.node.id}`);
-  if (profileSetupUrl) await log(`profile setup ${profileSetupUrl}`);
+  if (profileSetupUrl) await log('profile setup link issued');
   return credentials;
 }
 
@@ -215,20 +216,22 @@ async function submit(
   await log(`submitted result ${response.result.id} validated=${response.result.validated}`);
 }
 
-async function reportClaimFailed(
+async function closeClaim(
   server: string,
   credentials: NodeCredentials,
   claimId: string,
   packetId: string,
-  reason: string
+  reason: string,
+  disposition: 'failed' | 'released' = 'failed'
 ): Promise<void> {
-  await post(server, '/api/work/fail', {
+  const route = disposition === 'released' ? '/api/work/release' : '/api/work/fail';
+  await post(server, route, {
     nodeId: credentials.nodeId,
     claimId,
     workPacketId: packetId,
     reason: reason.slice(0, 500)
   }, credentials.nodeToken);
-  await log(`reported failed claim packet ${packetId} reason=${reason}`);
+  await log(`reported ${disposition} claim packet ${packetId} reason=${reason}`);
 }
 
 function isClaimAlreadyClosedError(error: unknown): boolean {
@@ -325,6 +328,7 @@ async function runOnce(
     : verifyPayloadHmac(claimed.packet, claimed.signature, SIGNING_SECRET);
   if (!isValidSignature) {
     await log(`signature verification failed for packet ${claimed.packet.id}`);
+    await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, 'invalid_packet_signature', 'failed');
     return;
   }
 
@@ -333,9 +337,9 @@ async function runOnce(
     const beforeExtractIdleDecision = await checkHostIdle(idleConfig);
     if (!beforeExtractIdleDecision.eligible) {
       const userIdle = beforeExtractIdleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${beforeExtractIdleDecision.metrics.userIdleSeconds}s`;
-      await log(
-        `idle gate blocked extraction reason=${beforeExtractIdleDecision.reason} cpu=${beforeExtractIdleDecision.metrics.cpuPercent}% userIdle=${userIdle}`
-      );
+      const reason = `idle gate blocked extraction reason=${beforeExtractIdleDecision.reason} cpu=${beforeExtractIdleDecision.metrics.cpuPercent}% userIdle=${userIdle}`;
+      await log(reason);
+      await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, beforeExtractIdleDecision.reason, 'released');
       return;
     }
   }
@@ -349,7 +353,7 @@ async function runOnce(
     failureAttempts.set(claimed.packet.id, attempts);
     if (attempts >= 2) {
       try {
-        await reportClaimFailed(server, credentials, claimed.claimId, claimed.packet.id, reason);
+        await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, reason, 'failed');
       } catch (failError) {
         if (isClaimAlreadyClosedError(failError)) {
           await log(`claim already closed for packet ${claimed.packet.id}; clearing local retry state`);
@@ -452,28 +456,28 @@ async function main() {
   }
 
   if (command === 'heartbeat') {
-    const nodeToken = required(arg('--node-token'), '--node-token');
+    const nodeToken = required(arg('--node-token', process.env.NODE_TOKEN), '--node-token');
     const nodeId = required(arg('--node-id'), '--node-id');
     await heartbeat(server, { nodeId, nodeToken });
     return;
   }
 
   if (command === 'claim') {
-    const nodeToken = required(arg('--node-token'), '--node-token');
+    const nodeToken = required(arg('--node-token', process.env.NODE_TOKEN), '--node-token');
     const nodeId = required(arg('--node-id'), '--node-id');
     await claim(server, { nodeId, nodeToken });
     return;
   }
 
   if (command === 'run-once') {
-    const credentials = arg('--node-id') && arg('--node-token') ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token') as string } : (await loadNodeCredentials()) ?? (await register(server, extractorMode));
+    const credentials = (await loadNodeCredentials()) ?? (arg('--node-id') && arg('--node-token', process.env.NODE_TOKEN) ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token', process.env.NODE_TOKEN) as string } : await register(server, extractorMode));
     await heartbeat(server, credentials);
     await runOnce(server, credentials, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
     return;
   }
 
   if (command === 'loop') {
-    const credentials = arg('--node-id') && arg('--node-token') ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token') as string } : (await loadNodeCredentials()) ?? (await register(server, extractorMode));
+    const credentials = (await loadNodeCredentials()) ?? (arg('--node-id') && arg('--node-token', process.env.NODE_TOKEN) ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token', process.env.NODE_TOKEN) as string } : await register(server, extractorMode));
     const intervalMs = Number(arg('--interval-ms', '5000'));
     await loop(server, credentials, intervalMs, idleConfig, extractorMode, mockAllowed);
     return;

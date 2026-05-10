@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { redactSensitive } from './redaction.js';
 
 export type WorkerSupervisorConfig = {
   workerEntry: string;
@@ -120,7 +121,7 @@ export class WorkerSupervisor {
       args.push('--force-now', 'true');
     }
     if (this.config.nodeId && this.config.nodeToken && (command.kind === 'run-once' || command.kind === 'loop')) {
-      args.push('--node-id', this.config.nodeId, '--node-token', this.config.nodeToken);
+      args.push('--node-id', this.config.nodeId);
     }
 
     return args;
@@ -149,7 +150,8 @@ export class WorkerSupervisor {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
       OPENCAUSE_APP_DIR: this.config.appDir,
-      ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {})
+      ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {}),
+      ...(this.config.nodeToken ? { NODE_TOKEN: this.config.nodeToken } : {})
     };
     if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
     if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
@@ -205,14 +207,14 @@ export class WorkerSupervisor {
 
   async appendWorkerLog(message: string): Promise<void> {
     await mkdir(this.config.appDir, { recursive: true });
-    await writeFile(path.join(this.config.appDir, 'worker.log'), `[${new Date().toISOString()}] ${message}\n`, { flag: 'a', encoding: 'utf8' }).catch(() => undefined);
+    await writeFile(path.join(this.config.appDir, 'worker.log'), `[${new Date().toISOString()}] ${redactSensitive(message)}\n`, { flag: 'a', encoding: 'utf8' }).catch(() => undefined);
   }
 
   async writeRegistrationDebugLog(data: { code: number | null; stdout: string; stderr: string; message: string; error?: string }): Promise<void> {
     await mkdir(this.config.appDir, { recursive: true });
     await writeFile(
       path.join(this.config.appDir, 'registration-debug.log'),
-      JSON.stringify({ ...data, workerEntry: this.config.workerEntry, coordinatorUrl: this.config.coordinatorUrl, at: new Date().toISOString() }, null, 2),
+      JSON.stringify({ ...data, stdout: redactSensitive(data.stdout), stderr: redactSensitive(data.stderr), message: redactSensitive(data.message), error: data.error ? redactSensitive(data.error) : undefined, workerEntry: this.config.workerEntry, coordinatorUrl: this.config.coordinatorUrl, at: new Date().toISOString() }, null, 2),
       'utf8'
     ).catch(() => undefined);
   }
@@ -245,10 +247,10 @@ export class WorkerSupervisor {
       const profileSetupUrl = body.profileSetupToken ? `${this.config.coordinatorUrl.replace(/\/$/, '')}/volunteer/profile?token=${encodeURIComponent(body.profileSetupToken)}` : undefined;
       await this.saveCredentials({ nodeId: body.node.id, nodeToken: body.nodeToken, profileSetupToken: body.profileSetupToken, profileSetupUrl });
       await this.appendWorkerLog(`registered node ${body.node.id}`);
-      if (profileSetupUrl) await this.appendWorkerLog(`profile setup ${profileSetupUrl}`);
+      if (profileSetupUrl) await this.appendWorkerLog('profile setup link issued');
       const message = 'Worker registered.';
-      await this.writeRegistrationDebugLog({ code: 0, stdout: text, stderr: '', message });
-      return { code: 0, stdout: text, stderr: '', message, profileSetupUrl };
+      await this.writeRegistrationDebugLog({ code: 0, stdout: '', stderr: '', message });
+      return { code: 0, stdout: '', stderr: '', message, profileSetupUrl };
     } catch (error) {
       const message = `Registration failed before contacting coordinator: ${error instanceof Error ? error.message : String(error)}`;
       await this.writeRegistrationDebugLog({ code: 1, stdout: '', stderr: String(error), message });
@@ -301,7 +303,8 @@ export class WorkerSupervisor {
   async tailLog(maxBytes = 16_384): Promise<string> {
     const logPath = path.join(this.config.appDir, 'worker.log');
     const content = await readFile(logPath, 'utf8').catch(() => '');
-    return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
+    const redacted = redactSensitive(content);
+    return redacted.length <= maxBytes ? redacted : redacted.slice(redacted.length - maxBytes);
   }
 
   async tailLogNewestFirst(maxBytes = 16_384): Promise<string> {
@@ -315,7 +318,8 @@ export class WorkerSupervisor {
 
   async registrationDebugLog(maxBytes = 16_384): Promise<string> {
     const content = await readFile(path.join(this.config.appDir, 'registration-debug.log'), 'utf8').catch(() => '');
-    return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
+    const redacted = redactSensitive(content);
+    return redacted.length <= maxBytes ? redacted : redacted.slice(redacted.length - maxBytes);
   }
 
   async uninstallLocalState(): Promise<WorkerRuntimeStatus> {

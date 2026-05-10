@@ -4,6 +4,7 @@ import {
   getWorkerControl,
   heartbeatNode,
   registerNode,
+  releaseClaim,
   seedDemoData,
   submitResult,
   triggerRunNow,
@@ -83,6 +84,22 @@ describe('claim/submit flow', () => {
     expect(secondClaim).not.toBeNull();
     expect(firstClaim?.claimId).toBe(secondClaim?.claimId);
     expect(db.claims).toHaveLength(1);
+  });
+
+
+  it('releases a claimed packet without recording worker failure semantics', () => {
+    const db = emptyDb();
+    seedDemoData(db);
+    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const claim = claimWork(db, node.id);
+    expect(claim).not.toBeNull();
+    if (!claim) throw new Error('Expected claim');
+
+    releaseClaim(db, { nodeId: node.id, claimId: claim.claimId, workPacketId: claim.packet.id, reason: 'user_not_idle' });
+
+    expect(db.claims.find((candidate) => candidate.id === claim.claimId)?.status).toBe('failed');
+    expect(db.workPackets.find((packet) => packet.id === claim.packet.id)?.status).toBe('queued');
+    expect(db.auditEvents.some((event) => event.action === 'work.claim.released')).toBe(true);
   });
 
   it('reclaims expired claims and requeues packet', () => {
