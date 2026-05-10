@@ -31,9 +31,10 @@ export function validateResultForPacket(result: unknown, packet: WorkPacketPaylo
       if (claim.evidenceContext && !packet.sourceText.includes(claim.evidenceContext)) {
         errors.push(`claims[${index}].evidenceContext must appear in source text`);
       }
-      if (claim.charStart !== undefined && claim.charEnd !== undefined && claim.charEnd <= claim.charStart) {
-        errors.push(`claims[${index}].charEnd must be greater than charStart`);
-      }
+      // Character offsets are optional locator metadata from local models. The
+      // evidence sentence/context checks above are the authoritative structure
+      // guardrails; bad offsets should be ignored by normalizers, not turn an
+      // otherwise citation-backed claim into a rejected submission.
     }
     if (payload.claims.length === 0 && !payload.noClaimReason) {
       errors.push('noClaimReason is required when claims is empty');

@@ -48,4 +48,29 @@ describe('result validation', () => {
     const validated = validateResultForPacket(result, packet);
     expect(validated.valid).toBe(false);
   });
+
+  it('does not reject claims-v2 submissions for invalid optional character offsets', () => {
+    const result = {
+      schemaVersion: 'claims-v2',
+      claims: [
+        {
+          claimType: 'treatment_response',
+          evidenceOrigin: 'this_study_result',
+          evidenceType: 'clinical',
+          studyContext: 'human_cohort',
+          polarity: 'affirmed',
+          direction: 'associated',
+          exactEvidenceSentence: 'EGFR response was observed in lung cancer patients.',
+          charStart: 0,
+          charEnd: 0,
+          confidence: 0.7
+        }
+      ],
+      summary: 'ok',
+      warnings: []
+    };
+
+    const validated = validateResultForPacket(result, packet);
+    expect(validated.valid).toBe(true);
+  });
 });
