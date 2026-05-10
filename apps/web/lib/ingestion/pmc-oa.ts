@@ -225,7 +225,7 @@ async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiK
 }
 
 async function fetchPmcSearchRecords(options: { query: string; retmax: number; retstart?: number; email?: string; apiKey?: string }): Promise<PmcSearchRecord[]> {
-  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', term: options.query, retmode: 'json', retmax: String(options.retmax), retstart: String(options.retstart ?? 0), sort: 'relevance' }), options);
+  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', term: options.query, retmode: 'json', retmax: String(options.retmax), retstart: String(options.retstart ?? 0) }), options);
   const response = await fetchNcbi(`${EUTILS_BASE}/esearch.fcgi?${params.toString()}`, options);
   if (!response.ok) throw new Error(`pmc_esearch_failed:${response.status}`);
   const json = (await response.json()) as { esearchresult?: { idlist?: string[] } };
