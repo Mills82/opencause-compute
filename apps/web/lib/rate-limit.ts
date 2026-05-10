@@ -23,6 +23,7 @@ function envInt(name: string, fallback: number): number {
 
 const defaultLimits = {
   publicApi: { limit: envInt('RATE_LIMIT_PUBLIC_API_PER_MINUTE', 120), windowMs: 60_000 },
+  publicReport: { limit: envInt('RATE_LIMIT_PUBLIC_REPORT_PER_HOUR', 5), windowMs: 60 * 60_000 },
   nodeRegister: { limit: envInt('RATE_LIMIT_NODE_REGISTER_PER_MINUTE', 5), windowMs: 60_000 },
   nodeHeartbeat: { limit: envInt('RATE_LIMIT_NODE_HEARTBEAT_PER_MINUTE', 60), windowMs: 60_000 },
   workClaim: { limit: envInt('RATE_LIMIT_WORK_CLAIM_PER_MINUTE', 30), windowMs: 60_000 },

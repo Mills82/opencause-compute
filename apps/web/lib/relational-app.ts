@@ -234,9 +234,17 @@ export async function recordVolunteerChallengeFailedRelational(email: string, ip
 
 export async function createPublicReportRelational(input: { targetType: 'volunteer_profile' | 'team' | 'impact_card'; targetSlug?: string; reason: string; details?: string; reporterContact?: string }) {
   if (!enabled()) return undefined;
+  const targetSlug = input.targetSlug ?? null;
+  let existsQuery = '';
+  if (input.targetType === 'volunteer_profile') existsQuery = "SELECT 1 FROM volunteer_profiles WHERE slug = $1 AND public_profile_enabled = true AND COALESCE(moderation_status, 'ok') <> 'hidden'";
+  else if (input.targetType === 'team') existsQuery = "SELECT 1 FROM teams WHERE slug = $1 AND visibility = 'public' AND COALESCE(moderation_status, 'ok') <> 'hidden'";
+  else existsQuery = "SELECT 1 FROM impact_cards WHERE slug = $1 AND public_enabled = true AND COALESCE(moderation_status, 'ok') <> 'hidden'";
+  if (!targetSlug || !(await getPool().query(existsQuery, [targetSlug])).rowCount) throw new Error('target_not_found');
+  const duplicate = await getPool().query("SELECT 1 FROM public_reports WHERE status = 'open' AND target_type = $1 AND target_slug IS NOT DISTINCT FROM $2 AND reason = $3 AND reporter_contact IS NOT DISTINCT FROM $4 AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1", [input.targetType, targetSlug, input.reason, input.reporterContact ?? null]);
+  if (duplicate.rowCount) throw new Error('duplicate_report');
   const row = (await getPool().query(
     "INSERT INTO public_reports(id,target_type,target_id,target_slug,reason,details,reporter_contact,status,created_at,reviewed_at) VALUES($1,$2,NULL,$3,$4,$5,$6,'open',NOW(),NULL) RETURNING *",
-    [randomUUID(), input.targetType, input.targetSlug ?? null, input.reason, input.details ?? '', input.reporterContact ?? null]
+    [randomUUID(), input.targetType, targetSlug, input.reason, input.details ?? '', input.reporterContact ?? null]
   )).rows[0];
   return { id: row.id, targetType: row.target_type, targetId: row.target_id, targetSlug: row.target_slug, reason: row.reason, details: row.details, reporterContact: row.reporter_contact, status: row.status, createdAt: iso(row.created_at)!, reviewedAt: iso(row.reviewed_at) };
 }

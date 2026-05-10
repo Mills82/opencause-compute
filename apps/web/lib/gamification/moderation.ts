@@ -3,8 +3,17 @@ import type { DatabaseState, PublicReport } from '@opencause/shared';
 import { recordAuditEvent } from '../audit';
 
 export function createPublicReport(db: DatabaseState, input: { targetType: PublicReport['targetType']; targetSlug?: string; reason: string; details?: string; reporterContact?: string }): PublicReport {
+  const targetSlug = input.targetSlug ?? null;
+  const targetExists = input.targetType === 'volunteer_profile'
+    ? db.volunteerProfiles.some((profile) => profile.slug === targetSlug && profile.publicProfileEnabled && profile.moderationStatus !== 'hidden')
+    : input.targetType === 'team'
+      ? db.teams.some((team) => team.slug === targetSlug && team.visibility === 'public' && team.moderationStatus !== 'hidden')
+      : db.impactCards.some((card) => card.slug === targetSlug && card.publicEnabled && card.moderationStatus !== 'hidden');
+  if (!targetExists) throw new Error('target_not_found');
+  const duplicate = db.publicReports.some((report) => report.status === 'open' && report.targetType === input.targetType && report.targetSlug === targetSlug && report.reason === input.reason && report.reporterContact === (input.reporterContact ?? null));
+  if (duplicate) throw new Error('duplicate_report');
   const now = new Date().toISOString();
-  const report: PublicReport = { id: randomUUID(), targetType: input.targetType, targetSlug: input.targetSlug ?? null, targetId: null, reason: input.reason.slice(0, 80), details: (input.details ?? '').slice(0, 1000), reporterContact: input.reporterContact?.slice(0, 200) ?? null, status: 'open', createdAt: now, reviewedAt: null };
+  const report: PublicReport = { id: randomUUID(), targetType: input.targetType, targetSlug, targetId: null, reason: input.reason.slice(0, 80), details: (input.details ?? '').slice(0, 1000), reporterContact: input.reporterContact?.slice(0, 200) ?? null, status: 'open', createdAt: now, reviewedAt: null };
   db.publicReports.push(report);
   recordAuditEvent(db, { actorType: 'system', action: 'public_report.created', targetType: input.targetType, targetId: input.targetSlug, metadata: { reason: report.reason } });
   return report;
