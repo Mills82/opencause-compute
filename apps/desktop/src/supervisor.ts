@@ -148,8 +148,14 @@ export class WorkerSupervisor {
 
   private workerEnv(): NodeJS.ProcessEnv {
     const workerDir = path.dirname(path.dirname(this.config.workerEntry));
-    const publicKeyPath = path.join(workerDir, 'config', 'packet-signing-public-key.pem');
-    const keyIdPath = path.join(workerDir, 'config', 'packet-signing-key-id.txt');
+    const configDirs = [
+      path.join(workerDir, 'config'),
+      path.join(process.resourcesPath ?? '', 'worker', 'config'),
+      path.join(path.dirname(this.config.workerEntry), '..', 'config'),
+      path.join(process.cwd(), 'static', 'config')
+    ];
+    const publicKeyPath = configDirs.map((dir) => path.join(dir, 'packet-signing-public-key.pem')).find((candidate) => existsSync(candidate));
+    const keyIdPath = configDirs.map((dir) => path.join(dir, 'packet-signing-key-id.txt')).find((candidate) => existsSync(candidate));
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
@@ -157,8 +163,9 @@ export class WorkerSupervisor {
       ...(this.config.enrollmentCode ? { NODE_ENROLLMENT_CODE: this.config.enrollmentCode } : {}),
       ...(this.config.nodeToken ? { NODE_TOKEN: this.config.nodeToken } : {})
     };
-    if (existsSync(publicKeyPath)) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
-    if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
+    if (publicKeyPath) env.PACKET_SIGNING_PUBLIC_KEY = readFileSync(publicKeyPath, 'utf8');
+    if (keyIdPath) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
+    void this.appendWorkerLog(publicKeyPath ? `packet signing public key loaded keyId=${env.PACKET_SIGNING_KEY_ID ?? 'unknown'}` : 'packet signing public key missing');
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'high' ? 24576 : qualityMode === 'budget' ? 12288 : 16384));
     env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (3000));
