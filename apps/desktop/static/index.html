@@ -441,8 +441,11 @@
         activityTimeline.innerHTML = events.length ? events.map(event => `<div class="small"><strong class="${event.severity || 'warning'}">${event.label}</strong> <span class="pill">${event.at || ''}</span><br>${event.detail}</div>`).join('<hr style="border-color:#25314d">') : 'No structured events yet.';
       }
 
-      function renderActivity(activity) {
+      function renderActivity(activity, preflight) {
         if (!activitySummary) return;
+        if (preflight?.eligible && (activity?.state === 'waiting_idle' || activity?.state === 'heartbeat')) {
+          activity = { state: 'idle', headline: 'Ready for the next packet', detail: 'This computer is eligible now. The worker will claim eligible work on the next check.', severity: 'ready', at: activity?.at };
+        }
         const severity = activity?.severity || 'warning';
         activitySummary.className = `activity-card ${severity}`;
         const when = activity?.at ? `<span class="pill">${activity.at}</span>` : '';
@@ -541,7 +544,7 @@
           const reasonText = latestState?.activity?.detail || latestState?.preflight?.reason || '';
           workerMessage.textContent = latestState.settings.localPaused ? 'Paused locally. Press Start worker when you want to contribute again.' : (runtime.running ? (reasonText || 'Worker is running.') : stoppedDetail);
           renderPreflight(latestState.preflight);
-          renderActivity(latestState.activity);
+          renderActivity(latestState.activity, latestState.preflight);
           renderTimeline(latestState.timeline);
           const log = await api.tailLog();
           latestLog.textContent = log || 'No log lines yet.';
