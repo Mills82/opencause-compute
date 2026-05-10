@@ -2,6 +2,7 @@ import type { DatabaseState, VolunteerProfile, VolunteerStatsSnapshot } from '@o
 
 const CKM_PROJECT_SLUG = 'cancer-knowledge-miner';
 const MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE = 10;
+const ESTIMATED_SUBMISSIONS_TO_CONSENSUS_PER_PACKET = 3;
 
 export function latestVolunteerStats(db: DatabaseState, profileId: string): VolunteerStatsSnapshot | undefined {
   return db.volunteerStatsSnapshots.find((stats) => stats.volunteerProfileId === profileId && stats.window === 'all_time');
@@ -34,6 +35,8 @@ export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
     .reduce((total, snapshot) => total + snapshot.formatValidatedSubmissions, 0);
   const percentComplete = estimatedTotalPackets ? (consensusCompletedPackets / estimatedTotalPackets) * 100 : null;
   const percentFormatValidated = estimatedTotalPackets ? (formatValidatedPackets / estimatedTotalPackets) * 100 : null;
+  const estimatedConsensusSubmissionTarget = estimatedTotalPackets ? estimatedTotalPackets * ESTIMATED_SUBMISSIONS_TO_CONSENSUS_PER_PACKET : null;
+  const percentValidationWorkComplete = estimatedConsensusSubmissionTarget ? (formatValidatedPackets / estimatedConsensusSubmissionTarget) * 100 : null;
 
   return {
     projectSlug: CKM_PROJECT_SLUG,
@@ -44,8 +47,11 @@ export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
     estimatedTotalPackets,
     consensusCompletedPackets,
     formatValidatedPackets,
+    estimatedSubmissionsToConsensusPerPacket: ESTIMATED_SUBMISSIONS_TO_CONSENSUS_PER_PACKET,
+    estimatedConsensusSubmissionTarget,
     percentComplete,
     percentFormatValidated,
+    percentValidationWorkComplete,
     sampleMinMet,
     estimateMethod: latestEstimate?.estimateMethod ?? 'mean_packets_per_ingested_document',
     sampleMinimumDocuments: MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE,

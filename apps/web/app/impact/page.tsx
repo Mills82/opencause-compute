@@ -5,7 +5,7 @@ import { buildImpactSummary, buildTeamLeaderboard } from '../../lib/gamification
 
 function Metric({ label, value, emphasis = false }: { label: string; value: number | string; emphasis?: boolean }) {
   return (
-    <div className={`rounded-xl border border-line bg-panel p-5 ${emphasis ? 'md:col-span-2' : ''}`}>
+    <div className={`rounded-2xl border border-line/70 bg-panel/80 p-5 shadow-lg shadow-black/10 ${emphasis ? 'md:col-span-2' : ''}`}>
       <p className="text-3xl font-semibold text-white sm:text-4xl">{typeof value === 'number' ? value.toLocaleString() : value}</p>
       <p className="mt-2 text-sm text-slate-300">{label}</p>
     </div>
@@ -18,6 +18,14 @@ function formatPercent(value: number | null) {
   return `${value.toFixed(2)}%`;
 }
 
+function ProgressBar({ value }: { value: number | null }) {
+  return (
+    <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800/90 ring-1 ring-white/10">
+      <div className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-300 shadow-[0_0_18px_rgba(56,189,248,0.45)]" style={{ width: `${Math.min(value ?? 0, 100)}%` }} />
+    </div>
+  );
+}
+
 export default async function ImpactPage() {
   const db = await loadDb();
   const impact = buildImpactSummary(db);
@@ -27,8 +35,9 @@ export default async function ImpactPage() {
 
   return (
     <section className="space-y-8">
-      <div className="rounded-3xl border border-line bg-panel p-6 sm:p-8">
-        <div className="max-w-3xl space-y-4">
+      <div className="relative overflow-hidden rounded-3xl border border-line bg-panel p-6 shadow-2xl shadow-black/20 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_35%)]" />
+        <div className="relative max-w-3xl space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Impact dashboard</p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Open-science contribution, measured transparently.</h1>
           <p className="text-lg text-slate-300">
@@ -52,57 +61,90 @@ export default async function ImpactPage() {
         <Metric label="Public teams" value={impact.teams} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-line bg-panel p-5">
-          <h2 className="text-xl font-semibold">Current project</h2>
-          <p className="mt-2 text-slate-300">{impact.currentProject}: citation-backed evidence extraction from public/open biomedical literature.</p>
-          <div className="mt-5 rounded-xl border border-line/70 bg-ink p-4">
-            <div className="flex items-start justify-between gap-4">
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="overflow-hidden rounded-3xl border border-line bg-panel shadow-2xl shadow-black/20">
+          <div className="border-b border-line/70 bg-gradient-to-br from-slate-900 via-slate-950 to-ink p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-white">Consensus-completed literature sections</p>
-                {progress.estimatedTotalPackets ? (
-                  <p className="mt-1 text-2xl font-semibold text-white">
-                    {progress.consensusCompletedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-2xl font-semibold text-white">{progress.consensusCompletedPackets.toLocaleString()} completed</p>
-                )}
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Current project</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Cancer Knowledge Miner</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Citation-backed evidence extraction from reusable open-access cancer literature.</p>
               </div>
-              <p className="rounded-full border border-line px-3 py-1 text-sm text-slate-300">{formatPercent(progress.percentComplete)}</p>
+              <div className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">PMC OA corpus</div>
             </div>
+          </div>
+
+          <div className="space-y-5 p-5 sm:p-6">
+            <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Consensus-complete packet progress</p>
+                  {progress.estimatedTotalPackets ? (
+                    <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                      {progress.consensusCompletedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedTotalPackets.toLocaleString()}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-4xl font-semibold tracking-tight text-white">{progress.consensusCompletedPackets.toLocaleString()} completed</p>
+                  )}
+                </div>
+                <p className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">{formatPercent(progress.percentComplete)}</p>
+              </div>
+              {progress.estimatedTotalPackets ? <ProgressBar value={progress.percentComplete} /> : null}
+            </div>
+
             {progress.estimatedTotalPackets ? (
-              <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(progress.percentComplete ?? 0, 100)}%` }} />
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
+                  <p className="text-sm font-semibold text-white">Total validation work completed</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">
+                    {progress.formatValidatedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()}
+                  </p>
+                  <ProgressBar value={progress.percentValidationWorkComplete} />
+                  <p className="mt-3 text-xs leading-5 text-slate-400">
+                    Estimated against ~{progress.estimatedSubmissionsToConsensusPerPacket} independent submissions needed per packet to reach consensus. This multiplier will be refined as consensus data matures.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
+                  <p className="text-sm font-semibold text-white">Corpus estimate</p>
+                  <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-slate-400">Eligible docs</dt>
+                      <dd className="font-semibold text-white">{progress.eligibleDocumentCount?.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-400">Packets/doc</dt>
+                      <dd className="font-semibold text-white">{progress.averagePacketsPerDocument.toFixed(1)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-400">Sample docs</dt>
+                      <dd className="font-semibold text-white">{progress.ingestedDocumentCount.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-slate-400">Estimated packets</dt>
+                      <dd className="font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
             ) : null}
-            {progress.estimatedTotalPackets ? (
-              <div className="mt-4 grid gap-3 text-xs text-slate-300 sm:grid-cols-2">
-                <div className="rounded-lg border border-line/60 p-3">
-                  <p className="font-semibold text-white">First-pass structure progress</p>
-                  <p className="mt-1">{progress.formatValidatedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()} packets ({formatPercent(progress.percentFormatValidated)})</p>
-                </div>
-                <div className="rounded-lg border border-line/60 p-3">
-                  <p className="font-semibold text-white">Consensus-complete progress</p>
-                  <p className="mt-1">{progress.consensusCompletedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()} packets ({formatPercent(progress.percentComplete)})</p>
-                </div>
-              </div>
-            ) : null}
-            <p className="mt-3 text-xs text-slate-400">
+
+            <p className="rounded-2xl border border-line/70 bg-ink/80 p-4 text-sm leading-6 text-slate-300">
               {progress.estimatedTotalPackets ? (
-                <>Estimated from {progress.eligibleDocumentCount?.toLocaleString()} eligible documents and {progress.ingestedDocumentCount.toLocaleString()} ingested documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
+                <>Estimate based on {progress.eligibleDocumentCount?.toLocaleString()} eligible open-access cancer documents and {progress.ingestedDocumentCount.toLocaleString()} full-text sample documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
               ) : progress.eligibleDocumentCount ? (
                 <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Packet estimate will appear after at least {progress.sampleMinimumDocuments} full-text documents are ingested. Current full-text sample: {progress.ingestedDocumentCount.toLocaleString()} documents, {progress.packetsCreatedFromIngestedDocuments.toLocaleString()} packets.</>
               ) : (
                 <>Eligible open-access cancer document count has not been refreshed yet. Structure-validated throughput is shown separately above.</>
               )}
             </p>
+
+            <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-50">
+              Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
+            </p>
           </div>
-          <p className="mt-4 rounded-lg border border-line/70 bg-ink p-3 text-sm text-slate-300">
-            Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
-          </p>
         </div>
 
-        <div className="rounded-xl border border-line bg-panel p-5">
+        <div className="rounded-3xl border border-line bg-panel p-5 shadow-2xl shadow-black/20">
           <h2 className="text-xl font-semibold">Top teams</h2>
           {topTeams.length ? (
             <ol className="mt-4 space-y-3 text-sm text-slate-300">
