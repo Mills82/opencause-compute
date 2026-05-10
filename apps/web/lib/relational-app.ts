@@ -145,7 +145,7 @@ export async function registerNodeRelational(input: { nodeName: string; platform
     const nodeRow = (await client.query(
       `INSERT INTO volunteer_nodes(id,node_name,platform,version,status,capabilities,registered_at,last_heartbeat_at,node_token_hash,enrollment_code_hash,revoked_at,suspended_at)
        VALUES($1,$2,$3,$4,'online',$5,$6,$6,$7,$8,NULL,NULL) RETURNING *`,
-      [nodeId, input.nodeName, input.platform, input.version, input.capabilities, now, hashNodeToken(nodeToken), enrollmentCodeHash ?? null]
+      [nodeId, input.nodeName, input.platform, input.version, JSON.stringify(input.capabilities), now, hashNodeToken(nodeToken), enrollmentCodeHash ?? null]
     )).rows[0];
     if (enrollmentId) {
       await client.query("UPDATE volunteer_enrollments SET status = 'used', used_at = $2, node_id = $3 WHERE id = $1", [enrollmentId, now, nodeId]);
