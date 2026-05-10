@@ -1,6 +1,8 @@
 import { VolunteerEnrollForm } from './volunteer-enroll-form';
 import { publicVolunteerEnrollmentConfig } from '../../lib/volunteer-enrollment-config';
 
+export const dynamic = 'force-dynamic';
+
 export default function VolunteerPage() {
   const config = publicVolunteerEnrollmentConfig();
 

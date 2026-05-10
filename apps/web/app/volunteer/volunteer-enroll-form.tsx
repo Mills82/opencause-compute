@@ -1,5 +1,6 @@
 'use client';
 
+import Script from 'next/script';
 import { FormEvent, useState } from 'react';
 
 export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: boolean; turnstileSiteKey?: string }) {
@@ -49,7 +50,12 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
           required
         />
       </label>
-      {enabled && turnstileSiteKey ? <div className="cf-turnstile" data-sitekey={turnstileSiteKey} /> : null}
+      {enabled && turnstileSiteKey ? (
+        <>
+          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+          <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+        </>
+      ) : null}
       <button className="rounded bg-accent px-4 py-2 text-ink disabled:opacity-50" type="submit" disabled={!enabled}>
         Request enrollment code
       </button>
