@@ -6,6 +6,10 @@
     {
       "path": "/api/admin/ingest/cron",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/admin/gamification/recompute",
+      "schedule": "*/15 * * * *"
     }
   ],
   "outputDirectory": "apps/web/.next"
