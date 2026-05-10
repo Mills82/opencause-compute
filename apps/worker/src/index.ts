@@ -231,6 +231,10 @@ async function reportClaimFailed(
   await log(`reported failed claim packet ${packetId} reason=${reason}`);
 }
 
+function isClaimAlreadyClosedError(error: unknown): boolean {
+  return error instanceof Error && /claim_completed|claim_failed|claim_expired/.test(error.message);
+}
+
 function endpointType(endpoint: string): string {
   if (endpoint.startsWith('http://127.0.0.1') || endpoint.startsWith('http://localhost')) return 'localhost';
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) return 'remote-http';
@@ -344,7 +348,15 @@ async function runOnce(
     const attempts = (failureAttempts.get(claimed.packet.id) ?? 0) + 1;
     failureAttempts.set(claimed.packet.id, attempts);
     if (attempts >= 2) {
-      await reportClaimFailed(server, credentials, claimed.claimId, claimed.packet.id, reason);
+      try {
+        await reportClaimFailed(server, credentials, claimed.claimId, claimed.packet.id, reason);
+      } catch (failError) {
+        if (isClaimAlreadyClosedError(failError)) {
+          await log(`claim already closed for packet ${claimed.packet.id}; clearing local retry state`);
+        } else {
+          throw failError;
+        }
+      }
       failureAttempts.delete(claimed.packet.id);
     }
     throw error;

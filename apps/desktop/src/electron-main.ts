@@ -194,7 +194,9 @@ ipcMain.handle('desktop:get-state', async () => {
 });
 
 ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknown) => {
+  const previousSupervisor = cachedSupervisor;
   const settings = await updateDesktopSettings(appDir, update as Partial<DesktopSettings>);
+  previousSupervisor?.stop();
   cachedSupervisor = null;
   cachedSupervisorKey = '';
   app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startMinimized });

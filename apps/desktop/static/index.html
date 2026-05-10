@@ -305,6 +305,10 @@
         return Boolean(latestState?.modelRuntime?.installedModels?.includes(modelSelect.value) || (modelSelect.value === latestState?.modelRuntime?.selectedModel && latestState?.modelRuntime?.selectedModelInstalled));
       }
 
+      function selectedDropdownModelInstalled() {
+        return Boolean(latestState?.modelRuntime?.installedModels?.includes(modelSelect.value));
+      }
+
       function registered() {
         return Boolean(latestState?.settings?.nodeId || latestState?.runtime?.registered);
       }
@@ -438,15 +442,17 @@
 
       async function watchModelDownload(id) {
         if (modelDownloadPoll) clearInterval(modelDownloadPoll);
-        modelDownloadPoll = setInterval(async () => {
-          const status = await api.modelDownloadStatus(id);
-          if (!status) return;
-          downloadStatus.textContent = `${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}\n${status.lastMessage || ''}`;
-          output.textContent = JSON.stringify(status, null, 2);
-          if (status.status !== 'running') {
-            clearInterval(modelDownloadPoll); modelDownloadPoll = null; await refresh();
-          }
-        }, 1000);
+        return new Promise((resolve) => {
+          modelDownloadPoll = setInterval(async () => {
+            const status = await api.modelDownloadStatus(id);
+            if (!status) return;
+            downloadStatus.textContent = `${status.status === 'running' ? 'Downloading model...' : status.status === 'succeeded' ? 'Model installed.' : 'Download failed.'}\n${status.lastMessage || ''}`;
+            output.textContent = JSON.stringify(status, null, 2);
+            if (status.status !== 'running') {
+              clearInterval(modelDownloadPoll); modelDownloadPoll = null; await refresh(); resolve(status);
+            }
+          }, 1000);
+        });
       }
 
       async function refresh() {
@@ -509,16 +515,18 @@
 
       async function saveSettings() {
         settingsMessage.textContent = 'Saving settings...';
+        const installedSelection = selectedDropdownModelInstalled();
+        const selectedModel = installedSelection ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
         const saved = await api.updateSettings({
           coordinatorUrl: coordinatorUrl.value,
           startupOnLogin: startup.checked,
           startMinimized: startMinimized.checked,
           autoStartWorker: autoStartWorker.checked,
           setupCompletedAt: latestState?.settings?.setupCompletedAt || (registered() && latestState?.modelRuntime?.available && selectedModelInstalled() ? new Date().toISOString() : undefined),
-          modelRuntime: { model: modelSelect.value, qualityMode: qualityMode.value },
+          modelRuntime: { model: selectedModel, qualityMode: qualityMode.value },
           resourceControls: { maxCpuPercent: Number(maxCpu.value), minIdleSeconds: Number(minIdle.value), schedule: schedule.value, runOnBattery: battery.checked }
         });
-        settingsMessage.textContent = 'Settings saved.';
+        settingsMessage.textContent = installedSelection ? 'Settings saved.' : 'Settings saved. Model selection was not applied because it is not downloaded yet.';
         output.textContent = JSON.stringify(saved, null, 2);
         settingsDirty = false;
         await refresh();
@@ -571,21 +579,30 @@
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
       modelSelect.onchange = async () => {
         renderSelectedModelGuidance();
-        await api.updateSettings({ modelRuntime: { model: modelSelect.value } });
-        await refresh();
+        settingsDirty = true;
+        if (!selectedDropdownModelInstalled()) {
+          downloadStatus.textContent = 'This model is not downloaded yet. Download it before applying it to the worker.';
+        }
       };
       pullButton.onclick = async () => {
         const model = modelSelect.value;
         if (!latestState?.modelRuntime?.available) { output.textContent = 'Install Ollama first, then click Check again before downloading a model.'; return; }
-        downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
         try {
           const selected = latestState?.modelRuntime?.approvedModels?.find(candidate => candidate.id === model);
           const advanced = selected && (selected.tier === 'large' || selected.tier === 'experimental');
-          if (advanced && !confirm(`${selected.label} is a ${selected.estimatedDownload} advanced model. It may require a powerful PC, lots of memory, and a long download. Continue?`)) return;
+          if (advanced && !confirm(`${selected.label} is a ${selected.estimatedDownload} advanced model. It may require a powerful PC, lots of memory, and a long download. Continue?`)) {
+            downloadStatus.textContent = 'Model download canceled.';
+            return;
+          }
+          downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
           const status = await api.startModelDownload(model);
           downloadStatus.textContent = `Downloading model...\n${status.lastMessage || ''}`;
           output.textContent = JSON.stringify(status, null, 2);
-          await watchModelDownload(status.id);
+          const finalStatus = await watchModelDownload(status.id);
+          if (finalStatus?.status === 'succeeded') {
+            await api.updateSettings({ modelRuntime: { model, qualityMode: qualityMode.value } });
+            await refresh();
+          }
         } catch (error) { output.textContent = String(error?.message ?? error); downloadStatus.textContent = String(error?.message ?? error); }
       };
       refresh().then(startDashboardPolling);

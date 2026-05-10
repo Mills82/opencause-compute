@@ -20,4 +20,10 @@ describe('electron main window config', () => {
     expect(source).toContain('Hide to Tray');
     expect(source).toContain('OpenCause Compute Website');
   });
+
+  it('stops the active worker before replacing cached supervisor settings', () => {
+    expect(source).toContain('const previousSupervisor = cachedSupervisor');
+    expect(source).toContain('previousSupervisor?.stop()');
+    expect(source.indexOf('previousSupervisor?.stop()')).toBeLessThan(source.indexOf('cachedSupervisor = null'));
+  });
 });

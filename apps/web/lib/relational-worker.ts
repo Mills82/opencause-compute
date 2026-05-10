@@ -145,13 +145,18 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
       `SELECT c.id AS claim_id, p.*
        FROM work_claims c
        JOIN work_packets p ON p.id = c.work_packet_id
-       WHERE c.node_id = $1 AND c.status = 'claimed'
+       WHERE c.node_id = $1 AND c.status = 'claimed' AND p.status = 'claimed'
        ORDER BY c.claimed_at
-       LIMIT 1`,
+       LIMIT 1
+       FOR UPDATE OF c, p`,
       [nodeId]
     );
     if (active.rows[0]) {
-      await client.query('UPDATE work_claims SET lease_expires_at = NOW() + ($2 || \' minutes\')::interval WHERE id = $1', [active.rows[0].claim_id, LEASE_MINUTES]);
+      const extended = await client.query('UPDATE work_claims SET lease_expires_at = NOW() + ($2 || \' minutes\')::interval WHERE id = $1 AND status = \'claimed\' RETURNING id', [active.rows[0].claim_id, LEASE_MINUTES]);
+      if (extended.rowCount !== 1) {
+        await client.query('COMMIT');
+        return null;
+      }
       await recordAuditEvent(client, { actorType: 'node', actorId: nodeId, action: 'work.claim.reused', targetType: 'work_packet', targetId: active.rows[0].id, metadata: { claimId: active.rows[0].claim_id } });
       await client.query('COMMIT');
       return { claimId: active.rows[0].claim_id, packet: packetPayloadFromRow(active.rows[0]), signature: active.rows[0].signature };
@@ -210,6 +215,11 @@ export async function failClaimRelational(input: {
     const claimRow = (await client.query('SELECT * FROM work_claims WHERE id = $1 FOR UPDATE', [input.claimId])).rows[0];
     if (!claimRow) throw new Error('claim_not_found');
     if (claimRow.node_id !== input.nodeId || claimRow.work_packet_id !== input.workPacketId) throw new Error('claim_mismatch');
+    if (claimRow.status === 'completed') {
+      await recordAuditEvent(client, { actorType: 'node', actorId: input.nodeId, action: 'work.claim.fail_ignored_completed', targetType: 'work_packet', targetId: input.workPacketId, metadata: { claimId: input.claimId, reason: input.reason } });
+      await client.query('COMMIT');
+      return { ok: true };
+    }
     if (claimRow.status !== 'claimed') throw new Error(`claim_${claimRow.status}`);
     await client.query("UPDATE work_claims SET status = 'failed', completed_at = NOW() WHERE id = $1", [input.claimId]);
     await client.query("UPDATE work_packets SET status = 'queued', updated_at = NOW() WHERE id = $1", [input.workPacketId]);

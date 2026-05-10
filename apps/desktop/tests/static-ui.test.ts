@@ -14,6 +14,8 @@ describe('desktop static first-run UI', () => {
   it('warns before downloading large or experimental models', () => {
     expect(html).toContain('Download advanced model');
     expect(html).toContain('It may require a powerful PC, lots of memory, and a long download. Continue?');
+    expect(html).toContain('Model download canceled.');
+    expect(html.indexOf('Model download canceled.')).toBeLessThan(html.indexOf('Starting model download'));
   });
 
   it('exposes public volunteer controls for pause, resources, startup, version, and local data removal', () => {
@@ -47,6 +49,8 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('download-status');
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');
+    expect(html).toContain('This model is not downloaded yet. Download it before applying it to the worker.');
+    expect(html).toContain("finalStatus?.status === 'succeeded'");
   });
 
   it('offers actionable worker activity troubleshooting', () => {
