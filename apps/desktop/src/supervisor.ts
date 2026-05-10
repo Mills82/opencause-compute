@@ -25,6 +25,14 @@ export type WorkerSupervisorConfig = {
   };
 };
 
+export type WorkerSessionStats = {
+  submitted: number;
+  failures: number;
+  claims: number;
+  successRatePercent: number | null;
+  averageSecondsPerSubmittedPacket: number | null;
+};
+
 export type WorkerRuntimeStatus = {
   configured: boolean;
   registered: boolean;
@@ -40,6 +48,7 @@ export type WorkerRuntimeStatus = {
   lastExitedAt?: string;
   runStartedAt?: string;
   packetsCompletedThisRun: number;
+  stats: WorkerSessionStats;
 };
 
 export type WorkerActivitySummary = {
@@ -86,7 +95,8 @@ export class WorkerSupervisor {
       lastStartedAt: this.lastStartedAt,
       lastExitedAt: this.lastExitedAt,
       runStartedAt: this.runStartedAt,
-      packetsCompletedThisRun: this.packetsCompletedThisRun
+      packetsCompletedThisRun: this.packetsCompletedThisRun,
+      stats: this.sessionStats()
     };
   }
 
@@ -114,6 +124,21 @@ export class WorkerSupervisor {
     }
 
     return args;
+  }
+
+  private sessionStats(): WorkerSessionStats {
+    const content = existsSync(path.join(this.config.appDir, 'worker.log')) ? readFileSync(path.join(this.config.appDir, 'worker.log'), 'utf8') : '';
+    const since = this.runStartedAt ? new Date(this.runStartedAt).getTime() : 0;
+    const lines = content.split(/\r?\n/).filter(Boolean).filter((line) => {
+      const match = line.match(/^\[([^\]]+)\]/);
+      return !since || (match ? new Date(match[1]).getTime() >= since : true);
+    });
+    const submitted = lines.filter((line) => line.includes('submitted result')).length;
+    const failures = lines.filter((line) => line.includes('run failed') || line.includes('reported failed claim packet')).length;
+    const claims = lines.filter((line) => line.includes('claimed packet')).length;
+    const successRatePercent = submitted + failures > 0 ? Math.round((submitted / (submitted + failures)) * 100) : null;
+    const averageSecondsPerSubmittedPacket = submitted > 0 && this.runStartedAt ? Math.round((Date.now() - new Date(this.runStartedAt).getTime()) / 1000 / submitted) : null;
+    return { submitted, failures, claims, successRatePercent, averageSecondsPerSubmittedPacket };
   }
 
   private workerEnv(): NodeJS.ProcessEnv {
@@ -311,6 +336,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
   const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
   const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal '));
+  const latestIdleBlock = [...parsed].reverse().find((entry) => entry.message.includes('idle gate blocked'));
   const latestFailedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported failed claim packet'));
   const packetId = latestClaim?.message.match(/claimed packet\s+([^\s]+)/)?.[1];
 
@@ -324,9 +350,9 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
       packetId
     };
   }
-  if (latest?.message.includes('idle gate blocked')) {
-    const reason = latest.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
-    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latest.at };
+  if (latestIdleBlock && (!latestSubmitted || (latestIdleBlock.at ?? '') > (latestSubmitted.at ?? '')) && (!latestFailure || (latestIdleBlock.at ?? '') > (latestFailure.at ?? ''))) {
+    const reason = latestIdleBlock.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
+    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latestIdleBlock.at };
   }
   if (latestFailedReport && (!latestSubmitted || (latestFailedReport.at ?? '') > (latestSubmitted.at ?? ''))) {
     const packetIdFromReport = latestFailedReport.message.match(/reported failed claim packet\s+([^\s]+)/)?.[1];

@@ -11,8 +11,9 @@ describe('desktop static first-run UI', () => {
     expect(html).not.toContain('prototype button');
   });
 
-  it('warns that large or experimental models require opt-in', () => {
-    expect(html).toContain('Advanced model requires explicit opt-in');
+  it('warns before downloading large or experimental models', () => {
+    expect(html).toContain('Download advanced model');
+    expect(html).toContain('It may require a powerful PC, lots of memory, and a long download. Continue?');
   });
 
   it('exposes public volunteer controls for pause, resources, startup, version, and local data removal', () => {

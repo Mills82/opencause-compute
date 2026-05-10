@@ -15,4 +15,8 @@ describe('desktop model runtime', () => {
     await expect(pullOllamaModel('llama3.3:70b')).rejects.toThrow('large_model_requires_advanced_confirmation');
     await expect(pullOllamaModel('llama4:scout')).rejects.toThrow('experimental_model_requires_advanced_confirmation');
   });
+
+  it('allows advanced pulls after explicit desktop confirmation', async () => {
+    await expect(pullOllamaModel('llama3.3:70b', true)).rejects.not.toThrow('large_model_requires_advanced_confirmation');
+  });
 });

@@ -199,6 +199,8 @@
               <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
               <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed this run</p></div>
               <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resource eligibility</p></div>
+              <div class="stat-card"><strong id="dashboard-success-rate">—</strong><p class="small">Completion success rate</p></div>
+              <div class="stat-card"><strong id="dashboard-average-seconds">—</strong><p class="small">Avg seconds / submitted packet</p></div>
             </div>
             <p id="dashboard-hint" class="small">OpenCause will run when your resource settings allow it. Advanced details are available if something looks wrong.</p>
             <div class="dashboard-actions">
@@ -274,6 +276,8 @@
       const settingsStepTitle = document.getElementById('settings-step-title');
       const dashboardWork = document.getElementById('dashboard-work');
       const dashboardEligible = document.getElementById('dashboard-eligible');
+      const dashboardSuccessRate = document.getElementById('dashboard-success-rate');
+      const dashboardAverageSeconds = document.getElementById('dashboard-average-seconds');
       const dashboardIdle = document.getElementById('dashboard-idle');
       const dashboardCpu = document.getElementById('dashboard-cpu');
       const dashboardGpu = document.getElementById('dashboard-gpu');
@@ -356,6 +360,9 @@
         }
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
         dashboardWork.textContent = String(latestState?.runtime?.packetsCompletedThisRun ?? 0);
+        const stats = latestState?.runtime?.stats;
+        if (dashboardSuccessRate) dashboardSuccessRate.textContent = stats?.successRatePercent === null || stats?.successRatePercent === undefined ? '—' : `${stats.successRatePercent}%`;
+        if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
         dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
         if (dashboardIdle) dashboardIdle.textContent = resources ? (resources.userIdleSeconds === null ? 'Unavailable' : `${resources.userIdleSeconds}s / ${resources.minIdleSeconds}s`) : '—';
@@ -413,8 +420,9 @@
         modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
         const runtimeAvailable = Boolean(latestState.modelRuntime.available);
         const installed = selectedModelInstalled();
-        pullButton.disabled = !runtimeAvailable || model.tier === 'large' || model.tier === 'experimental' || installed;
-        pullButton.textContent = installed ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : (pullButton.disabled ? 'Advanced model requires explicit opt-in' : 'Download selected model');
+        const advanced = model.tier === 'large' || model.tier === 'experimental';
+        pullButton.disabled = !runtimeAvailable || installed;
+        pullButton.textContent = installed ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : advanced ? 'Download advanced model...' : 'Download selected model';
       }
 
       function startOllamaPolling(message = 'Checking for Ollama installation...') {
@@ -571,6 +579,9 @@
         if (!latestState?.modelRuntime?.available) { output.textContent = 'Install Ollama first, then click Check again before downloading a model.'; return; }
         downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
         try {
+          const selected = latestState?.modelRuntime?.approvedModels?.find(candidate => candidate.id === model);
+          const advanced = selected && (selected.tier === 'large' || selected.tier === 'experimental');
+          if (advanced && !confirm(`${selected.label} is a ${selected.estimatedDownload} advanced model. It may require a powerful PC, lots of memory, and a long download. Continue?`)) return;
           const status = await api.startModelDownload(model);
           downloadStatus.textContent = `Downloading model...\n${status.lastMessage || ''}`;
           output.textContent = JSON.stringify(status, null, 2);

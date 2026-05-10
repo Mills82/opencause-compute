@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, type BrowserWindow as BrowserWindowType } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDesktopViewModel } from './view-model.js';
@@ -24,6 +24,21 @@ function resolveStaticIndex(): string {
 const workerEntry = resolveWorkerEntry();
 let cachedSupervisor: WorkerSupervisor | null = null;
 let cachedSupervisorKey = '';
+let mainWindow: BrowserWindowType | null = null;
+let tray: Tray | null = null;
+
+function ensureTray(win: BrowserWindowType) {
+  if (tray) return;
+  const iconPath = path.join(__dirname, 'static', 'assets', 'icon.png');
+  const image = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(image);
+  tray.setToolTip('OpenCause Compute Worker');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show OpenCause Compute', click: () => { win.show(); win.focus(); } },
+    { label: 'Quit', click: () => { app.quit(); } }
+  ]));
+  tray.on('click', () => { win.show(); win.focus(); });
+}
 
 async function createWindow() {
   const settings = await loadDesktopSettings(appDir);
@@ -39,8 +54,16 @@ async function createWindow() {
     }
   });
 
+  mainWindow = win;
+  ensureTray(win);
+  win.on('close', (event) => {
+    if (!(app as typeof app & { isQuitting?: boolean }).isQuitting) {
+      event.preventDefault();
+      win.hide();
+    }
+  });
   await win.loadFile(resolveStaticIndex());
-  if (settings.startMinimized) win.minimize();
+  if (settings.startMinimized) win.hide();
   if (settings.autoStartWorker && !settings.localPaused && settings.resourceControls.schedule !== 'manual') {
     void supervisor().then((sup) => sup.startLoop());
   }
@@ -140,11 +163,11 @@ ipcMain.handle('desktop:register-worker', async (_event: unknown, enrollmentCode
 });
 ipcMain.handle('desktop:pull-model', async (_event: unknown, model: unknown) => {
   if (typeof model !== 'string') throw new Error('model_required');
-  return pullOllamaModel(model);
+  return pullOllamaModel(model, true);
 });
 ipcMain.handle('desktop:start-model-download', async (_event: unknown, model: unknown) => {
   if (typeof model !== 'string') throw new Error('model_required');
-  return startOllamaModelDownload(model);
+  return startOllamaModelDownload(model, true);
 });
 ipcMain.handle('desktop:model-download-status', async (_event: unknown, id: unknown) => {
   if (typeof id !== 'string') throw new Error('download_id_required');
@@ -157,9 +180,11 @@ ipcMain.handle('desktop:open-external', async (_event: unknown, url: unknown) =>
 });
 
 app.whenReady().then(createWindow);
+app.on('before-quit', () => { (app as typeof app & { isQuitting?: boolean }).isQuitting = true; });
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // Keep running in the tray unless the user explicitly quits.
 });
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+  if (mainWindow) { mainWindow.show(); mainWindow.focus(); return; }
+  void createWindow();
 });

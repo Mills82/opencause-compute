@@ -133,11 +133,11 @@ export async function modelRuntimeStatus(selectedModel = DEFAULT_LOCAL_MODEL): P
   };
 }
 
-export async function pullOllamaModel(model: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+export async function pullOllamaModel(model: string, allowAdvanced = false): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const approved = approvedModel(model);
   if (!approved) throw new Error(`model_not_approved:${model}`);
-  if (approved.tier === 'large') throw new Error(`large_model_requires_advanced_confirmation:${model}`);
-  if (approved.tier === 'experimental') throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
+  if (approved.tier === 'large' && !allowAdvanced) throw new Error(`large_model_requires_advanced_confirmation:${model}`);
+  if (approved.tier === 'experimental' && !allowAdvanced) throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
   const command = await ollamaCommand();
   if (!command) throw new Error('ollama_not_available');
   return run(command, ['pull', model], 30 * 60_000);
@@ -151,11 +151,11 @@ function lastNonEmptyLine(value: string): string {
   return value.split(/\n/).map(compactProgressLine).filter(Boolean).at(-1) ?? '';
 }
 
-export async function startOllamaModelDownload(model: string): Promise<ModelDownloadStatus> {
+export async function startOllamaModelDownload(model: string, allowAdvanced = false): Promise<ModelDownloadStatus> {
   const approved = approvedModel(model);
   if (!approved) throw new Error(`model_not_approved:${model}`);
-  if (approved.tier === 'large') throw new Error(`large_model_requires_advanced_confirmation:${model}`);
-  if (approved.tier === 'experimental') throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
+  if (approved.tier === 'large' && !allowAdvanced) throw new Error(`large_model_requires_advanced_confirmation:${model}`);
+  if (approved.tier === 'experimental' && !allowAdvanced) throw new Error(`experimental_model_requires_advanced_confirmation:${model}`);
 
   const existing = [...downloads.values()].find((download) => download.model === model && download.status === 'running');
   if (existing) return publicDownloadStatus(existing);
