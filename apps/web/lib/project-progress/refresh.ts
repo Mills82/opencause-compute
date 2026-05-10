@@ -9,7 +9,7 @@ export const PROGRESS_ESTIMATE_METHOD = 'pmc_open_access_documents_times_mean_pa
 export function computePacketEstimateInputs(db: DatabaseState) {
   const completedRuns = db.ingestionRuns.filter((run) =>
     (run.status === 'completed' || run.status === 'partial_failed')
-    && (run.sourceType === 'pmc_oa_full_text' || run.sourceType === 'combined')
+    && run.sourceType === 'pmc_oa_full_text'
   );
   const ingestedDocumentCount = completedRuns.reduce((total, run) => total + run.fetchedCount, 0);
   const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated, 0);

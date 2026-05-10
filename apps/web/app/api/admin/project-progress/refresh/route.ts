@@ -10,7 +10,7 @@ const PROJECT_NAME = 'Cancer Knowledge Miner';
 const PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed facts.';
 
 function queryFromEnv() {
-  return process.env.CKM_CORPUS_QUERY ?? process.env.CRON_PMC_OA_QUERY ?? DEFAULT_CKM_QUERY;
+  return process.env.CKM_CORPUS_QUERY ?? DEFAULT_CKM_QUERY;
 }
 
 async function refreshProjectProgress() {
