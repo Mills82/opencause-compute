@@ -13,6 +13,10 @@ export async function getDashboardData() {
     queuedCount: db.workPackets.filter((p) => p.status === 'queued').length,
     claimedPacketCount: db.workPackets.filter((p) => p.status === 'claimed').length,
     completedPacketCount: db.workPackets.filter((p) => p.status === 'completed').length,
+    availableToFirstPassCount: db.workPackets.filter((p) => p.status === 'queued' && !db.results.some((r) => r.workPacketId === p.id)).length,
+    awaitingIndependentValidationCount: db.workPackets.filter((p) => p.status === 'queued' && db.results.some((r) => r.workPacketId === p.id) && !db.results.some((r) => r.workPacketId === p.id && r.consensusStatus === 'consensus_passed')).length,
+    fullyConsensusCompletedCount: db.workPackets.filter((p) => db.results.some((r) => r.workPacketId === p.id && r.consensusStatus === 'consensus_passed')).length,
+    failedOrNeedsReviewPacketCount: db.workPackets.filter((p) => db.results.some((r) => r.workPacketId === p.id && (!(r.formatValidated ?? r.validated) || r.reviewStatus === 'needs_human_review'))).length,
     activeClaimCount: db.claims.filter((claim) => claim.status === 'claimed').length,
     expiredClaimCount: db.claims.filter((claim) => claim.status === 'expired').length,
     nodeCount: db.nodes.length,
@@ -70,7 +74,17 @@ export async function getProjectById(projectId: string) {
 
 export async function getWorkPackets() {
   const db = await loadDb();
-  return db.workPackets;
+  return db.workPackets.map((packet) => {
+    const results = db.results.filter((result) => result.workPacketId === packet.id);
+    const displayStatus = results.some((result) => result.consensusStatus === 'consensus_passed')
+      ? 'fully_consensus_completed'
+      : packet.status === 'queued' && results.length > 0
+        ? 'awaiting_independent_validation'
+        : packet.status === 'queued'
+          ? 'available_to_first_pass_workers'
+          : packet.status;
+    return { ...packet, resultCount: results.length, displayStatus };
+  });
 }
 
 export async function getResults() {

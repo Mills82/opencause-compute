@@ -8,6 +8,10 @@ export default async function AdminDashboardPage() {
   const cards = [
     ['Projects', data.projectCount],
     ['Queued packets', data.queuedCount],
+    ['Available first-pass', data.availableToFirstPassCount],
+    ['Awaiting independent validation', data.awaitingIndependentValidationCount],
+    ['Consensus completed packets', data.fullyConsensusCompletedCount],
+    ['Failed/needs review packets', data.failedOrNeedsReviewPacketCount],
     ['Claimed packets', data.claimedPacketCount],
     ['Completed packets', data.completedPacketCount],
     ['Active claims', data.activeClaimCount],
@@ -58,7 +62,8 @@ export default async function AdminDashboardPage() {
             <div><dt className="text-white">Private key parse</dt><dd>{String(data.signingDiagnostics.privateKeyParseOk)}</dd></div>
             <div><dt className="text-white">Public key parse</dt><dd>{String(data.signingDiagnostics.publicKeyParseOk)}</dd></div>
             <div><dt className="text-white">Key-pair verify</dt><dd>{String(data.signingDiagnostics.keyPairVerifyOk)}</dd></div>
-            <div><dt className="text-white">Queued packets</dt><dd>{data.queuedCount}</dd></div>
+            <div><dt className="text-white">Available first-pass</dt><dd>{data.availableToFirstPassCount}</dd></div>
+            <div><dt className="text-white">Awaiting independent validation</dt><dd>{data.awaitingIndependentValidationCount}</dd></div>
             <div><dt className="text-white">Last ingestion failures</dt><dd>{data.failedIngestionRunCount}</dd></div>
           </dl>
           {data.signingDiagnostics.error ? <p className="mt-3 text-sm text-red-300">Signing diagnostic error: {data.signingDiagnostics.error}</p> : null}
