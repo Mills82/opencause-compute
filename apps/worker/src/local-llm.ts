@@ -156,6 +156,9 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
     if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return null;
     const evidenceContext = optionalString(claim.evidenceContext);
+    const charStart = optionalNumber(claim.charStart);
+    const rawCharEnd = optionalNumber(claim.charEnd);
+    const charEnd = charStart !== undefined && rawCharEnd !== undefined && rawCharEnd > charStart ? rawCharEnd : undefined;
     const normalized: ExtractedClaim = {
       claimType: optionalEnum(claim.claimType, ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','studied_with','unclear'] as const, 'unclear'),
       evidenceOrigin: optionalEnum(claim.evidenceOrigin, ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const, 'unclear'),
@@ -182,8 +185,8 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
       sectionType: optionalEnum(claim.sectionType, ['abstract','introduction','methods','results','discussion','conclusion','figure_table','supplement','unknown'] as const, 'unknown'),
       paragraphIndex: optionalNumber(claim.paragraphIndex),
       sentenceIndex: optionalNumber(claim.sentenceIndex),
-      charStart: optionalNumber(claim.charStart),
-      charEnd: optionalNumber(claim.charEnd),
+      charStart: charEnd === undefined ? undefined : charStart,
+      charEnd,
       exactEvidenceSentence,
       evidenceContext: evidenceContext && (!sourceText || sourceText.includes(evidenceContext)) ? evidenceContext : undefined,
       confidence: confidence(claim.confidence)
