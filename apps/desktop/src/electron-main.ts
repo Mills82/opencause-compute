@@ -223,7 +223,7 @@ async function createWindow() {
     minHeight: 700,
     title: 'OpenCause Compute Worker',
     webPreferences: {
-      preload: path.join(__dirname, 'electron-preload.js'),
+      preload: path.join(__dirname, 'electron-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true

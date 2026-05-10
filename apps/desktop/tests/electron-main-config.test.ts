@@ -8,7 +8,7 @@ describe('electron main window config', () => {
     expect(source).toContain('contextIsolation: true');
     expect(source).toContain('nodeIntegration: false');
     expect(source).toContain('sandbox: true');
-    expect(source).toContain("preload: path.join(__dirname, 'electron-preload.js')");
+    expect(source).toContain("preload: path.join(__dirname, 'electron-preload.cjs')");
   });
 
   it('validates IPC senders and high-risk payloads in the main process', () => {
