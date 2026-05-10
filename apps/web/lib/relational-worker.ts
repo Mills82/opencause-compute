@@ -36,6 +36,9 @@ function iso(value: string | Date | null | undefined): string | null {
 }
 
 function packetPayloadFromRow(row: any): WorkPacketPayload {
+  if (row.signed_payload && typeof row.signed_payload === 'object') {
+    return workPacketPayloadSchema.parse(row.signed_payload);
+  }
   return workPacketPayloadSchema.parse({
     id: row.id,
     projectId: row.project_id,
