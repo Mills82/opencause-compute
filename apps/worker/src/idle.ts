@@ -20,9 +20,11 @@ export type IdleMetrics = {
 
 export type IdleDecision = {
   eligible: boolean;
-  reason: 'ok' | 'high_cpu' | 'user_not_idle' | 'user_idle_unavailable';
+  reason: 'ok' | 'high_cpu' | 'user_not_idle' | 'user_idle_unavailable' | 'on_battery';
   metrics: IdleMetrics;
 };
+
+export type BatteryStatus = { available: boolean; onBattery: boolean };
 
 type CpuTimes = { idle: number; total: number };
 
@@ -146,4 +148,32 @@ export async function getUserIdleSeconds(): Promise<number | null> {
 export async function checkHostIdle(config: IdleConfig): Promise<IdleDecision> {
   const [cpuPercent, userIdleSeconds] = await Promise.all([sampleCpuPercent(config.sampleMs), getUserIdleSeconds()]);
   return decideIdleEligibility({ cpuPercent, userIdleSeconds }, config);
+}
+
+export async function getBatteryStatus(): Promise<BatteryStatus> {
+  if (process.env.FORCE_ON_BATTERY === 'true') return { available: true, onBattery: true };
+  if (process.env.FORCE_ON_BATTERY === 'false') return { available: true, onBattery: false };
+  if (process.platform === 'linux') {
+    const output = await runCommand('sh', ['-lc', "for f in /sys/class/power_supply/AC*/online /sys/class/power_supply/ADP*/online; do [ -f \"$f\" ] && cat \"$f\" && exit 0; done; true"]);
+    if (output === '0') return { available: true, onBattery: true };
+    if (output === '1') return { available: true, onBattery: false };
+  }
+  if (process.platform === 'darwin') {
+    const output = await runCommand('pmset', ['-g', 'batt']);
+    if (output) return { available: true, onBattery: /Battery Power/i.test(output) };
+  }
+  if (process.platform === 'win32') {
+    const output = await runCommand('powershell', ['-NoProfile', '-Command', '(Get-CimInstance Win32_Battery | Select-Object -First 1 -ExpandProperty BatteryStatus)']);
+    const status = Number(output);
+    if (Number.isFinite(status)) return { available: true, onBattery: status === 1 };
+  }
+  return { available: false, onBattery: false };
+}
+
+export async function checkBatteryPolicy(runOnBattery: boolean): Promise<IdleDecision | null> {
+  const battery = await getBatteryStatus();
+  if (!runOnBattery && battery.available && battery.onBattery) {
+    return { eligible: false, reason: 'on_battery', metrics: { cpuPercent: 0, userIdleSeconds: null } };
+  }
+  return null;
 }

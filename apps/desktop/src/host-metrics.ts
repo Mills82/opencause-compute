@@ -73,13 +73,16 @@ export async function getUserIdleSeconds(): Promise<number | null> {
 }
 
 export async function resourceStatus(settings: DesktopSettings) {
-  const [cpuPercent, userIdleSeconds] = await Promise.all([sampleCpuPercent(), getUserIdleSeconds()]);
+  const [cpuPercent, userIdleSeconds, battery] = await Promise.all([sampleCpuPercent(), getUserIdleSeconds(), batteryStatus()]);
   const controls = settings.resourceControls;
   const userIdleOk = controls.schedule === 'always' || controls.idleMode === 'cpu-only' || (userIdleSeconds !== null && userIdleSeconds >= controls.minIdleSeconds);
   const cpuOk = cpuPercent <= controls.maxCpuPercent;
-  const eligible = controls.schedule !== 'manual' && userIdleOk && cpuOk;
+  const batteryOk = controls.runOnBattery || !battery.onBattery;
+  const eligible = controls.schedule !== 'manual' && userIdleOk && cpuOk && batteryOk;
   const reason = controls.schedule === 'manual'
     ? 'manual_schedule'
+    : !batteryOk
+      ? 'on_battery'
     : !cpuOk
       ? 'high_cpu'
       : !userIdleOk
@@ -93,10 +96,31 @@ export async function resourceStatus(settings: DesktopSettings) {
     minIdleSeconds: controls.minIdleSeconds,
     cpuPercent,
     maxCpuPercent: controls.maxCpuPercent,
+    battery,
     eligible,
     reason,
     gpu
   };
+}
+
+export async function batteryStatus(): Promise<{ available: boolean; onBattery: boolean }> {
+  if (process.env.FORCE_ON_BATTERY === 'true') return { available: true, onBattery: true };
+  if (process.env.FORCE_ON_BATTERY === 'false') return { available: true, onBattery: false };
+  if (process.platform === 'win32') {
+    const output = await runCommand('powershell', ['-NoProfile', '-Command', '(Get-CimInstance Win32_Battery | Select-Object -First 1 -ExpandProperty BatteryStatus)']);
+    const status = Number(output);
+    if (Number.isFinite(status)) return { available: true, onBattery: status === 1 };
+  }
+  if (process.platform === 'darwin') {
+    const output = await runCommand('pmset', ['-g', 'batt']);
+    if (output) return { available: true, onBattery: /Battery Power/i.test(output) };
+  }
+  if (process.platform === 'linux') {
+    const output = await runCommand('sh', ['-lc', "for f in /sys/class/power_supply/AC*/online /sys/class/power_supply/ADP*/online; do [ -f \"$f\" ] && cat \"$f\" && exit 0; done; true"]);
+    if (output === '0') return { available: true, onBattery: true };
+    if (output === '1') return { available: true, onBattery: false };
+  }
+  return { available: false, onBattery: false };
 }
 
 export async function gpuStatus(): Promise<{ available: boolean; name?: string; utilizationPercent?: number; memoryUsedMiB?: number; memoryTotalMiB?: number; temperatureC?: number; source?: string; message?: string }> {

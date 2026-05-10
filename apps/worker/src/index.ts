@@ -11,7 +11,7 @@ import {
   type WorkerControlConfig
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
-import { checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
+import { checkBatteryPolicy, checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
 import { LOCAL_LLM_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
@@ -90,6 +90,10 @@ function readIdleConfig(): IdleConfig {
     maxCpuPercent: Number.isFinite(maxCpuPercent) ? maxCpuPercent : 35,
     sampleMs: Number.isFinite(sampleMs) ? sampleMs : 800
   };
+}
+
+function runOnBatteryAllowed(): boolean {
+  return arg('--run-on-battery', process.env.RUN_ON_BATTERY ?? 'false') === 'true';
 }
 
 function toIdleConfigFromControl(config: WorkerControlConfig): IdleConfig {
@@ -270,7 +274,8 @@ function buildProvenance(
 async function extractFromPacket(
   packet: WorkPacketPayload,
   extractorMode: ExtractorMode,
-  mockAllowed: boolean
+  mockAllowed: boolean,
+  signal?: AbortSignal
 ): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
   if (packet.extractor === 'mock-extractor-v1') {
@@ -288,7 +293,7 @@ async function extractFromPacket(
     throw new Error('packet_requires_local_llm');
   }
 
-  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig);
+  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig, signal);
   return {
     extractorVersion: 'Local LLM v1',
     result,
@@ -305,6 +310,11 @@ async function runOnce(
   bypassIdleGate = false,
   failureAttempts: Map<string, number> = new Map()
 ): Promise<void> {
+  const batteryBlock = await checkBatteryPolicy(runOnBatteryAllowed());
+  if (batteryBlock) {
+    await log('battery policy blocked run reason=on_battery');
+    return;
+  }
   if (!bypassIdleGate) {
     const idleDecision = await checkHostIdle(idleConfig);
     if (!idleDecision.eligible) {
@@ -333,6 +343,12 @@ async function runOnce(
   }
 
   await log(`signature verified for packet ${claimed.packet.id}`);
+  const postClaimBatteryBlock = await checkBatteryPolicy(runOnBatteryAllowed());
+  if (postClaimBatteryBlock) {
+    await log('battery policy changed after claim reason=on_battery; releasing claim');
+    await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, 'on_battery', 'released');
+    return;
+  }
   if (!bypassIdleGate) {
     const beforeExtractIdleDecision = await checkHostIdle(idleConfig);
     if (!beforeExtractIdleDecision.eligible) {
@@ -343,12 +359,30 @@ async function runOnce(
       return;
     }
   }
+  const controller = new AbortController();
+  const watchdog = setInterval(async () => {
+    try {
+      const control = await getControlConfig(server);
+      if (control.paused) controller.abort(new Error('cancelled:paused'));
+      const battery = await checkBatteryPolicy(runOnBatteryAllowed());
+      if (battery) controller.abort(new Error('cancelled:on_battery'));
+      if (!bypassIdleGate) {
+        const idle = await checkHostIdle(idleConfig);
+        if (!idle.eligible) controller.abort(new Error(`cancelled:${idle.reason}`));
+      }
+    } catch {}
+  }, Math.max(1000, Number(process.env.CANCELLATION_POLL_MS ?? '5000')));
   try {
-    const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
+    const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed, controller.signal);
     await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
     failureAttempts.delete(claimed.packet.id);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    if (reason.startsWith('cancelled:')) {
+      await log(`generation cancelled for packet ${claimed.packet.id} reason=${reason}`);
+      await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, reason.replace(/^cancelled:/, ''), 'released');
+      return;
+    }
     const attempts = (failureAttempts.get(claimed.packet.id) ?? 0) + 1;
     failureAttempts.set(claimed.packet.id, attempts);
     if (attempts >= 2) {
@@ -364,6 +398,8 @@ async function runOnce(
       failureAttempts.delete(claimed.packet.id);
     }
     throw error;
+  } finally {
+    clearInterval(watchdog);
   }
 }
 

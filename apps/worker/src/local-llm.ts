@@ -139,18 +139,23 @@ export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): 
   });
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, externalSignal?: AbortSignal): Promise<Response> {
   const controller = new AbortController();
+  const abortFromExternal = () => controller.abort(externalSignal?.reason ?? new Error('local_llm_cancelled'));
+  if (externalSignal?.aborted) abortFromExternal();
+  externalSignal?.addEventListener('abort', abortFromExternal, { once: true });
   const timer = setTimeout(() => controller.abort(new Error(`local_llm_timeout:${timeoutMs}`)), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (controller.signal.aborted) {
+      if (externalSignal?.aborted) throw externalSignal.reason instanceof Error ? externalSignal.reason : new Error('local_llm_cancelled');
       throw new Error(`local_llm_timeout:${timeoutMs}`);
     }
     throw error;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', abortFromExternal);
   }
 }
 
@@ -170,7 +175,7 @@ export function localLlmPromptHash(): string {
   return hashText(extractionPrompt('{{sourceText}}'));
 }
 
-export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig): Promise<ResultPayload> {
+export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal): Promise<ResultPayload> {
   const response = await fetchWithTimeout(
     `${config.endpoint}/api/generate`,
     {
@@ -184,7 +189,8 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
         options: config.options
       })
     },
-    config.timeoutMs
+    config.timeoutMs,
+    signal
   );
 
   if (!response.ok) {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { decideIdleEligibility, type IdleConfig } from '../src/idle';
 
 const config: IdleConfig = {
@@ -62,5 +62,18 @@ describe('idle policy', () => {
 
     expect(decision.eligible).toBe(true);
     expect(decision.reason).toBe('ok');
+  });
+});
+
+describe('battery policy', () => {
+  const oldEnv = { ...process.env };
+  afterEach(() => { process.env = { ...oldEnv }; });
+
+  it('blocks work when battery policy disallows battery power', async () => {
+    const { checkBatteryPolicy } = await import('../src/idle');
+    process.env.FORCE_ON_BATTERY = 'true';
+    const decision = await checkBatteryPolicy(false);
+    expect(decision?.eligible).toBe(false);
+    expect(decision?.reason).toBe('on_battery');
   });
 });

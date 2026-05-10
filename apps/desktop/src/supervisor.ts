@@ -17,6 +17,7 @@ export type WorkerSupervisorConfig = {
     idleMode: 'user-and-cpu' | 'cpu-only';
     minIdleSeconds: number;
     maxCpuPercent: number;
+    runOnBattery?: boolean;
     schedule: 'always' | 'idle-only' | 'manual';
   };
   modelRuntime?: {
@@ -111,6 +112,7 @@ export class WorkerSupervisor {
       args.push('--idle-mode', controls.schedule === 'always' ? 'cpu-only' : controls.idleMode);
       args.push('--min-idle-seconds', String(controls.schedule === 'always' ? 0 : controls.minIdleSeconds));
       args.push('--max-cpu-percent', String(controls.maxCpuPercent));
+      args.push('--run-on-battery', String(Boolean(controls.runOnBattery)));
     }
 
     if (command.kind === 'register') {
@@ -353,6 +355,8 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
     if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: message, severity: 'ready' };
     if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: message, severity: 'ready' };
     if (message.includes('reported released claim')) return { at, kind: 'claim_released', label: 'Released claim', detail: message, severity: 'warning' };
+    if (message.includes('generation cancelled')) return { at, kind: 'claim_released', label: 'Released because resource policy changed', detail: message, severity: 'warning' };
+    if (message.includes('battery policy')) return { at, kind: 'blocked_battery', label: 'Waiting for AC power', detail: message, severity: 'warning' };
     if (message.includes('reported failed claim')) return { at, kind: 'claim_failed', label: 'Reported failed claim', detail: message, severity: 'warning' };
     if (message.includes('idle gate blocked')) return { at, kind: 'blocked_resources', label: 'Waiting for resources', detail: message, severity: 'warning' };
     if (message.includes('run failed') || message.includes('fatal ')) return { at, kind: 'worker_error', label: 'Worker error', detail: message, severity: 'blocked' };
