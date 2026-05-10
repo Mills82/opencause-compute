@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('opencauseDesktop', {
   runNow: () => ipcRenderer.invoke('desktop:run-now'),
   pauseWorker: () => ipcRenderer.invoke('desktop:pause-worker'),
   stopWorker: () => ipcRenderer.invoke('desktop:stop-worker'),
-  uninstallLocalState: () => ipcRenderer.invoke('desktop:uninstall-local-state'),
+  uninstallLocalState: () => ipcRenderer.invoke('desktop:uninstall-local-state', { confirmed: true }),
   tailLog: () => ipcRenderer.invoke('desktop:tail-log'),
   diagnostics: () => ipcRenderer.invoke('desktop:diagnostics'),
   registerWorker: (enrollmentCode: string) => ipcRenderer.invoke('desktop:register-worker', enrollmentCode),

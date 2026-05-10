@@ -7,8 +7,18 @@ describe('electron main window config', () => {
   it('keeps the packaged preload bridge available with context isolation', () => {
     expect(source).toContain('contextIsolation: true');
     expect(source).toContain('nodeIntegration: false');
-    expect(source).toContain('sandbox: false');
+    expect(source).toContain('sandbox: true');
     expect(source).toContain("preload: path.join(__dirname, 'electron-preload.js')");
+  });
+
+  it('validates IPC senders and high-risk payloads in the main process', () => {
+    expect(source).toContain('function assertTrustedIpc');
+    expect(source).toContain('validateSettingsUpdate(update)');
+    expect(source).toContain('validateEnrollmentCode(enrollmentCode)');
+    expect(source).toContain('validateModelName(model)');
+    expect(source).toContain('validateExternalUrl(url)');
+    expect(source).toContain('validateUninstallConfirmation(confirmation)');
+    expect(source).toContain('dialog.showMessageBox');
   });
 
   it('uses a dashboard-sized window and custom desktop menus', () => {

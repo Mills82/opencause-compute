@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -77,7 +77,9 @@ describe('worker supervisor contract', () => {
   });
 
   it('removes local worker state for uninstall cleanup', async () => {
-    const appDir = await mkdtemp(path.join(os.tmpdir(), 'occ-worker-state-'));
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'occ-worker-state-'));
+    const appDir = path.join(parent, 'opencause-worker');
+    await mkdir(appDir);
     await writeFile(path.join(appDir, 'node.json'), '{}');
     const localSupervisor = new WorkerSupervisor({
       workerEntry: '/tmp/worker.js',
@@ -85,9 +87,19 @@ describe('worker supervisor contract', () => {
       coordinatorUrl: 'https://opencause.appassist.ai'
     });
 
-    const status = await localSupervisor.uninstallLocalState();
+    const status = await localSupervisor.uninstallLocalState(parent);
     expect(status.running).toBe(false);
     expect(status.configured).toBe(false);
+  });
+
+  it('rejects unsafe local-state removal paths', async () => {
+    const localSupervisor = new WorkerSupervisor({
+      workerEntry: '/tmp/worker.js',
+      appDir: os.tmpdir(),
+      coordinatorUrl: 'https://opencause.appassist.ai'
+    });
+
+    await expect(localSupervisor.uninstallLocalState(os.tmpdir())).rejects.toThrow('unsafe_uninstall_path');
   });
 
   it('summarizes a claimed packet running through local model extraction', () => {

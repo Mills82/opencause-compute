@@ -328,9 +328,17 @@ export class WorkerSupervisor {
     return redacted.length <= maxBytes ? redacted : redacted.slice(redacted.length - maxBytes);
   }
 
-  async uninstallLocalState(): Promise<WorkerRuntimeStatus> {
+  async uninstallLocalState(userDataDir?: string): Promise<WorkerRuntimeStatus> {
     this.stop();
-    await rm(this.config.appDir, { recursive: true, force: true });
+    const target = path.resolve(this.config.appDir);
+    if (path.basename(target) !== 'opencause-worker') throw new Error('unsafe_uninstall_path');
+    if (target === path.parse(target).root || target === os.homedir()) throw new Error('unsafe_uninstall_path');
+    if (userDataDir) {
+      const allowedParent = path.resolve(userDataDir);
+      const relative = path.relative(allowedParent, target);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('unsafe_uninstall_path');
+    }
+    await rm(target, { recursive: true, force: true });
     return this.status();
   }
 }

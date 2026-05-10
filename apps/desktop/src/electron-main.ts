@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, type BrowserWindow as BrowserWindowType, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, dialog, type BrowserWindow as BrowserWindowType, type MenuItemConstructorOptions, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDesktopViewModel } from './view-model.js';
@@ -26,6 +26,112 @@ let cachedSupervisor: WorkerSupervisor | null = null;
 let cachedSupervisorKey = '';
 let mainWindow: BrowserWindowType | null = null;
 let tray: Tray | null = null;
+
+function assertTrustedIpc(event: IpcMainInvokeEvent) {
+  if (mainWindow && event.sender.id !== mainWindow.webContents.id) throw new Error('untrusted_ipc_sender');
+  const url = event.senderFrame?.url ?? '';
+  if (!url.startsWith('file://') || !url.endsWith('/index.html')) throw new Error('untrusted_ipc_origin');
+}
+
+function assertPlainObject(value: unknown): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_payload');
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'boolean') throw new Error(`invalid_${field}`);
+  return value;
+}
+
+function optionalNumber(value: unknown, field: string, min: number, max: number): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) throw new Error(`invalid_${field}`);
+  return Math.round(value);
+}
+
+function optionalEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]): T | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !allowed.includes(value as T)) throw new Error(`invalid_${field}`);
+  return value as T;
+}
+
+function withoutUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>;
+}
+
+function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
+  assertPlainObject(update);
+  const allowed = new Set(['coordinatorUrl', 'localPaused', 'startupOnLogin', 'startMinimized', 'autoStartWorker', 'setupCompletedAt', 'resourceControls', 'modelRuntime']);
+  for (const key of Object.keys(update)) if (!allowed.has(key)) throw new Error(`unknown_setting_${key}`);
+  const next: Partial<DesktopSettings> = {};
+  if (update.coordinatorUrl !== undefined) {
+    if (typeof update.coordinatorUrl !== 'string') throw new Error('invalid_coordinatorUrl');
+    const url = new URL(update.coordinatorUrl);
+    if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') throw new Error('invalid_coordinatorUrl');
+    next.coordinatorUrl = url.toString().replace(/\/$/, '');
+  }
+  next.localPaused = optionalBoolean(update.localPaused, 'localPaused');
+  next.startupOnLogin = optionalBoolean(update.startupOnLogin, 'startupOnLogin');
+  next.startMinimized = optionalBoolean(update.startMinimized, 'startMinimized');
+  next.autoStartWorker = optionalBoolean(update.autoStartWorker, 'autoStartWorker');
+  if (update.setupCompletedAt !== undefined) {
+    if (typeof update.setupCompletedAt !== 'string' || Number.isNaN(Date.parse(update.setupCompletedAt))) throw new Error('invalid_setupCompletedAt');
+    next.setupCompletedAt = update.setupCompletedAt;
+  }
+  if (update.resourceControls !== undefined) {
+    assertPlainObject(update.resourceControls);
+    next.resourceControls = withoutUndefined({
+      idleMode: optionalEnum(update.resourceControls.idleMode, 'idleMode', ['user-and-cpu', 'cpu-only']) ?? undefined,
+      minIdleSeconds: optionalNumber(update.resourceControls.minIdleSeconds, 'minIdleSeconds', 0, 86_400),
+      maxCpuPercent: optionalNumber(update.resourceControls.maxCpuPercent, 'maxCpuPercent', 1, 100),
+      runOnBattery: optionalBoolean(update.resourceControls.runOnBattery, 'runOnBattery'),
+      schedule: optionalEnum(update.resourceControls.schedule, 'schedule', ['always', 'idle-only', 'manual']) ?? undefined
+    }) as Partial<DesktopSettings['resourceControls']> as DesktopSettings['resourceControls'];
+  }
+  if (update.modelRuntime !== undefined) {
+    assertPlainObject(update.modelRuntime);
+    const model = update.modelRuntime.model === undefined ? undefined : validateModelName(update.modelRuntime.model);
+    next.modelRuntime = withoutUndefined({
+      model,
+      qualityMode: optionalEnum(update.modelRuntime.qualityMode, 'qualityMode', ['budget', 'balanced', 'ultra', 'custom']),
+      numCtx: optionalNumber(update.modelRuntime.numCtx, 'numCtx', 1024, 131_072),
+      numPredict: optionalNumber(update.modelRuntime.numPredict, 'numPredict', 128, 16_384)
+    }) as Partial<DesktopSettings['modelRuntime']> as DesktopSettings['modelRuntime'];
+  }
+  return next;
+}
+
+function validateEnrollmentCode(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('enrollment_code_required');
+  const code = value.trim();
+  if (code.length < 8 || code.length > 256 || !/^[A-Za-z0-9._:-]+$/.test(code)) throw new Error('enrollment_code_required');
+  return code;
+}
+
+function validateModelName(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('model_required');
+  const model = value.trim();
+  if (model.length < 2 || model.length > 120 || !/^[A-Za-z0-9._:/-]+$/.test(model)) throw new Error('model_required');
+  return model;
+}
+
+function validateDownloadId(value: unknown): string {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9._:-]{4,160}$/.test(value)) throw new Error('download_id_required');
+  return value;
+}
+
+function validateExternalUrl(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('invalid_url');
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || !['opencause.appassist.ai', 'appassist.ai', 'github.com', 'ollama.com'].includes(url.hostname)) throw new Error('invalid_url');
+  return url.toString();
+}
+
+function validateUninstallConfirmation(value: unknown): { confirmed: true } {
+  assertPlainObject(value);
+  if (value.confirmed !== true) throw new Error('confirmation_required');
+  return { confirmed: true };
+}
 
 function showMainWindow() {
   if (!mainWindow) return;
@@ -120,7 +226,7 @@ async function createWindow() {
       preload: path.join(__dirname, 'electron-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
@@ -165,7 +271,8 @@ async function supervisor() {
   return cachedSupervisor;
 }
 
-ipcMain.handle('desktop:get-state', async () => {
+ipcMain.handle('desktop:get-state', async (event) => {
+  assertTrustedIpc(event);
   const settings = await loadDesktopSettings(appDir);
   const sup = await supervisor();
   const runtime = sup.status();
@@ -200,9 +307,10 @@ ipcMain.handle('desktop:get-state', async () => {
   };
 });
 
-ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknown) => {
+ipcMain.handle('desktop:update-settings', async (event, update: unknown) => {
+  assertTrustedIpc(event);
   const previousSupervisor = cachedSupervisor;
-  const settings = await updateDesktopSettings(appDir, update as Partial<DesktopSettings>);
+  const settings = await updateDesktopSettings(appDir, validateSettingsUpdate(update));
   previousSupervisor?.stop();
   cachedSupervisor = null;
   cachedSupervisorKey = '';
@@ -210,25 +318,36 @@ ipcMain.handle('desktop:update-settings', async (_event: unknown, update: unknow
   return redactedSettings(settings);
 });
 
-ipcMain.handle('desktop:start-worker', async () => {
+ipcMain.handle('desktop:start-worker', async (event) => {
+  assertTrustedIpc(event);
   const settings = await updateDesktopSettings(appDir, { localPaused: false });
   if (settings.resourceControls.schedule === 'manual') {
     return (await supervisor()).status();
   }
   return (await supervisor()).startLoop();
 });
-ipcMain.handle('desktop:run-now', async () => {
+ipcMain.handle('desktop:run-now', async (event) => {
+  assertTrustedIpc(event);
   await updateDesktopSettings(appDir, { localPaused: false });
   return (await supervisor()).startLoop({ forceNow: true });
 });
-ipcMain.handle('desktop:pause-worker', async () => {
+ipcMain.handle('desktop:pause-worker', async (event) => {
+  assertTrustedIpc(event);
   await updateDesktopSettings(appDir, { localPaused: true });
   return (await supervisor()).stop();
 });
-ipcMain.handle('desktop:stop-worker', async () => (await supervisor()).stop());
-ipcMain.handle('desktop:uninstall-local-state', async () => (await supervisor()).uninstallLocalState());
-ipcMain.handle('desktop:tail-log', async () => (await supervisor()).tailLogNewestFirst());
-ipcMain.handle('desktop:diagnostics', async () => {
+ipcMain.handle('desktop:stop-worker', async (event) => { assertTrustedIpc(event); return (await supervisor()).stop(); });
+ipcMain.handle('desktop:uninstall-local-state', async (event, confirmation: unknown) => {
+  assertTrustedIpc(event);
+  validateUninstallConfirmation(confirmation);
+  const options = { type: 'warning' as const, buttons: ['Cancel', 'Remove local OpenCause data'], defaultId: 0, cancelId: 0, title: 'Remove local OpenCause data?', message: 'This will remove local OpenCause Compute credentials, settings, and logs from this computer.', detail: 'Downloaded model files managed by Ollama are not removed.' };
+  const response = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options);
+  if (response.response !== 1) throw new Error('confirmation_cancelled');
+  return (await supervisor()).uninstallLocalState(app.getPath('userData'));
+});
+ipcMain.handle('desktop:tail-log', async (event) => { assertTrustedIpc(event); return (await supervisor()).tailLogNewestFirst(); });
+ipcMain.handle('desktop:diagnostics', async (event) => {
+  assertTrustedIpc(event);
   const sup = await supervisor();
   return {
     status: sup.status(),
@@ -237,25 +356,25 @@ ipcMain.handle('desktop:diagnostics', async () => {
     registrationDebugLog: await sup.registrationDebugLog()
   };
 });
-ipcMain.handle('desktop:register-worker', async (_event: unknown, enrollmentCode: unknown) => {
-  if (typeof enrollmentCode !== 'string' || enrollmentCode.trim().length < 8) throw new Error('enrollment_code_required');
-  return (await supervisor()).register(enrollmentCode.trim());
+ipcMain.handle('desktop:register-worker', async (event, enrollmentCode: unknown) => {
+  assertTrustedIpc(event);
+  return (await supervisor()).register(validateEnrollmentCode(enrollmentCode));
 });
-ipcMain.handle('desktop:pull-model', async (_event: unknown, model: unknown) => {
-  if (typeof model !== 'string') throw new Error('model_required');
-  return pullOllamaModel(model, true);
+ipcMain.handle('desktop:pull-model', async (event, model: unknown) => {
+  assertTrustedIpc(event);
+  return pullOllamaModel(validateModelName(model), true);
 });
-ipcMain.handle('desktop:start-model-download', async (_event: unknown, model: unknown) => {
-  if (typeof model !== 'string') throw new Error('model_required');
-  return startOllamaModelDownload(model, true);
+ipcMain.handle('desktop:start-model-download', async (event, model: unknown) => {
+  assertTrustedIpc(event);
+  return startOllamaModelDownload(validateModelName(model), true);
 });
-ipcMain.handle('desktop:model-download-status', async (_event: unknown, id: unknown) => {
-  if (typeof id !== 'string') throw new Error('download_id_required');
-  return modelDownloadStatus(id);
+ipcMain.handle('desktop:model-download-status', async (event, id: unknown) => {
+  assertTrustedIpc(event);
+  return modelDownloadStatus(validateDownloadId(id));
 });
-ipcMain.handle('desktop:open-external', async (_event: unknown, url: unknown) => {
-  if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('invalid_url');
-  await shell.openExternal(url);
+ipcMain.handle('desktop:open-external', async (event, url: unknown) => {
+  assertTrustedIpc(event);
+  await shell.openExternal(validateExternalUrl(url));
   return { ok: true };
 });
 
