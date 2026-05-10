@@ -10,18 +10,18 @@ export type ExtractorManifestEntry = {
 
 export const APPROVED_EXTRACTORS: ExtractorManifestEntry[] = [
   {
-    id: 'local-llm-v1',
-    mode: 'local-llm',
-    approved: true,
-    allowNetwork: 'localhost-only',
-    description: 'Approved Ollama/local LLM extractor for private/public volunteer work.'
-  },
-  {
     id: 'local-llm-v2',
     mode: 'local-llm',
     approved: true,
     allowNetwork: 'localhost-only',
     description: 'Approved Ollama/local LLM claims-v2 extractor for cancer literature packets.'
+  },
+  {
+    id: 'local-llm-v1',
+    mode: 'local-llm',
+    approved: true,
+    allowNetwork: 'localhost-only',
+    description: 'Legacy Ollama/local LLM facts-v1 extractor retained for compatibility.'
   },
   {
     id: 'mock-extractor-v1',

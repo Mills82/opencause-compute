@@ -26,7 +26,7 @@ import { issueProfileSetupToken } from './gamification/profile-setup';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
-const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local-llm-v1') as
+const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local-llm-v2') as
   | 'local-llm-v1'
   | 'local-llm-v2'
   | 'mock-extractor-v1';
@@ -45,7 +45,7 @@ const DEMO_PROJECT: Omit<Project, 'id' | 'createdAt'> = {
   slug: 'cancer-knowledge-miner',
   name: 'Cancer Knowledge Miner',
   description:
-    'Processes open-access oncology/biomedical text into structured, citation-backed research facts using Local LLM v1.',
+    'Processes open-access oncology/biomedical text into structured, citation-backed candidate claims using Local LLM v2.',
   status: 'active'
 };
 

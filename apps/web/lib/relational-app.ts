@@ -376,7 +376,7 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
     if (!project) project = (await client.query("INSERT INTO projects(id,slug,name,description,status,created_at) VALUES($1,$2,$3,$4,'active',NOW()) RETURNING *", [randomUUID(), input.projectSlug, input.projectName, input.projectDescription])).rows[0];
     let packetsCreated = 0;
     let packetsSkipped = 0;
-    const extractor = input.extractor ?? 'local-llm-v1';
+    const extractor = input.extractor ?? 'local-llm-v2';
     for (const source of input.sources) {
       const exists = (await client.query('SELECT 1 FROM work_packets WHERE project_id = $1 AND source_url = $2 LIMIT 1', [project.id, source.sourceUrl])).rowCount;
       if (exists) { packetsSkipped += 1; continue; }

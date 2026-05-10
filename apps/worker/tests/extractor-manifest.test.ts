@@ -3,7 +3,7 @@ import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } fr
 
 describe('extractor manifest safety', () => {
   it('allows approved local llm extractor', () => {
-    expect(assertApprovedExtractor('local-llm', { allowMock: false }).id).toBe('local-llm-v1');
+    expect(assertApprovedExtractor('local-llm', { allowMock: false }).id).toBe('local-llm-v2');
   });
 
   it('rejects mock extractor unless explicitly allowed', () => {

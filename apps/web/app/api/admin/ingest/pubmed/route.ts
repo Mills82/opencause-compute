@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   try {
     const records = await fetchPubMedRecords({ query: options.query, retmax: options.retmax, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY });
     const sources = records.map((record) => ({ title: record.title, sourceText: record.abstractText, sourceCitation: record.sourceCitation, sourceUrl: record.sourceUrl, sourcePublishedAt: record.sourcePublishedAt }));
-    const relationalPackets = await ingestSourcesRelational({ projectSlug: options.projectSlug, projectName: options.projectName, projectDescription: options.projectDescription, sources, extractor: 'local-llm-v1' });
+    const relationalPackets = await ingestSourcesRelational({ projectSlug: options.projectSlug, projectName: options.projectName, projectDescription: options.projectDescription, sources, extractor: 'local-llm-v2' });
     const output = relationalPackets ? {
       project: relationalPackets.project,
       fetched: records.length,
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       run: await completeIngestionRunRelational(run.id, { fetchedCount: records.length, skippedCount: Math.max(options.retmax - records.length, 0), failedCount: 0, failureReasons: [], packetsCreated: relationalPackets.packetsCreated, packetsSkipped: relationalPackets.packetsSkipped, status: 'completed' })
     } : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: options.projectSlug, name: options.projectName, description: options.projectDescription });
-      const packetSummary = createWorkPacketsFromSources(db, { projectId: project.id, sources, extractor: 'local-llm-v1' });
+      const packetSummary = createWorkPacketsFromSources(db, { projectId: project.id, sources, extractor: 'local-llm-v2' });
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: records.length, skippedCount: Math.max(options.retmax - records.length, 0), failedCount: 0, failureReasons: [], packetsCreated: packetSummary.packetsCreated, packetsSkipped: packetSummary.packetsSkipped, status: 'completed' });
       return { project, fetched: records.length, ...packetSummary, run: completedRun };
     });

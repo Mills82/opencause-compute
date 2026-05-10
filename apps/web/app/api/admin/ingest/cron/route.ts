@@ -77,7 +77,7 @@ async function runIngestion() {
       pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({ query: config.pmcQuery, retmax: pmcRetmax, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, documentsIngested: 0, sources: [], failures: [], skippedCount: 0 })
     ]);
     const pubmedSources = pubmedRecords.map((record) => ({ title: record.title, sourceText: record.abstractText, sourceCitation: record.sourceCitation, sourceUrl: record.sourceUrl, sourcePublishedAt: record.sourcePublishedAt }));
-    const relationalPubmed = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pubmedSources, extractor: 'local-llm-v1' });
+    const relationalPubmed = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pubmedSources, extractor: 'local-llm-v2' });
     const output = relationalPubmed ? await (async () => {
       const pmcOa = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pmcReport.sources, extractor: 'local-llm-v2' });
       if (!pmcOa) throw new Error('relational_ingest_unavailable');
@@ -85,7 +85,7 @@ async function runIngestion() {
       return { project: relationalPubmed.project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
     })() : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: config.projectSlug, name: config.projectName, description: config.projectDescription });
-      const pubmed = createWorkPacketsFromSources(db, { projectId: project.id, sources: pubmedSources, extractor: 'local-llm-v1' });
+      const pubmed = createWorkPacketsFromSources(db, { projectId: project.id, sources: pubmedSources, extractor: 'local-llm-v2' });
       const pmcOa = createWorkPacketsFromSources(db, { projectId: project.id, sources: pmcReport.sources, extractor: 'local-llm-v2' });
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped });
       return { project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcChunksFetched: pmcReport.sources.length, packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed, pmcOa, pmcFailures: pmcReport.failures, run: completedRun };

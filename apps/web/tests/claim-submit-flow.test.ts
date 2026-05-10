@@ -21,6 +21,7 @@ function emptyDb(): DatabaseState {
     claims: [],
     results: [],
     facts: [],
+    extractedClaims: [],
     ingestionRuns: [],
     auditEvents: [],
     volunteerEnrollments: [],
@@ -35,10 +36,15 @@ function emptyDb(): DatabaseState {
   };
 }
 
+function forceLegacyLocalPackets(db: DatabaseState): void {
+  for (const packet of db.workPackets) packet.extractor = 'local-llm-v1';
+}
+
 describe('claim/submit flow', () => {
   it('claims packet and submits validated result', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
@@ -70,6 +76,7 @@ describe('claim/submit flow', () => {
   it('returns same active claim for repeated claims by the same node', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
@@ -90,6 +97,7 @@ describe('claim/submit flow', () => {
   it('releases a claimed packet without recording worker failure semantics', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
     const claim = claimWork(db, node.id);
     expect(claim).not.toBeNull();
@@ -105,6 +113,7 @@ describe('claim/submit flow', () => {
   it('reclaims expired claims and requeues packet', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const nodeA = registerNode(db, {
       nodeName: 'node-a',
       platform: 'linux',
@@ -141,6 +150,7 @@ describe('claim/submit flow', () => {
   it('rejects submit for an expired claim', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
@@ -175,6 +185,7 @@ describe('claim/submit flow', () => {
   it('extends active lease on heartbeat', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
@@ -204,6 +215,7 @@ describe('claim/submit flow', () => {
   it('marks stale node offline and reclaims its claim', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const nodeA = registerNode(db, {
       nodeName: 'node-a',
       platform: 'linux',
@@ -262,6 +274,7 @@ describe('claim/submit flow', () => {
   it('keeps first valid submission consensus pending and requeues for independent duplicate work', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
     const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
 
@@ -288,6 +301,7 @@ describe('claim/submit flow', () => {
   it('marks matching independent duplicate submissions consensus passed', () => {
     const db = emptyDb();
     seedDemoData(db);
+    forceLegacyLocalPackets(db);
     const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
     const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
 
