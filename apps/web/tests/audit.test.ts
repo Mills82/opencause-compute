@@ -28,7 +28,7 @@ describe('audit events', () => {
   it('records node registration, claim, and worker-control events', () => {
     const db = emptyDb();
     seedDemoData(db);
-    const node = registerNode(db, { nodeName: 'n', platform: 'linux', version: '0.1.0', capabilities: [] });
+    const node = registerNode(db, { nodeName: 'n', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
     claimWork(db, node.id);
     updateWorkerControl(db, { paused: true });
     triggerRunNow(db);

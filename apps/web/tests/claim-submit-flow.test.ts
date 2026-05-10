@@ -49,7 +49,7 @@ describe('claim/submit flow', () => {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const claim = claimWork(db, node.id);
@@ -81,7 +81,7 @@ describe('claim/submit flow', () => {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const firstClaim = claimWork(db, node.id);
@@ -98,7 +98,7 @@ describe('claim/submit flow', () => {
     const db = emptyDb();
     seedDemoData(db);
     forceLegacyLocalPackets(db);
-    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
     const claim = claimWork(db, node.id);
     expect(claim).not.toBeNull();
     if (!claim) throw new Error('Expected claim');
@@ -118,13 +118,13 @@ describe('claim/submit flow', () => {
       nodeName: 'node-a',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
     const nodeB = registerNode(db, {
       nodeName: 'node-b',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const firstClaim = claimWork(db, nodeA.id);
@@ -155,7 +155,7 @@ describe('claim/submit flow', () => {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const claim = claimWork(db, node.id);
@@ -190,7 +190,7 @@ describe('claim/submit flow', () => {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const claim = claimWork(db, node.id);
@@ -220,13 +220,13 @@ describe('claim/submit flow', () => {
       nodeName: 'node-a',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
     const nodeB = registerNode(db, {
       nodeName: 'node-b',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['mock-extractor-v1']
+      capabilities: ['local-llm-v1', 'mock-extractor-v1']
     });
 
     const firstClaim = claimWork(db, nodeA.id);
@@ -275,8 +275,8 @@ describe('claim/submit flow', () => {
     const db = emptyDb();
     seedDemoData(db);
     forceLegacyLocalPackets(db);
-    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
-    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
 
     const firstClaim = claimWork(db, nodeA.id);
     if (!firstClaim) throw new Error('Expected first claim');
@@ -302,8 +302,8 @@ describe('claim/submit flow', () => {
     const db = emptyDb();
     seedDemoData(db);
     forceLegacyLocalPackets(db);
-    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
-    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['mock-extractor-v1'] });
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
 
     const firstClaim = claimWork(db, nodeA.id);
     if (!firstClaim) throw new Error('Expected first claim');

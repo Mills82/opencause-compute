@@ -286,7 +286,7 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
     }
   }
 
-  const packet = db.workPackets.find((p) => p.status === 'queued' && !db.claims.some((claim) => claim.workPacketId === p.id && claim.nodeId === nodeId && (claim.status === 'completed' || claim.status === 'failed')));
+  const packet = db.workPackets.find((p) => p.status === 'queued' && node.capabilities.includes(p.extractor) && !db.claims.some((claim) => claim.workPacketId === p.id && claim.nodeId === nodeId && (claim.status === 'completed' || claim.status === 'failed')));
   if (!packet) {
     return null;
   }

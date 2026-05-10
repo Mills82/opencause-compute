@@ -145,7 +145,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
-    await assertNodeAuthorized(client, nodeId, token);
+    const node = await assertNodeAuthorized(client, nodeId, token);
 
     await client.query("UPDATE work_claims SET status = 'expired', completed_at = NOW() WHERE status = 'claimed' AND lease_expires_at <= NOW()");
     await client.query("UPDATE work_packets SET status = 'queued', updated_at = NOW() WHERE status = 'claimed' AND NOT EXISTS (SELECT 1 FROM work_claims c WHERE c.work_packet_id = work_packets.id AND c.status = 'claimed')");
@@ -174,6 +174,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
     const packetResult = await client.query(
       `SELECT * FROM work_packets
        WHERE status = 'queued'
+       AND extractor = ANY($2::text[])
        AND NOT EXISTS (
          SELECT 1 FROM work_claims prior
          WHERE prior.work_packet_id = work_packets.id
@@ -183,7 +184,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
        ORDER BY created_at
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
-      [nodeId]
+      [nodeId, node.capabilities ?? []]
     );
     const packet = packetResult.rows[0];
     if (!packet) {
