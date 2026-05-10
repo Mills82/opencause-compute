@@ -121,9 +121,10 @@ export class WorkerSupervisor {
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'budget' ? 8192 : 16384));
     env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (qualityMode === 'ultra' ? 2200 : qualityMode === 'budget' ? 1200 : 1800));
+    env.LOCAL_LLM_TIMEOUT_MS = '180000';
     env.LOCAL_LLM_TEMPERATURE = '0';
     env.LOCAL_LLM_TOP_P = '0.9';
-    env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'ultra' ? 'ultra' : qualityMode === 'budget' ? 'high' : 'ultra';
+    env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'ultra' ? 'ultra' : qualityMode === 'budget' ? 'high' : 'balanced';
     return env;
   }
 

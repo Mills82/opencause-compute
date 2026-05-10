@@ -28,7 +28,7 @@ export type OllamaGenerationOptions = {
 
 const DEFAULT_ENDPOINT = process.env.LOCAL_LLM_ENDPOINT ?? 'http://127.0.0.1:11434';
 const DEFAULT_MODEL = process.env.LOCAL_LLM_MODEL ?? DEFAULT_LOCAL_MODEL;
-const DEFAULT_TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS ?? '45000');
+const DEFAULT_TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS ?? '180000');
 
 function envNumber(name: string, fallback: number): number {
   const value = Number(process.env[name]);
@@ -141,9 +141,14 @@ export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): 
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new Error(`local_llm_timeout:${timeoutMs}`)), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`local_llm_timeout:${timeoutMs}`);
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
