@@ -12,6 +12,12 @@ export default async function VolunteerLeaderboardPage() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Opt-in volunteer recognition.</h1>
         <p className="text-slate-300">Private profiles are excluded. Anonymous public volunteers appear without profile links. Scores emphasize validated contribution, not raw runtime.</p>
       </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">Quality-weighted</h2><p className="mt-2">Recognition emphasizes validated and consensus-aligned work, not raw runtime.</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">Opt-in visibility</h2><p className="mt-2">Private profiles are excluded. Anonymous public profiles can contribute without a public name.</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">Research-support only</h2><p className="mt-2">Leaderboard activity reflects processing and validation progress, not clinical or scientific acceptance.</p></article>
+      </div>
+
       <div className="mobile-card-list table-scroll rounded-xl border border-line bg-panel">
         {entries.length ? (
           <table className="w-full text-left text-sm">

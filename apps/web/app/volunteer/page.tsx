@@ -11,9 +11,9 @@ export default function VolunteerPage() {
       <div className="rounded-3xl border border-line bg-panel p-6 sm:p-8">
         <div className="max-w-3xl space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Volunteer</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Join the OpenCause Compute beta.</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Volunteer your spare compute for open cancer research.</h1>
           <p className="text-slate-300">
-            Enrollment codes connect a computer you control to an OpenCause volunteer profile. Use your code only in the official OpenCause Compute Worker app.
+            OpenCause Compute is in limited beta. Enrollment codes connect a computer you control to an OpenCause volunteer profile. Use your code only in the official OpenCause Compute Worker app.
           </p>
         </div>
       </div>
@@ -22,6 +22,12 @@ export default function VolunteerPage() {
         <article className="rounded-xl border border-line bg-panel p-5"><h2 className="font-semibold">1. Get a code</h2><p className="mt-2 text-sm text-slate-300">Request an enrollment code using the Turnstile-protected form below.</p></article>
         <article className="rounded-xl border border-line bg-panel p-5"><h2 className="font-semibold">2. Install worker</h2><p className="mt-2 text-sm text-slate-300">Download the desktop worker, install Ollama, and choose resource settings.</p></article>
         <article className="rounded-xl border border-line bg-panel p-5"><h2 className="font-semibold">3. Contribute transparently</h2><p className="mt-2 text-sm text-slate-300">The worker processes signed packets, shows activity locally, and submits citation-backed evidence with provenance.</p></article>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">You control participation</h2><p className="mt-2">Pause anytime, run only while idle, limit CPU use, avoid battery work, and inspect worker activity locally.</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">Open sources only</h2><p className="mt-2">The worker processes public/open scientific literature, not personal medical records or private files.</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300"><h2 className="font-semibold text-white">Careful outputs</h2><p className="mt-2">Submissions are citation-backed research-support artifacts that still require validation, consensus, and/or review.</p></article>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">

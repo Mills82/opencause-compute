@@ -45,9 +45,20 @@ export default async function LeaderboardsPage() {
         </article>
       </div>
 
-      <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">
-        Leaderboards report open-science processing, validation, and consensus activity. They do not indicate scientific acceptance, clinical findings, or medical advice.
-      </p>
+      <div className="grid gap-4 md:grid-cols-3">
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+          <h2 className="font-semibold text-white">How scoring works</h2>
+          <p className="mt-2">Scores reward structure-validated submissions, consensus-passed contributions, active contribution days, and accepted review outcomes. Rejected or unreliable submissions reduce score.</p>
+        </article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+          <h2 className="font-semibold text-white">Privacy first</h2>
+          <p className="mt-2">Private profiles are excluded. Volunteers choose whether to appear publicly, anonymously, or not at all.</p>
+        </article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+          <h2 className="font-semibold text-white">What rankings mean</h2>
+          <p className="mt-2">Leaderboards report open-science processing, validation, and consensus activity. They do not indicate scientific acceptance, clinical findings, or medical advice.</p>
+        </article>
+      </div>
     </section>
   );
 }
