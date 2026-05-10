@@ -48,7 +48,8 @@ describePg('real Postgres relational storage integration', () => {
       expect(control?.paused).toBe(true);
       const runNow = await repo.triggerRunNowRelational();
       expect(runNow?.runNowToken).toBe((control?.runNowToken ?? 0) + 1);
-      const report = await repo.createPublicReportRelational({ targetType: 'team', targetSlug: 'bad-team', reason: 'spam' });
+      await repo.createTeamAdminRelational({ name: 'Report Team', description: 'Reportable', visibility: 'public' });
+      const report = await repo.createPublicReportRelational({ targetType: 'team', targetSlug: 'report-team', reason: 'spam' });
       expect(report?.status).toBe('open');
       const run = await repo.startIngestionRunRelational({ sourceType: 'pubmed_abstract', mode: 'manual', query: 'q', retmax: 1, usedNcbiEmail: false, usedNcbiApiKey: false });
       const ingested = await repo.ingestSourcesRelational({ projectSlug: 'proj', projectName: 'Project', projectDescription: 'Desc', sources: [{ title: 'T', sourceText: 'text', sourceCitation: 'cite', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v1' });
