@@ -93,50 +93,42 @@ export default async function ImpactPage() {
             </div>
 
             {progress.estimatedTotalPackets ? (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm font-semibold text-white">Total validation work completed</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">
-                    {progress.formatValidatedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()}
-                  </p>
-                  <ProgressBar value={progress.percentValidationWorkComplete} />
-                  <p className="mt-3 text-xs leading-5 text-slate-400">
-                    Estimated against ~{progress.estimatedSubmissionsToConsensusPerPacket} independent submissions needed per packet to reach consensus. This multiplier will be refined as consensus data matures.
-                  </p>
+                  <p className="text-sm text-slate-400">Eligible open-access cancer documents</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{progress.eligibleDocumentCount?.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm font-semibold text-white">Corpus estimate</p>
-                  <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <dt className="text-slate-400">Eligible docs</dt>
-                      <dd className="font-semibold text-white">{progress.eligibleDocumentCount?.toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-400">Packets/doc</dt>
-                      <dd className="font-semibold text-white">{progress.averagePacketsPerDocument.toFixed(1)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-400">Sample docs</dt>
-                      <dd className="font-semibold text-white">{progress.ingestedDocumentCount.toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-slate-400">Estimated packets</dt>
-                      <dd className="font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</dd>
-                    </div>
-                  </dl>
+                  <p className="text-sm text-slate-400">Estimated literature packets</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</p>
+                </div>
+                <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
+                  <p className="text-sm text-slate-400">Total validation work completed</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{progress.formatValidatedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()}</p>
                 </div>
               </div>
             ) : null}
 
-            <p className="rounded-2xl border border-line/70 bg-ink/80 p-4 text-sm leading-6 text-slate-300">
-              {progress.estimatedTotalPackets ? (
-                <>Estimate based on {progress.eligibleDocumentCount?.toLocaleString()} eligible open-access cancer documents and {progress.ingestedDocumentCount.toLocaleString()} full-text sample documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
-              ) : progress.eligibleDocumentCount ? (
-                <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Packet estimate will appear after at least {progress.sampleMinimumDocuments} full-text documents are ingested. Current full-text sample: {progress.ingestedDocumentCount.toLocaleString()} documents, {progress.packetsCreatedFromIngestedDocuments.toLocaleString()} packets.</>
-              ) : (
-                <>Eligible open-access cancer document count has not been refreshed yet. Structure-validated throughput is shown separately above.</>
-              )}
-            </p>
+            {progress.estimatedTotalPackets ? (
+              <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <p className="font-semibold text-white">Overall validation progress</p>
+                  <p className="font-semibold text-slate-200">{formatPercent(progress.percentValidationWorkComplete)}</p>
+                </div>
+                <ProgressBar value={progress.percentValidationWorkComplete} />
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  Estimates are based on the current PMC Open Access cancer corpus and will become more precise as more full-text documents are sampled.
+                </p>
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-line/70 bg-ink/80 p-4 text-sm leading-6 text-slate-300">
+                {progress.eligibleDocumentCount ? (
+                  <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Packet estimate will appear after more full-text documents are sampled.</>
+                ) : (
+                  <>Eligible open-access cancer document count has not been refreshed yet. Structure-validated throughput is shown separately above.</>
+                )}
+              </p>
+            )}
 
             <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-50">
               Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
