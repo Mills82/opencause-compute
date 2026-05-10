@@ -116,6 +116,9 @@ export const workPacketPayloadSchema = z.object({
   sourceCitation: z.string().min(1),
   sourceUrl: z.string().url(),
   sourcePublishedAt: z.string().optional(),
+  sectionTitle: z.string().optional(),
+  sectionType: sectionTypeSchema.optional(),
+  paragraphIndex: z.number().int().min(0).optional(),
   inputHash: z.string(),
   extractor: z.enum(['local-llm-v1', 'local-llm-v2', 'mock-extractor-v1']),
   createdAt: z.string()

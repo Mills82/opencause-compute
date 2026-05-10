@@ -184,6 +184,9 @@ function buildPacketPayload(packet: WorkPacket): WorkPacketPayload {
     sourceCitation: packet.sourceCitation,
     sourceUrl: packet.sourceUrl,
     sourcePublishedAt: packet.sourcePublishedAt,
+    sectionTitle: packet.sectionTitle,
+    sectionType: packet.sectionType,
+    paragraphIndex: packet.paragraphIndex,
     inputHash: packet.inputHash,
     extractor: packet.extractor,
     createdAt: packet.createdAt
