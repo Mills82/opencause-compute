@@ -15,26 +15,17 @@ export function canShowVolunteerProfile(profile: VolunteerProfile): boolean {
   return profile.publicProfileEnabled && profile.privacyMode === 'public_named' && profile.moderationStatus !== 'hidden';
 }
 
-function configuredEligibleDocumentCount(): number | null {
-  const raw = process.env.OPENCAUSE_CKM_ELIGIBLE_DOCUMENT_COUNT;
-  if (!raw) return null;
-  const parsed = Number(raw.replace(/,/g, ''));
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
-}
-
 export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
-  const eligibleDocumentCount = configuredEligibleDocumentCount();
-  const completedRuns = db.ingestionRuns.filter((run) =>
-    (run.status === 'completed' || run.status === 'partial_failed')
-    && (run.sourceType === 'pubmed_abstract' || run.sourceType === 'pmc_oa_full_text' || run.sourceType === 'combined')
-  );
-  const ingestedDocumentCount = completedRuns.reduce((total, run) => total + run.fetchedCount, 0);
-  const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated, 0);
-  const averagePacketsPerDocument = ingestedDocumentCount > 0 ? packetsCreatedFromIngestedDocuments / ingestedDocumentCount : 0;
-  const sampleMinMet = ingestedDocumentCount >= MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE && packetsCreatedFromIngestedDocuments > 0;
-  const estimatedTotalPackets = eligibleDocumentCount && sampleMinMet
-    ? Math.max(1, Math.round(eligibleDocumentCount * averagePacketsPerDocument))
-    : null;
+  const project = db.projects.find((candidate) => candidate.slug === CKM_PROJECT_SLUG);
+  const latestEstimate = project
+    ? db.projectCorpusEstimates.find((estimate) => estimate.projectId === project.id && estimate.refreshStatus === 'success')
+    : undefined;
+  const eligibleDocumentCount = latestEstimate?.eligibleDocumentCount ?? null;
+  const ingestedDocumentCount = latestEstimate?.ingestedDocumentCount ?? 0;
+  const packetsCreatedFromIngestedDocuments = latestEstimate?.packetsCreatedFromIngestedDocuments ?? 0;
+  const averagePacketsPerDocument = latestEstimate?.averagePacketsPerDocument ?? 0;
+  const sampleMinMet = latestEstimate ? ingestedDocumentCount >= MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE && packetsCreatedFromIngestedDocuments > 0 : false;
+  const estimatedTotalPackets = latestEstimate && sampleMinMet ? latestEstimate.estimatedTotalPackets : null;
   const consensusCompletedPackets = db.volunteerStatsSnapshots
     .filter((snapshot) => snapshot.window === 'all_time')
     .reduce((total, snapshot) => total + snapshot.consensusPassedContributions, 0);
@@ -50,8 +41,9 @@ export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
     consensusCompletedPackets,
     percentComplete,
     sampleMinMet,
-    estimateMethod: 'mean_packets_per_ingested_document' as const,
-    sampleMinimumDocuments: MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE
+    estimateMethod: latestEstimate?.estimateMethod ?? 'mean_packets_per_ingested_document',
+    sampleMinimumDocuments: MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE,
+    refreshedAt: latestEstimate?.refreshedAt ?? null
   };
 }
 

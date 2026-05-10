@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
-import { hashText, type AuditEvent, type IngestionRun, type Project, type VolunteerEnrollment, type VolunteerNode, type WorkerControlConfig, type WorkPacketPayload } from '@opencause/shared';
+import { hashText, type AuditEvent, type IngestionRun, type Project, type ProjectCorpusEstimate, type VolunteerEnrollment, type VolunteerNode, type WorkerControlConfig, type WorkPacketPayload } from '@opencause/shared';
 import { createNodeToken, hashNodeToken } from './node-auth';
 import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
@@ -40,8 +40,21 @@ function ingestionRunFromRow(row: any): IngestionRun {
   return { id: row.id, sourceType: row.source_type, mode: row.mode, status: row.status, query: row.query, retmax: Number(row.retmax), startedAt: iso(row.started_at)!, completedAt: iso(row.completed_at), fetchedCount: Number(row.fetched_count), skippedCount: Number(row.skipped_count), failedCount: Number(row.failed_count), failureReasons: row.failure_reasons ?? [], packetsCreated: Number(row.packets_created), packetsSkipped: Number(row.packets_skipped), usedNcbiEmail: Boolean(row.used_ncbi_email), usedNcbiApiKey: Boolean(row.used_ncbi_api_key) };
 }
 
+function projectCorpusEstimateFromRow(row: any): ProjectCorpusEstimate {
+  return { id: row.id, projectId: row.project_id, corpusSource: row.corpus_source, query: row.query, eligibleDocumentCount: Number(row.eligible_document_count), ingestedDocumentCount: Number(row.ingested_document_count), packetsCreatedFromIngestedDocuments: Number(row.packets_created_from_ingested_documents), averagePacketsPerDocument: Number(row.average_packets_per_document), estimatedTotalPackets: Number(row.estimated_total_packets), estimateMethod: row.estimate_method, refreshStatus: row.refresh_status, failureReason: row.failure_reason, refreshedAt: iso(row.refreshed_at)!, createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
+}
+
 export type StartIngestionRunRelationalInput = Pick<IngestionRun, 'sourceType' | 'mode' | 'query' | 'retmax' | 'usedNcbiEmail' | 'usedNcbiApiKey'>;
 export type CompleteIngestionRunRelationalInput = Partial<Pick<IngestionRun, 'fetchedCount' | 'skippedCount' | 'failedCount' | 'failureReasons' | 'packetsCreated' | 'packetsSkipped'>> & { status?: IngestionRun['status'] };
+
+export async function upsertProjectCorpusEstimateRelational(input: Omit<ProjectCorpusEstimate, 'id' | 'refreshedAt' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<ProjectCorpusEstimate | undefined> {
+  if (!enabled()) return undefined;
+  const row = (await getPool().query(`INSERT INTO project_corpus_estimates(id,project_id,corpus_source,query,eligible_document_count,ingested_document_count,packets_created_from_ingested_documents,average_packets_per_document,estimated_total_packets,estimate_method,refresh_status,failure_reason,refreshed_at,created_at,updated_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW(),NOW(),NOW())
+    ON CONFLICT (project_id,corpus_source,query) DO UPDATE SET eligible_document_count=EXCLUDED.eligible_document_count, ingested_document_count=EXCLUDED.ingested_document_count, packets_created_from_ingested_documents=EXCLUDED.packets_created_from_ingested_documents, average_packets_per_document=EXCLUDED.average_packets_per_document, estimated_total_packets=EXCLUDED.estimated_total_packets, estimate_method=EXCLUDED.estimate_method, refresh_status=EXCLUDED.refresh_status, failure_reason=EXCLUDED.failure_reason, refreshed_at=NOW(), updated_at=NOW()
+    RETURNING *`, [input.id ?? randomUUID(), input.projectId, input.corpusSource, input.query, input.eligibleDocumentCount, input.ingestedDocumentCount, input.packetsCreatedFromIngestedDocuments, input.averagePacketsPerDocument, input.estimatedTotalPackets, input.estimateMethod, input.refreshStatus, input.failureReason ?? null])).rows[0];
+  return projectCorpusEstimateFromRow(row);
+}
 
 function nodeFromRow(row: any): VolunteerNode {
   return {

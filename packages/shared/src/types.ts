@@ -280,6 +280,24 @@ export const impactCardSchema = z.object({
   createdAt: z.string()
 });
 
+export const projectCorpusEstimateSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  corpusSource: z.enum(['pubmed', 'pmc_oa', 'combined']),
+  query: z.string(),
+  eligibleDocumentCount: z.number().int().min(0),
+  ingestedDocumentCount: z.number().int().min(0),
+  packetsCreatedFromIngestedDocuments: z.number().int().min(0),
+  averagePacketsPerDocument: z.number().min(0),
+  estimatedTotalPackets: z.number().int().min(0),
+  estimateMethod: z.string(),
+  refreshStatus: z.enum(['success', 'failed']),
+  failureReason: z.string().nullable().optional(),
+  refreshedAt: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
 export const publicReportSchema = z.object({
   id: z.string(),
   targetType: z.enum(['volunteer_profile', 'team', 'impact_card']),
@@ -341,6 +359,7 @@ export const databaseSchema = z.object({
   teamStatsSnapshots: z.array(teamStatsSnapshotSchema).default([]),
   impactDigests: z.array(impactDigestSchema).default([]),
   impactCards: z.array(impactCardSchema).default([]),
+  projectCorpusEstimates: z.array(projectCorpusEstimateSchema).default([]),
   publicReports: z.array(publicReportSchema).default([]),
   workerControl: workerControlConfigSchema
 });
@@ -369,6 +388,7 @@ export type VolunteerStatsSnapshot = z.infer<typeof volunteerStatsSnapshotSchema
 export type TeamStatsSnapshot = z.infer<typeof teamStatsSnapshotSchema>;
 export type ImpactDigest = z.infer<typeof impactDigestSchema>;
 export type ImpactCard = z.infer<typeof impactCardSchema>;
+export type ProjectCorpusEstimate = z.infer<typeof projectCorpusEstimateSchema>;
 export type PublicReport = z.infer<typeof publicReportSchema>;
 export type IngestionRun = z.infer<typeof ingestionRunSchema>;
 export type WorkerControlConfig = z.infer<typeof workerControlConfigSchema>;

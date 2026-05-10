@@ -22,7 +22,7 @@ Use approximate language (`~`, `estimated`) until the full corpus has been enume
 ## V1 source of truth
 
 - Numerator: aggregate all-time `consensusPassedContributions` from gamification stats.
-- Eligible document count: configured project corpus count, initially via `OPENCAUSE_CKM_ELIGIBLE_DOCUMENT_COUNT`.
+- Eligible document count: latest successful `project_corpus_estimates` row, refreshed daily from NCBI count-only queries.
 - Average packets/document: completed ingestion runs for Cancer Knowledge Miner-compatible NCBI ingestion.
 - Sample threshold: do not show a percentage/denominator until at least 10 ingested documents and at least 1 packet exist.
 
@@ -38,7 +38,6 @@ Avoid implying medical/scientific validation. Label artifacts as literature sect
 
 ## Future improvements
 
-- Add an admin count job that stores PubMed/PMC eligible document counts with query, source, and timestamp.
-- Replace env-based eligible document count with stored project corpus estimate rows.
+- Add PMC/open-access-specific corpus estimates in addition to the initial PubMed estimate.
 - Once the corpus is fully enumerated and packetized, switch denominator to actual `COUNT(work_packets)` for the project.
 - Use a trimmed mean/median packet count once enough per-document packet data is available.

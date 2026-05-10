@@ -28,6 +28,7 @@ const EMPTY_DB: DatabaseState = {
   teamStatsSnapshots: [],
   impactDigests: [],
   impactCards: [],
+  projectCorpusEstimates: [],
   publicReports: [],
   workerControl: {
     paused: false,
@@ -77,7 +78,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const ownClient = !client;
   const c = client ?? (await getPool().connect());
   try {
-    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests, impactCards, publicReports] = await Promise.all([
+    const [projects, packets, nodes, claims, results, facts, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests, impactCards, projectCorpusEstimates, publicReports] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
@@ -98,6 +99,7 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
       c.query('SELECT * FROM team_stats_snapshots ORDER BY computed_at DESC'),
       c.query('SELECT * FROM impact_digests ORDER BY period_start DESC'),
       c.query('SELECT * FROM impact_cards ORDER BY created_at DESC'),
+      c.query('SELECT * FROM project_corpus_estimates ORDER BY refreshed_at DESC'),
       c.query('SELECT * FROM public_reports ORDER BY created_at DESC')
     ]);
 
@@ -369,6 +371,23 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         periodEnd: iso(row.period_end),
         createdAt: iso(row.created_at)!
       })),
+      projectCorpusEstimates: projectCorpusEstimates.rows.map((row) => ({
+        id: row.id,
+        projectId: row.project_id,
+        corpusSource: row.corpus_source,
+        query: row.query,
+        eligibleDocumentCount: Number(row.eligible_document_count),
+        ingestedDocumentCount: Number(row.ingested_document_count),
+        packetsCreatedFromIngestedDocuments: Number(row.packets_created_from_ingested_documents),
+        averagePacketsPerDocument: Number(row.average_packets_per_document),
+        estimatedTotalPackets: Number(row.estimated_total_packets),
+        estimateMethod: row.estimate_method,
+        refreshStatus: row.refresh_status,
+        failureReason: row.failure_reason,
+        refreshedAt: iso(row.refreshed_at)!,
+        createdAt: iso(row.created_at)!,
+        updatedAt: iso(row.updated_at)!
+      })),
       publicReports: publicReports.rows.map((row) => ({
         id: row.id,
         targetType: row.target_type,
@@ -406,6 +425,7 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     await c.query('DELETE FROM audit_events');
     await c.query('DELETE FROM volunteer_enrollments');
     await c.query('DELETE FROM public_reports');
+    await c.query('DELETE FROM project_corpus_estimates');
     await c.query('DELETE FROM impact_cards');
     await c.query('DELETE FROM impact_digests');
     await c.query('DELETE FROM team_stats_snapshots');
@@ -475,6 +495,9 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     for (const card of parsed.impactCards) {
       await c.query('INSERT INTO impact_cards(id,volunteer_profile_id,team_id,card_type,slug,title,subtitle,metric_label,metric_value,accent_color,public_enabled,moderation_status,moderation_note,period_start,period_end,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT (slug) DO UPDATE SET title=EXCLUDED.title, subtitle=EXCLUDED.subtitle, metric_label=EXCLUDED.metric_label, metric_value=EXCLUDED.metric_value, accent_color=EXCLUDED.accent_color, public_enabled=EXCLUDED.public_enabled, moderation_status=EXCLUDED.moderation_status, moderation_note=EXCLUDED.moderation_note, period_start=EXCLUDED.period_start, period_end=EXCLUDED.period_end, created_at=EXCLUDED.created_at', [card.id, card.volunteerProfileId, card.teamId, card.cardType, card.slug, card.title, card.subtitle, card.metricLabel, card.metricValue, card.accentColor, card.publicEnabled, card.moderationStatus ?? 'ok', card.moderationNote, card.periodStart, card.periodEnd, card.createdAt]);
     }
+    for (const estimate of parsed.projectCorpusEstimates ?? []) {
+      await c.query('INSERT INTO project_corpus_estimates(id,project_id,corpus_source,query,eligible_document_count,ingested_document_count,packets_created_from_ingested_documents,average_packets_per_document,estimated_total_packets,estimate_method,refresh_status,failure_reason,refreshed_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT (project_id,corpus_source,query) DO UPDATE SET eligible_document_count=EXCLUDED.eligible_document_count, ingested_document_count=EXCLUDED.ingested_document_count, packets_created_from_ingested_documents=EXCLUDED.packets_created_from_ingested_documents, average_packets_per_document=EXCLUDED.average_packets_per_document, estimated_total_packets=EXCLUDED.estimated_total_packets, estimate_method=EXCLUDED.estimate_method, refresh_status=EXCLUDED.refresh_status, failure_reason=EXCLUDED.failure_reason, refreshed_at=EXCLUDED.refreshed_at, updated_at=EXCLUDED.updated_at', [estimate.id, estimate.projectId, estimate.corpusSource, estimate.query, estimate.eligibleDocumentCount, estimate.ingestedDocumentCount, estimate.packetsCreatedFromIngestedDocuments, estimate.averagePacketsPerDocument, estimate.estimatedTotalPackets, estimate.estimateMethod, estimate.refreshStatus, estimate.failureReason, estimate.refreshedAt, estimate.createdAt, estimate.updatedAt]);
+    }
     for (const report of parsed.publicReports) {
       await c.query('INSERT INTO public_reports(id,target_type,target_id,target_slug,reason,details,reporter_contact,status,created_at,reviewed_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [report.id, report.targetType, report.targetId, report.targetSlug, report.reason, report.details, report.reporterContact, report.status, report.createdAt, report.reviewedAt]);
     }
@@ -534,6 +557,7 @@ export async function loadDb(): Promise<DatabaseState> {
     if (!parsed.teamStatsSnapshots) parsed.teamStatsSnapshots = [];
     if (!parsed.impactDigests) parsed.impactDigests = [];
     if (!parsed.impactCards) parsed.impactCards = [];
+    if (!parsed.projectCorpusEstimates) parsed.projectCorpusEstimates = [];
     if (!parsed.publicReports) parsed.publicReports = [];
     return databaseSchema.parse(parsed);
   } catch {

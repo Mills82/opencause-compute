@@ -27,6 +27,7 @@ const allowlisted = new Set([
   'app/api/admin/ingest/cron/route.ts',
   'app/api/admin/ingest/pmc-oa/route.ts',
   'app/api/admin/ingest/pubmed/route.ts',
+  'app/api/admin/project-progress/refresh/route.ts',
   'app/api/nodes/register/route.ts',
   'app/api/nodes/heartbeat/route.ts',
   'app/api/admin/nodes/[nodeId]/status/route.ts',

@@ -8,7 +8,7 @@ afterEach(() => { process.env = { ...OLD_ENV }; vi.restoreAllMocks(); });
 function db(): DatabaseState {
   const now = new Date().toISOString();
   return {
-    projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [], volunteerProfileNodes: [], teamMemberships: [], badgeDefinitions: [], volunteerBadges: [], volunteerStatsSnapshots: [], teamStatsSnapshots: [], impactDigests: [], publicReports: [],
+    projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [], volunteerProfileNodes: [], teamMemberships: [], badgeDefinitions: [], volunteerBadges: [], volunteerStatsSnapshots: [], teamStatsSnapshots: [], impactDigests: [], projectCorpusEstimates: [], publicReports: [],
     volunteerProfiles: [{ id: 'profile-1', displayName: 'P', slug: 'public-profile', privacyMode: 'public_named', publicProfileEnabled: true, avatarColor: '#fff', joinedAt: now, createdAt: now, updatedAt: now, moderationStatus: 'ok' }],
     teams: [{ id: 'team-1', name: 'Team', slug: 'public-team', description: '', visibility: 'public', createdAt: now, updatedAt: now, statsUpdatedAt: null, moderationStatus: 'ok' }],
     impactCards: [{ id: 'card-1', volunteerProfileId: 'profile-1', cardType: 'volunteer_weekly', slug: 'public-card', title: 'Card', subtitle: '', metricLabel: 'Packets', metricValue: '1', accentColor: '#fff', publicEnabled: true, periodStart: now, periodEnd: now, createdAt: now, moderationStatus: 'ok' }],
