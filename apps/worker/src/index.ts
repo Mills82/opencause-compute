@@ -12,12 +12,12 @@ import {
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkBatteryPolicy, checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
-import { LOCAL_LLM_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, readLocalLlmConfig, runLocalLlmExtractor, verifyLocalLlmAvailable } from './local-llm.js';
+import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, verifyLocalLlmAvailable } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
 type JsonValue = Record<string, unknown>;
 type ExtractorMode = 'local-llm' | 'mock';
-type ExtractorVersion = 'Local LLM v1' | 'Mock Extractor v1';
+type ExtractorVersion = 'Local LLM v1' | 'Local LLM v2' | 'Mock Extractor v1';
 
 const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
@@ -148,7 +148,7 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
   const nodeName = arg('--node-name', `${os.hostname()}-worker`) as string;
   const platform = `${process.platform}-${process.arch}`;
   const version = WORKER_VERSION;
-  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
+  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1', 'local-llm-v2'] : ['mock-extractor-v1'];
   const enrollmentCode = (arg('--enrollment-code') as string | undefined) || process.env.NODE_ENROLLMENT_CODE;
 
   const response = await post<{ node: { id: string }; nodeToken: string; profileSetupToken?: string }>(server, '/api/nodes/register', {
@@ -258,8 +258,8 @@ function buildProvenance(
     extractorVersion,
     modelName: extractorMode === 'local-llm' ? localLlmConfig.model : 'mock',
     modelProvider: extractorMode === 'local-llm' ? 'ollama' : 'mock',
-    promptVersion: extractorMode === 'local-llm' ? LOCAL_LLM_PROMPT_VERSION : 'mock-extractor-v1-prompt',
-    promptHash: extractorMode === 'local-llm' ? localLlmPromptHash() : 'mock-extractor-v1',
+    promptVersion: extractorVersion === 'Local LLM v2' ? LOCAL_LLM_V2_PROMPT_VERSION : extractorMode === 'local-llm' ? LOCAL_LLM_PROMPT_VERSION : 'mock-extractor-v1-prompt',
+    promptHash: extractorVersion === 'Local LLM v2' ? localLlmV2PromptHash() : extractorMode === 'local-llm' ? localLlmPromptHash() : 'mock-extractor-v1',
     packetSchemaVersion: PACKET_SCHEMA_VERSION,
     extractionTimestamp: new Date().toISOString(),
     localLlmEndpointType: extractorMode === 'local-llm' ? endpointType(localLlmConfig.endpoint) : undefined,
@@ -267,7 +267,7 @@ function buildProvenance(
     generationQualityTier: extractorMode === 'local-llm' ? generationQualityTier(localLlmConfig) : 'mock',
     workerPlatform: `${process.platform}-${process.arch}`,
     workerCapabilities: capabilities,
-    resultValidationVersion: RESULT_VALIDATION_VERSION
+    resultValidationVersion: extractorVersion === 'Local LLM v2' ? 'claims-v2' : RESULT_VALIDATION_VERSION
   };
 }
 
@@ -277,7 +277,7 @@ async function extractFromPacket(
   mockAllowed: boolean,
   signal?: AbortSignal
 ): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
-  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1'] : ['mock-extractor-v1'];
+  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1', 'local-llm-v2'] : ['mock-extractor-v1'];
   if (packet.extractor === 'mock-extractor-v1') {
     if (!mockAllowed || extractorMode !== 'mock') {
       throw new Error('mock_extractor_packet_rejected');
@@ -291,6 +291,15 @@ async function extractFromPacket(
 
   if (extractorMode !== 'local-llm') {
     throw new Error('packet_requires_local_llm');
+  }
+
+  if (packet.extractor === 'local-llm-v2') {
+    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal);
+    return {
+      extractorVersion: 'Local LLM v2',
+      result,
+      provenance: buildProvenance('Local LLM v2', extractorMode, capabilities)
+    };
   }
 
   const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig, signal);

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   const run = (await startIngestionRunRelational({ sourceType: 'pmc_oa_full_text', mode: 'manual', query: options.query, retmax: options.retmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) })) ?? await withDb((db) => startIngestionRun(db, { sourceType: 'pmc_oa_full_text', mode: 'manual', query: options.query, retmax: options.retmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) }));
   try {
     const report = await ingestPmcOaFullTextWithReport({ query: options.query, retmax: options.retmax, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY });
-    const relationalPackets = await ingestSourcesRelational({ projectSlug: options.projectSlug, projectName: options.projectName, projectDescription: options.projectDescription, sources: report.sources, extractor: 'local-llm-v1' });
+    const relationalPackets = await ingestSourcesRelational({ projectSlug: options.projectSlug, projectName: options.projectName, projectDescription: options.projectDescription, sources: report.sources, extractor: 'local-llm-v2' });
     const output = relationalPackets ? {
       project: relationalPackets.project,
       fetchedChunks: report.sources.length,
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       run: await completeIngestionRunRelational(run.id, { fetchedCount: report.documentsIngested, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPackets.packetsCreated, packetsSkipped: relationalPackets.packetsSkipped })
     } : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: options.projectSlug, name: options.projectName, description: options.projectDescription });
-      const packetSummary = createWorkPacketsFromSources(db, { projectId: project.id, sources: report.sources, extractor: 'local-llm-v1' });
+      const packetSummary = createWorkPacketsFromSources(db, { projectId: project.id, sources: report.sources, extractor: 'local-llm-v2' });
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: report.documentsIngested, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: packetSummary.packetsCreated, packetsSkipped: packetSummary.packetsSkipped });
       return { project, fetchedChunks: report.sources.length, recordsFetched: report.recordsFetched, pmcRecords: report.pmcRecords, failures: report.failures, ...packetSummary, run: completedRun };
     });

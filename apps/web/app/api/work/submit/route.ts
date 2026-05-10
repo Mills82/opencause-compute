@@ -11,7 +11,7 @@ const requestSchema = z.object({
   nodeId: z.string().min(1),
   claimId: z.string().min(1),
   workPacketId: z.string().min(1),
-  extractorVersion: z.enum(['Local LLM v1', 'Mock Extractor v1']),
+  extractorVersion: z.enum(['Local LLM v1', 'Local LLM v2', 'Mock Extractor v1']),
   result: resultPayloadSchema,
   provenance: resultProvenanceSchema.optional()
 });
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       result: output.record,
       facts: output.facts,
+      claims: output.claims,
       workPacket: output.workPacket
     });
   } catch (error) {

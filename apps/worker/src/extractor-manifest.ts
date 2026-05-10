@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 export type ExtractorManifestEntry = {
-  id: 'local-llm-v1' | 'mock-extractor-v1';
+  id: 'local-llm-v1' | 'local-llm-v2' | 'mock-extractor-v1';
   mode: 'local-llm' | 'mock';
   approved: boolean;
   allowNetwork: 'localhost-only' | 'none';
@@ -15,6 +15,13 @@ export const APPROVED_EXTRACTORS: ExtractorManifestEntry[] = [
     approved: true,
     allowNetwork: 'localhost-only',
     description: 'Approved Ollama/local LLM extractor for private/public volunteer work.'
+  },
+  {
+    id: 'local-llm-v2',
+    mode: 'local-llm',
+    approved: true,
+    allowNetwork: 'localhost-only',
+    description: 'Approved Ollama/local LLM claims-v2 extractor for cancer literature packets.'
   },
   {
     id: 'mock-extractor-v1',

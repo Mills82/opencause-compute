@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractJsonBlock, normalizeLocalLlmPayload } from '../src/local-llm';
+import { extractJsonBlock, normalizeLocalLlmPayload, normalizeLocalLlmV2Payload } from '../src/local-llm';
 
 describe('local llm helpers', () => {
   it('extracts json object from plain model output', () => {
@@ -33,9 +33,28 @@ describe('local llm helpers', () => {
       summary: 'ok',
       warnings: []
     }, evidenceSentence);
-    expect(normalized.facts[0].relationshipType).toBe('associated_with_response');
-    expect(normalized.facts[0].drugOrCompound).toBeUndefined();
-    expect(normalized.facts[0].confidence).toBe(0.7);
+    expect('facts' in normalized ? normalized.facts[0].relationshipType : '').toBe('associated_with_response');
+    expect('facts' in normalized ? normalized.facts[0].drugOrCompound : '').toBeUndefined();
+    expect('facts' in normalized ? normalized.facts[0].confidence : 0).toBe(0.7);
+  });
+
+  it('normalizes claims-v2 output and derives high review priority', () => {
+    const sentence = 'In this human cohort, EGFR mutation was associated with improved response to osimertinib in lung cancer.';
+    const normalized = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2',
+      claims: [{ claimType: 'treatment_response', evidenceOrigin: 'this_study_result', evidenceType: 'clinical', studyContext: 'human_cohort', polarity: 'affirmed', direction: 'associated', cancerType: 'lung cancer', biomarkerMention: 'EGFR mutation', biomarkerNormalizedGuess: 'EGFR', drugOrInterventionMention: 'osimertinib', drugNormalizedGuess: 'osimertinib', outcomeMention: 'response', exactEvidenceSentence: sentence, confidence: '0.9' }],
+      summary: 'ok',
+      warnings: []
+    }, sentence);
+    expect(normalized.claims[0].reviewPriority).toBe('high');
+    expect(normalized.claims[0].biomarkerMention).toBe('EGFR mutation');
+    expect(normalized.claims[0].biomarkerNormalizedGuess).toBe('EGFR');
+  });
+
+  it('drops claims-v2 entries without exact source evidence and records no-claim reason', () => {
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2', claims: [{ claimType: 'biology', exactEvidenceSentence: 'not present', confidence: 0.5 }], noClaimReason: 'insufficient_context', summary: 'none', warnings: [] }, 'source text');
+    expect(normalized.claims).toHaveLength(0);
+    expect(normalized.noClaimReason).toBe('insufficient_context');
   });
 });
 

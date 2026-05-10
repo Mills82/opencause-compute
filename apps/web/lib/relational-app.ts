@@ -367,7 +367,7 @@ export async function completeIngestionRunRelational(runId: string, input: Compl
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
-export async function ingestSourcesRelational(input: { projectSlug: string; projectName: string; projectDescription: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'mock-extractor-v1' }): Promise<{ project: Project; packetsCreated: number; packetsSkipped: number } | undefined> {
+export async function ingestSourcesRelational(input: { projectSlug: string; projectName: string; projectDescription: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'local-llm-v2' | 'mock-extractor-v1' }): Promise<{ project: Project; packetsCreated: number; packetsSkipped: number } | undefined> {
   if (!enabled()) return undefined;
   const client = await getPool().connect();
   try {

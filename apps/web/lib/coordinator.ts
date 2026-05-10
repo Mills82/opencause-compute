@@ -11,6 +11,7 @@ import {
   type Project,
   type ExtractionResult,
   type ExtractedFactRecord,
+  type ExtractedClaimRecord,
   type ResultProvenance,
   type DatabaseState,
   type WorkerControlConfig
@@ -27,6 +28,7 @@ const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
 const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local-llm-v1') as
   | 'local-llm-v1'
+  | 'local-llm-v2'
   | 'mock-extractor-v1';
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'> & { enrollmentCode?: string };
@@ -377,11 +379,11 @@ export function submitResult(
     nodeId: string;
     claimId: string;
     workPacketId: string;
-    extractorVersion: 'Local LLM v1' | 'Mock Extractor v1';
+    extractorVersion: 'Local LLM v1' | 'Local LLM v2' | 'Mock Extractor v1';
     result: ResultPayload;
     provenance?: ResultProvenance;
   }
-): { record: ExtractionResult; facts: ExtractedFactRecord[]; workPacket: WorkPacket } {
+): { record: ExtractionResult; facts: ExtractedFactRecord[]; claims: ExtractedClaimRecord[]; workPacket: WorkPacket } {
   const packet = db.workPackets.find((p) => p.id === input.workPacketId);
   if (!packet) {
     throw new Error('work_packet_not_found');
@@ -404,6 +406,9 @@ export function submitResult(
   }
 
   if (packet.extractor === 'local-llm-v1' && input.extractorVersion !== 'Local LLM v1') {
+    throw new Error('extractor_version_mismatch');
+  }
+  if (packet.extractor === 'local-llm-v2' && input.extractorVersion !== 'Local LLM v2') {
     throw new Error('extractor_version_mismatch');
   }
   if (packet.extractor === 'mock-extractor-v1' && input.extractorVersion !== 'Mock Extractor v1') {
@@ -450,7 +455,7 @@ export function submitResult(
       }
   };
 
-  const facts: ExtractedFactRecord[] = input.result.facts.map((fact) => ({
+  const facts: ExtractedFactRecord[] = 'facts' in input.result ? input.result.facts.map((fact) => ({
     id: randomUUID(),
     resultId: record.id,
     relationshipType: fact.relationshipType,
@@ -461,13 +466,21 @@ export function submitResult(
     drugOrCompound: fact.drugOrCompound,
     sourceCitation: packet.sourceCitation,
     sourceUrl: packet.sourceUrl
-  }));
+  })) : [];
+  const claims: ExtractedClaimRecord[] = 'claims' in input.result ? input.result.claims.map((claim) => ({
+    id: randomUUID(),
+    resultId: record.id,
+    ...claim,
+    sourceCitation: packet.sourceCitation,
+    sourceUrl: packet.sourceUrl
+  })) : [];
 
   claim.status = 'completed';
   claim.completedAt = submittedAt;
 
   db.results.push(record);
   db.facts.push(...facts);
+  (db.extractedClaims ?? []).push(...claims);
 
   const consensusStatus = updateConsensusForPacket(db, packet.id);
   packet.status = consensusStatus === 'consensus_passed' || consensusStatus === 'consensus_failed' ? 'completed' : 'queued';
@@ -486,7 +499,7 @@ export function submitResult(
     }
   });
 
-  return { record, facts, workPacket: packet };
+  return { record, facts, claims, workPacket: packet };
 }
 
 export function seedDemoData(db: DatabaseState): { project: Project; packetsCreated: number } {
@@ -562,7 +575,7 @@ export function getOrCreateProject(
 
 export function createWorkPacketsFromSources(
   db: DatabaseState,
-  input: { projectId: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'mock-extractor-v1' }
+  input: { projectId: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'local-llm-v2' | 'mock-extractor-v1' }
 ): { packetsCreated: number; packetsSkipped: number } {
   const now = new Date().toISOString();
   let packetsCreated = 0;
@@ -618,11 +631,12 @@ export function listWorkPackets(
   }));
 }
 
-export function listResults(db: DatabaseState): Array<ExtractionResult & { facts: ExtractedFactRecord[] }> {
+export function listResults(db: DatabaseState): Array<ExtractionResult & { facts: ExtractedFactRecord[]; claims: ExtractedClaimRecord[] }> {
   reconcileCoordinatorState(db);
   return db.results.map((result) => ({
     ...result,
-    facts: db.facts.filter((f) => f.resultId === result.id)
+    facts: db.facts.filter((f) => f.resultId === result.id),
+    claims: (db.extractedClaims ?? []).filter((claim) => claim.resultId === result.id)
   }));
 }
 
