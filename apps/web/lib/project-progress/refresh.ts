@@ -12,7 +12,7 @@ export function computePacketEstimateInputs(db: DatabaseState) {
     && run.sourceType === 'pmc_oa_full_text'
   );
   const ingestedDocumentCount = completedRuns.reduce((total, run) => total + run.fetchedCount, 0);
-  const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated, 0);
+  const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated + run.packetsSkipped, 0);
   const averagePacketsPerDocument = ingestedDocumentCount > 0 ? packetsCreatedFromIngestedDocuments / ingestedDocumentCount : 0;
   return { ingestedDocumentCount, packetsCreatedFromIngestedDocuments, averagePacketsPerDocument };
 }
