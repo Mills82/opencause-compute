@@ -236,7 +236,7 @@ export class WorkerSupervisor {
           nodeName: `${os.hostname()}-worker`,
           platform: `${process.platform}-${process.arch}`,
           version: process.env.WORKER_VERSION ?? '0.1.0',
-          capabilities: ['local-llm-v1'],
+          capabilities: ['local-llm-v2', 'local-llm-v1'],
           enrollmentCode
         })
       });
