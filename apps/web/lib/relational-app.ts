@@ -2,8 +2,9 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import type { AuditEvent, VolunteerEnrollment, VolunteerNode, WorkerControlConfig } from '@opencause/shared';
 import { createNodeToken, hashNodeToken } from './node-auth';
-import { hashEnrollmentCode, isNodeEnrollmentRequired } from './coordinator';
+import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
+import { isHostedMode } from './runtime-config';
 
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 
@@ -55,6 +56,13 @@ function enrollmentFromRow(row: any): VolunteerEnrollment {
   };
 }
 
+function requiredEnrollmentCodes(): string[] {
+  return (process.env.NODE_ENROLLMENT_CODES || process.env.NODE_ENROLLMENT_CODE || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean);
+}
+
 function controlFromRow(row: any): WorkerControlConfig {
   return {
     paused: Boolean(row.paused),
@@ -99,12 +107,20 @@ export async function registerNodeRelational(input: { nodeName: string; platform
     await client.query('BEGIN');
     let enrollmentCodeHash: string | undefined;
     let enrollmentId: string | undefined;
-    if (isNodeEnrollmentRequired()) {
-      if (!input.enrollmentCode) throw new Error('enrollment_not_configured');
+    const allowedEnvCodes = requiredEnrollmentCodes();
+    if (input.enrollmentCode) {
       enrollmentCodeHash = hashEnrollmentCode(input.enrollmentCode);
       const enrollment = (await client.query('SELECT * FROM volunteer_enrollments WHERE enrollment_code_hash = $1 FOR UPDATE', [enrollmentCodeHash])).rows[0];
-      if (!enrollment || enrollment.status !== 'issued') throw new Error('invalid_enrollment_code');
-      enrollmentId = enrollment.id;
+      if (enrollment) {
+        if (enrollment.status !== 'issued') throw new Error('enrollment_code_used_or_revoked');
+        enrollmentId = enrollment.id;
+      } else if (!allowedEnvCodes.includes(input.enrollmentCode)) {
+        throw new Error('invalid_enrollment_code');
+      }
+    } else if (allowedEnvCodes.length > 0) {
+      throw new Error('invalid_enrollment_code');
+    } else if (isHostedMode()) {
+      throw new Error('enrollment_not_configured');
     }
     const now = new Date().toISOString();
     const nodeToken = createNodeToken();

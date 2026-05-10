@@ -1,7 +1,9 @@
+import { randomBytes } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Pool } from 'pg';
 import { describe, expect, it } from 'vitest';
+import { hashEnrollmentCode } from '../lib/coordinator';
 
 const url = process.env.TEST_DATABASE_URL ?? process.env.POSTGRES_TEST_URL;
 const describePg = url ? describe : describe.skip;
@@ -13,23 +15,87 @@ async function applyMigrations(pool: Pool) {
   }
 }
 
+async function freshDb() {
+  const pool = new Pool({ connectionString: url });
+  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  await applyMigrations(pool);
+  process.env.DATABASE_URL = url;
+  process.env.OPENCAUSE_RELATIONAL_STORAGE = 'true';
+  return pool;
+}
+
 describePg('real Postgres relational storage integration', () => {
-  it('applies migrations from an empty database and preserves targeted worker data during unrelated writes', async () => {
-    const pool = new Pool({ connectionString: url });
+  it('applies migrations from an empty database and exercises targeted repositories', async () => {
+    const pool = await freshDb();
     try {
-      await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-      await applyMigrations(pool);
-      await pool.query("INSERT INTO worker_control(id,paused,idle_mode,min_idle_seconds,max_cpu_percent,run_now_token,updated_at) VALUES(1,false,'user-and-cpu',120,35,0,NOW()) ON CONFLICT (id) DO NOTHING");
-      const node = await pool.query("INSERT INTO volunteer_nodes(id,node_name,platform,version,status,capabilities,registered_at,last_heartbeat_at,node_token_hash) VALUES(gen_random_uuid(),'n','win32','0.1.0','online',ARRAY['local-llm-v1'],NOW(),NOW(),'hash') RETURNING id");
-      const packet = await pool.query("INSERT INTO projects(id,slug,name,description,created_at) VALUES(gen_random_uuid(),'p','P','D',NOW()) RETURNING id");
-      const work = await pool.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,input_hash,extractor,signature,status,created_at,updated_at) VALUES(gen_random_uuid(),$1,'t','source','cite','https://example.com','h','local-llm-v1','sig','claimed',NOW(),NOW()) RETURNING id", [packet.rows[0].id]);
-      await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at,completed_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW() + INTERVAL '10 minutes',NULL)", [work.rows[0].id, node.rows[0].id]);
-      await pool.query("INSERT INTO volunteer_enrollments(id,email,enrollment_code_hash,status,created_at,source) VALUES(gen_random_uuid(),'a@example.com','h','issued',NOW(),'public_signup')");
-      await pool.query("UPDATE worker_control SET run_now_token = run_now_token + 1, updated_at = NOW() WHERE id = 1");
-      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_claims WHERE status = 'claimed'")).rows[0].count)).toBe(1);
-      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_enrollments')).rows[0].count)).toBe(1);
+      const repo = await import('../lib/relational-app');
+      process.env.OPENCAUSE_HOSTED = 'true';
+      delete process.env.NODE_ENROLLMENT_CODE;
+      delete process.env.NODE_ENROLLMENT_CODES;
+
+      const code = `occ_${randomBytes(18).toString('base64url')}`;
+      const enrollment = await repo.issueVolunteerEnrollmentRelational('a@example.com', hashEnrollmentCode(code));
+      expect(enrollment?.status).toBe('issued');
+
+      const registration = await repo.registerNodeRelational({ nodeName: 'fresh-win', platform: 'win32', version: '0.1.0', capabilities: ['local-llm-v1'], enrollmentCode: code });
+      expect(registration?.node.id).toBeTruthy();
+      expect(registration?.nodeToken).toBeTruthy();
+      expect(registration?.profileSetupToken).toMatch(/^ocp_/);
+
+      const consumed = (await pool.query('SELECT status, used_at, node_id FROM volunteer_enrollments WHERE id = $1', [enrollment?.id])).rows[0];
+      expect(consumed.status).toBe('used');
+      expect(consumed.used_at).toBeTruthy();
+      expect(consumed.node_id).toBe(registration?.node.id);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_profiles')).rows[0].count)).toBe(1);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_profile_nodes WHERE node_id = $1 AND detached_at IS NULL', [registration?.node.id])).rows[0].count)).toBe(1);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_profiles WHERE setup_token_hash IS NOT NULL')).rows[0].count)).toBe(1);
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM audit_events WHERE action = 'node.registered'")).rows[0].count)).toBe(1);
+
+      const heartbeat = await repo.heartbeatNodeRelational(registration!.node.id, registration!.nodeToken);
+      expect(heartbeat?.status).toBe('online');
+
+      const control = await repo.updateWorkerControlRelational({ paused: true, maxCpuPercent: 25 });
+      expect(control?.paused).toBe(true);
+      const runNow = await repo.triggerRunNowRelational();
+      expect(runNow?.runNowToken).toBe((control?.runNowToken ?? 0) + 1);
+
+      const report = await repo.createPublicReportRelational({ targetType: 'team', targetSlug: 'bad-team', reason: 'spam' });
+      expect(report?.status).toBe('open');
+      await repo.appendAuditEventRelational({ actorType: 'system', action: 'test.audit.append', targetType: 'system' });
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM audit_events')).rows[0].count)).toBeGreaterThanOrEqual(4);
     } finally {
       await pool.end();
+      delete process.env.OPENCAUSE_HOSTED;
+    }
+  });
+
+  it('rejects used/revoked codes, hosted no-code registration, and still accepts configured env codes', async () => {
+    const pool = await freshDb();
+    try {
+      const repo = await import('../lib/relational-app');
+      process.env.OPENCAUSE_HOSTED = 'true';
+      delete process.env.NODE_ENROLLMENT_CODE;
+      delete process.env.NODE_ENROLLMENT_CODES;
+
+      const usedCode = `occ_${randomBytes(18).toString('base64url')}`;
+      const used = await repo.issueVolunteerEnrollmentRelational('used@example.com', hashEnrollmentCode(usedCode));
+      await repo.registerNodeRelational({ nodeName: 'n1', platform: 'win32', version: '0.1.0', capabilities: [], enrollmentCode: usedCode });
+      await expect(repo.registerNodeRelational({ nodeName: 'n2', platform: 'win32', version: '0.1.0', capabilities: [], enrollmentCode: usedCode })).rejects.toThrow('enrollment_code_used_or_revoked');
+
+      const revokedCode = `occ_${randomBytes(18).toString('base64url')}`;
+      const revoked = await repo.issueVolunteerEnrollmentRelational('revoked@example.com', hashEnrollmentCode(revokedCode));
+      await repo.updateVolunteerEnrollmentStatusRelational(revoked!.id, 'revoked');
+      await expect(repo.registerNodeRelational({ nodeName: 'n3', platform: 'win32', version: '0.1.0', capabilities: [], enrollmentCode: revokedCode })).rejects.toThrow('enrollment_code_used_or_revoked');
+
+      await expect(repo.registerNodeRelational({ nodeName: 'n4', platform: 'win32', version: '0.1.0', capabilities: [] })).rejects.toThrow('enrollment_not_configured');
+
+      process.env.NODE_ENROLLMENT_CODE = 'env-code';
+      const envRegistration = await repo.registerNodeRelational({ nodeName: 'env', platform: 'win32', version: '0.1.0', capabilities: [], enrollmentCode: 'env-code' });
+      expect(envRegistration?.node.enrollmentCodeHash).toBe(hashEnrollmentCode('env-code'));
+    } finally {
+      await pool.end();
+      delete process.env.OPENCAUSE_HOSTED;
+      delete process.env.NODE_ENROLLMENT_CODE;
     }
   });
 });
