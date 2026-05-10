@@ -161,7 +161,7 @@ export class WorkerSupervisor {
     if (existsSync(keyIdPath)) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'high' ? 16384 : qualityMode === 'budget' ? 8192 : 12288));
-    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (qualityMode === 'ultra' ? 2200 : qualityMode === 'high' ? 1800 : qualityMode === 'budget' ? 900 : 1200));
+    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (1800));
     env.LOCAL_LLM_TIMEOUT_MS = '180000';
     env.LOCAL_LLM_TEMPERATURE = '0';
     env.LOCAL_LLM_TOP_P = '0.9';
