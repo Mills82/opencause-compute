@@ -1,6 +1,6 @@
-import type { ResultPayload } from './types.js';
+import type { ResultPayloadV1 } from './types.js';
 
-const RELATION_KEYWORDS: Array<{ pattern: RegExp; relationship: ResultPayload['facts'][number]['relationshipType'] }> = [
+const RELATION_KEYWORDS: Array<{ pattern: RegExp; relationship: ResultPayloadV1['facts'][number]['relationshipType'] }> = [
   { pattern: /response|responded|sensitive/i, relationship: 'associated_with_response' },
   { pattern: /resistance|resistant/i, relationship: 'associated_with_resistance' },
   { pattern: /risk|risk factor/i, relationship: 'associated_with_risk' },
@@ -37,7 +37,7 @@ function detectDrug(text: string): string | undefined {
   return matches?.[1]?.toLowerCase();
 }
 
-function detectRelationship(text: string): ResultPayload['facts'][number]['relationshipType'] {
+function detectRelationship(text: string): ResultPayloadV1['facts'][number]['relationshipType'] {
   const hit = RELATION_KEYWORDS.find(({ pattern }) => pattern.test(text));
   return hit?.relationship ?? 'unclear';
 }
@@ -52,7 +52,7 @@ function computeConfidence(text: string): number {
   return 0.74;
 }
 
-export function runMockExtractorV1(sourceText: string): ResultPayload {
+export function runMockExtractorV1(sourceText: string): ResultPayloadV1 {
   const evidenceSentence = pickSentence(sourceText);
   const relationshipType = detectRelationship(sourceText);
   const fact = {

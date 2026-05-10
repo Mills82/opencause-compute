@@ -18,11 +18,86 @@ export const extractedFactSchema = z.object({
   confidence: z.number().min(0).max(1)
 });
 
-export const resultPayloadSchema = z.object({
+
+export const claimTypeSchema = z.enum([
+  'treatment_response',
+  'resistance',
+  'prognosis',
+  'risk',
+  'progression',
+  'diagnosis',
+  'biology',
+  'studied_with',
+  'unclear'
+]);
+
+export const evidenceOriginSchema = z.enum([
+  'this_study_result',
+  'cited_prior_work',
+  'background',
+  'methods_only',
+  'hypothesis_or_speculation',
+  'review_summary',
+  'unclear'
+]);
+
+export const evidenceTypeSchema = z.enum(['clinical', 'preclinical', 'computational', 'review', 'case_report', 'unclear']);
+export const studyContextSchema = z.enum(['human_cohort', 'clinical_trial', 'cell_line', 'animal', 'organoid', 'mixed', 'unclear']);
+export const polaritySchema = z.enum(['affirmed', 'negated', 'speculative', 'uncertain']);
+export const directionSchema = z.enum(['increased', 'decreased', 'associated', 'no_association', 'mixed', 'unclear']);
+export const sectionTypeSchema = z.enum(['abstract', 'introduction', 'methods', 'results', 'discussion', 'conclusion', 'figure_table', 'supplement', 'unknown']);
+export const noClaimReasonSchema = z.enum(['no_cancer_claim', 'methods_only', 'background_only', 'insufficient_context', 'extraction_uncertain', 'other']);
+export const reviewPrioritySchema = z.enum(['high', 'medium', 'low']);
+
+export const extractedClaimSchema = z.object({
+  claimType: claimTypeSchema,
+  evidenceOrigin: evidenceOriginSchema,
+  evidenceType: evidenceTypeSchema,
+  studyContext: studyContextSchema,
+  polarity: polaritySchema,
+  direction: directionSchema,
+  cancerType: z.string().min(1).optional(),
+  biomarkerMention: z.string().min(1).optional(),
+  biomarkerNormalizedGuess: z.string().min(1).optional(),
+  drugOrInterventionMention: z.string().min(1).optional(),
+  drugNormalizedGuess: z.string().min(1).optional(),
+  variantMention: z.string().min(1).optional(),
+  pathwayMention: z.string().min(1).optional(),
+  cellLineMention: z.string().min(1).optional(),
+  speciesOrModelMention: z.string().min(1).optional(),
+  outcomeMention: z.string().min(1).optional(),
+  outcomeMeasureMention: z.string().min(1).optional(),
+  statisticalEvidenceMention: z.string().min(1).optional(),
+  sampleSizeMention: z.string().min(1).optional(),
+  pmid: z.string().min(1).optional(),
+  pmcid: z.string().min(1).optional(),
+  sectionTitle: z.string().min(1).optional(),
+  sectionType: sectionTypeSchema.optional(),
+  paragraphIndex: z.number().int().min(0).optional(),
+  sentenceIndex: z.number().int().min(0).optional(),
+  charStart: z.number().int().min(0).optional(),
+  charEnd: z.number().int().min(0).optional(),
+  exactEvidenceSentence: z.string().min(1),
+  evidenceContext: z.string().min(1).optional(),
+  reviewPriority: reviewPrioritySchema.optional(),
+  confidence: z.number().min(0).max(1)
+});
+
+export const resultPayloadV1Schema = z.object({
   facts: z.array(extractedFactSchema),
   summary: z.string().min(1),
   warnings: z.array(z.string())
 });
+
+export const resultPayloadV2Schema = z.object({
+  schemaVersion: z.literal('claims-v2'),
+  claims: z.array(extractedClaimSchema).max(8),
+  noClaimReason: noClaimReasonSchema.optional(),
+  summary: z.string().min(1),
+  warnings: z.array(z.string())
+});
+
+export const resultPayloadSchema = z.union([resultPayloadV1Schema, resultPayloadV2Schema]);
 
 export const projectSchema = z.object({
   id: z.string(),
@@ -42,7 +117,7 @@ export const workPacketPayloadSchema = z.object({
   sourceUrl: z.string().url(),
   sourcePublishedAt: z.string().optional(),
   inputHash: z.string(),
-  extractor: z.enum(['local-llm-v1', 'mock-extractor-v1']),
+  extractor: z.enum(['local-llm-v1', 'local-llm-v2', 'mock-extractor-v1']),
   createdAt: z.string()
 });
 
@@ -99,7 +174,7 @@ export const extractionResultSchema = z.object({
   workPacketId: z.string(),
   nodeId: z.string(),
   claimId: z.string(),
-  extractorVersion: z.enum(['Local LLM v1', 'Mock Extractor v1']),
+  extractorVersion: z.enum(['Local LLM v1', 'Local LLM v2', 'Mock Extractor v1']),
   resultHash: z.string(),
   validated: z.boolean(),
   formatValidated: z.boolean().optional(),
@@ -110,6 +185,13 @@ export const extractionResultSchema = z.object({
   summary: z.string(),
   submittedAt: z.string(),
   provenance: resultProvenanceSchema.optional()
+});
+
+export const extractedClaimRecordSchema = extractedClaimSchema.extend({
+  id: z.string(),
+  resultId: z.string(),
+  sourceCitation: z.string(),
+  sourceUrl: z.string().url()
 });
 
 export const extractedFactRecordSchema = extractedFactSchema.extend({
@@ -346,6 +428,7 @@ export const databaseSchema = z.object({
   claims: z.array(workClaimSchema),
   results: z.array(extractionResultSchema),
   facts: z.array(extractedFactRecordSchema),
+  extractedClaims: z.array(extractedClaimRecordSchema).default([]),
   ingestionRuns: z.array(ingestionRunSchema).default([]),
   auditEvents: z.array(auditEventSchema).default([]),
   volunteerEnrollments: z.array(volunteerEnrollmentSchema).default([]),
@@ -366,6 +449,10 @@ export const databaseSchema = z.object({
 
 export type RelationshipType = z.infer<typeof relationshipTypeSchema>;
 export type ExtractedFact = z.infer<typeof extractedFactSchema>;
+export type ExtractedClaim = z.infer<typeof extractedClaimSchema>;
+export type ExtractedClaimRecord = z.infer<typeof extractedClaimRecordSchema>;
+export type ResultPayloadV1 = z.infer<typeof resultPayloadV1Schema>;
+export type ResultPayloadV2 = z.infer<typeof resultPayloadV2Schema>;
 export type ResultPayload = z.infer<typeof resultPayloadSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type WorkPacketPayload = z.infer<typeof workPacketPayloadSchema>;

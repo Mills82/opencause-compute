@@ -17,9 +17,26 @@ export function validateResultForPacket(result: unknown, packet: WorkPacketPaylo
   const payload: ResultPayload = parsed.data;
   const errors: string[] = [];
 
-  for (const [index, fact] of payload.facts.entries()) {
-    if (!packet.sourceText.includes(fact.evidenceSentence)) {
-      errors.push(`facts[${index}].evidenceSentence must appear in source text`);
+  if ('facts' in payload) {
+    for (const [index, fact] of payload.facts.entries()) {
+      if (!packet.sourceText.includes(fact.evidenceSentence)) {
+        errors.push(`facts[${index}].evidenceSentence must appear in source text`);
+      }
+    }
+  } else {
+    for (const [index, claim] of payload.claims.entries()) {
+      if (!packet.sourceText.includes(claim.exactEvidenceSentence)) {
+        errors.push(`claims[${index}].exactEvidenceSentence must appear in source text`);
+      }
+      if (claim.evidenceContext && !packet.sourceText.includes(claim.evidenceContext)) {
+        errors.push(`claims[${index}].evidenceContext must appear in source text`);
+      }
+      if (claim.charStart !== undefined && claim.charEnd !== undefined && claim.charEnd <= claim.charStart) {
+        errors.push(`claims[${index}].charEnd must be greater than charStart`);
+      }
+    }
+    if (payload.claims.length === 0 && !payload.noClaimReason) {
+      errors.push('noClaimReason is required when claims is empty');
     }
   }
 

@@ -23,6 +23,6 @@ describe('schema validation', () => {
       warnings: []
     });
 
-    expect(parsed.facts).toHaveLength(1);
+    expect('facts' in parsed ? parsed.facts : []).toHaveLength(1);
   });
 });
