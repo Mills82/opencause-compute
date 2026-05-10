@@ -1,0 +1,44 @@
+# Project progress estimates
+
+Cancer Knowledge Miner should show mission progress as consensus-completed literature packets over an estimated eligible packet corpus.
+
+## Metric definition
+
+Public progress should use:
+
+```text
+consensus_completed_packets / estimated_total_packets
+```
+
+Where:
+
+```text
+estimated_total_packets = eligible_document_count * average_packets_per_ingested_document
+average_packets_per_ingested_document = packets_created_from_completed_ingestion_runs / documents_fetched_by_completed_ingestion_runs
+```
+
+Use approximate language (`~`, `estimated`) until the full corpus has been enumerated and packetized.
+
+## V1 source of truth
+
+- Numerator: aggregate all-time `consensusPassedContributions` from gamification stats.
+- Eligible document count: configured project corpus count, initially via `OPENCAUSE_CKM_ELIGIBLE_DOCUMENT_COUNT`.
+- Average packets/document: completed ingestion runs for Cancer Knowledge Miner-compatible NCBI ingestion.
+- Sample threshold: do not show a percentage/denominator until at least 10 ingested documents and at least 1 packet exist.
+
+## UX rules
+
+Show three separate concepts:
+
+1. Consensus progress — the mission progress bar.
+2. Structure-validated submissions — useful throughput, not final completion.
+3. Estimate basis — e.g. `Estimated from 1,250 eligible documents and 42 ingested documents.`
+
+Avoid implying medical/scientific validation. Label artifacts as literature sections/evidence candidates.
+
+## Future improvements
+
+- Add an admin count job that stores PubMed/PMC eligible document counts with query, source, and timestamp.
+- Replace env-based eligible document count with stored project corpus estimate rows.
+- Once the corpus is fully enumerated and packetized, switch denominator to actual `COUNT(work_packets)` for the project.
+- Use a trimmed mean/median packet count once enough per-document packet data is available.

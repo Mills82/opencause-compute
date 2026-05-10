@@ -1,5 +1,8 @@
 import type { DatabaseState, VolunteerProfile, VolunteerStatsSnapshot } from '@opencause/shared';
 
+const CKM_PROJECT_SLUG = 'cancer-knowledge-miner';
+const MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE = 10;
+
 export function latestVolunteerStats(db: DatabaseState, profileId: string): VolunteerStatsSnapshot | undefined {
   return db.volunteerStatsSnapshots.find((stats) => stats.volunteerProfileId === profileId && stats.window === 'all_time');
 }
@@ -12,9 +15,50 @@ export function canShowVolunteerProfile(profile: VolunteerProfile): boolean {
   return profile.publicProfileEnabled && profile.privacyMode === 'public_named' && profile.moderationStatus !== 'hidden';
 }
 
+function configuredEligibleDocumentCount(): number | null {
+  const raw = process.env.OPENCAUSE_CKM_ELIGIBLE_DOCUMENT_COUNT;
+  if (!raw) return null;
+  const parsed = Number(raw.replace(/,/g, ''));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
+export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
+  const eligibleDocumentCount = configuredEligibleDocumentCount();
+  const completedRuns = db.ingestionRuns.filter((run) =>
+    (run.status === 'completed' || run.status === 'partial_failed')
+    && (run.sourceType === 'pubmed_abstract' || run.sourceType === 'pmc_oa_full_text' || run.sourceType === 'combined')
+  );
+  const ingestedDocumentCount = completedRuns.reduce((total, run) => total + run.fetchedCount, 0);
+  const packetsCreatedFromIngestedDocuments = completedRuns.reduce((total, run) => total + run.packetsCreated, 0);
+  const averagePacketsPerDocument = ingestedDocumentCount > 0 ? packetsCreatedFromIngestedDocuments / ingestedDocumentCount : 0;
+  const sampleMinMet = ingestedDocumentCount >= MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE && packetsCreatedFromIngestedDocuments > 0;
+  const estimatedTotalPackets = eligibleDocumentCount && sampleMinMet
+    ? Math.max(1, Math.round(eligibleDocumentCount * averagePacketsPerDocument))
+    : null;
+  const consensusCompletedPackets = db.volunteerStatsSnapshots
+    .filter((snapshot) => snapshot.window === 'all_time')
+    .reduce((total, snapshot) => total + snapshot.consensusPassedContributions, 0);
+  const percentComplete = estimatedTotalPackets ? (consensusCompletedPackets / estimatedTotalPackets) * 100 : null;
+
+  return {
+    projectSlug: CKM_PROJECT_SLUG,
+    eligibleDocumentCount,
+    ingestedDocumentCount,
+    packetsCreatedFromIngestedDocuments,
+    averagePacketsPerDocument,
+    estimatedTotalPackets,
+    consensusCompletedPackets,
+    percentComplete,
+    sampleMinMet,
+    estimateMethod: 'mean_packets_per_ingested_document' as const,
+    sampleMinimumDocuments: MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE
+  };
+}
+
 export function buildImpactSummary(db: DatabaseState) {
   const stats = db.volunteerStatsSnapshots.filter((snapshot) => snapshot.window === 'all_time');
   const sum = (key: keyof VolunteerStatsSnapshot) => stats.reduce((total, snapshot) => total + Number(snapshot[key] ?? 0), 0);
+  const currentProjectProgress = buildCancerKnowledgeMinerProgressEstimate(db);
   return {
     volunteers: db.volunteerProfiles.length,
     publicVolunteers: db.volunteerProfiles.filter((profile) => profile.publicProfileEnabled && profile.privacyMode !== 'private' && profile.moderationStatus !== 'hidden').length,
@@ -27,6 +71,7 @@ export function buildImpactSummary(db: DatabaseState) {
     humanReviewedAcceptedContributions: sum('humanReviewedAcceptedContributions'),
     contributionScore: sum('contributionScore'),
     currentProject: 'Cancer Knowledge Miner',
+    currentProjectProgress,
     disclaimer: 'These metrics describe open-science processing, validation, and consensus activity. They are not medical conclusions or clinical findings.'
   };
 }

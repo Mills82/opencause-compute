@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePubMedXml } from '../lib/ingestion/pubmed';
+import { parsePubMedSearchCount, parsePubMedXml } from '../lib/ingestion/pubmed';
 
 const SAMPLE_XML = `
 <PubmedArticleSet>
@@ -28,6 +28,11 @@ const SAMPLE_XML = `
 `;
 
 describe('pubmed ingestion parser', () => {
+  it('parses count-only search responses', () => {
+    expect(parsePubMedSearchCount({ esearchresult: { count: '12345' } })).toBe(12345);
+    expect(parsePubMedSearchCount({ esearchresult: { count: 17 } })).toBe(17);
+  });
+
   it('parses pmid, abstract, and citation data', () => {
     const records = parsePubMedXml(SAMPLE_XML);
     expect(records).toHaveLength(1);

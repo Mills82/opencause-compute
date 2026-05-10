@@ -12,11 +12,18 @@ function Metric({ label, value, emphasis = false }: { label: string; value: numb
   );
 }
 
+function formatPercent(value: number | null) {
+  if (value === null) return '—';
+  if (value > 0 && value < 0.01) return '<0.01%';
+  return `${value.toFixed(2)}%`;
+}
+
 export default async function ImpactPage() {
   const db = await loadDb();
   const impact = buildImpactSummary(db);
   const topTeams = buildTeamLeaderboard(db).slice(0, 3);
   const hasWork = impact.sectionsProcessed > 0 || impact.formatValidatedSubmissions > 0;
+  const progress = impact.currentProjectProgress;
 
   return (
     <section className="space-y-8">
@@ -49,6 +56,35 @@ export default async function ImpactPage() {
         <div className="rounded-xl border border-line bg-panel p-5">
           <h2 className="text-xl font-semibold">Current project</h2>
           <p className="mt-2 text-slate-300">{impact.currentProject}: citation-backed evidence extraction from public/open biomedical literature.</p>
+          <div className="mt-5 rounded-xl border border-line/70 bg-ink p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-white">Consensus-completed literature sections</p>
+                {progress.estimatedTotalPackets ? (
+                  <p className="mt-1 text-2xl font-semibold text-white">
+                    {progress.consensusCompletedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-2xl font-semibold text-white">{progress.consensusCompletedPackets.toLocaleString()} completed</p>
+                )}
+              </div>
+              <p className="rounded-full border border-line px-3 py-1 text-sm text-slate-300">{formatPercent(progress.percentComplete)}</p>
+            </div>
+            {progress.estimatedTotalPackets ? (
+              <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(progress.percentComplete ?? 0, 100)}%` }} />
+              </div>
+            ) : null}
+            <p className="mt-3 text-xs text-slate-400">
+              {progress.estimatedTotalPackets ? (
+                <>Estimated from {progress.eligibleDocumentCount?.toLocaleString()} eligible documents and {progress.ingestedDocumentCount.toLocaleString()} ingested documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
+              ) : progress.eligibleDocumentCount ? (
+                <>Progress denominator will appear after at least {progress.sampleMinimumDocuments} ingested documents. Current sample: {progress.ingestedDocumentCount.toLocaleString()} documents, {progress.packetsCreatedFromIngestedDocuments.toLocaleString()} packets.</>
+              ) : (
+                <>Estimated corpus size is not configured yet. Structure-validated throughput is shown separately above.</>
+              )}
+            </p>
+          </div>
           <p className="mt-4 rounded-lg border border-line/70 bg-ink p-3 text-sm text-slate-300">
             Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
           </p>

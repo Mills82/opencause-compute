@@ -103,6 +103,30 @@ function buildSearchParams(options: PubMedIngestOptions): URLSearchParams {
   );
 }
 
+export function parsePubMedSearchCount(searchJson: unknown): number {
+  const count = (searchJson as { esearchresult?: { count?: string | number } })?.esearchresult?.count;
+  const parsed = typeof count === 'number' ? count : Number(count ?? 0);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
+}
+
+export async function fetchPubMedRecordCount(options: Omit<PubMedIngestOptions, 'retmax'>): Promise<number> {
+  const searchParams = appendNcbiParams(
+    new URLSearchParams({
+      db: 'pubmed',
+      term: options.query,
+      retmode: 'json',
+      retmax: '0'
+    }),
+    options
+  );
+  const searchUrl = `${EUTILS_BASE}/esearch.fcgi?${searchParams.toString()}`;
+  const searchResponse = await fetchNcbi(searchUrl, options);
+  if (!searchResponse.ok) {
+    throw new Error(`pubmed_esearch_failed:${searchResponse.status}`);
+  }
+  return parsePubMedSearchCount(await searchResponse.json());
+}
+
 export async function fetchPubMedRecords(options: PubMedIngestOptions): Promise<PubMedSourceRecord[]> {
   const delayMs = ncbiDelayMs(options);
 
@@ -112,9 +136,7 @@ export async function fetchPubMedRecords(options: PubMedIngestOptions): Promise<
     throw new Error(`pubmed_esearch_failed:${searchResponse.status}`);
   }
 
-  const searchJson = (await searchResponse.json()) as {
-    esearchresult?: { idlist?: string[] };
-  };
+  const searchJson = (await searchResponse.json()) as { esearchresult?: { idlist?: string[] } };
 
   const pmids = searchJson.esearchresult?.idlist ?? [];
   if (pmids.length === 0) {
