@@ -9,7 +9,7 @@ function stableStringify(value: unknown): string {
     return `[${value.map((item) => stableStringify(item)).join(',')}]`;
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(',')}}`;
 }
 

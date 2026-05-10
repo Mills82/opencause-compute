@@ -16,13 +16,22 @@ function signingPublicKey(): string | undefined {
   return process.env.PACKET_SIGNING_PUBLIC_KEY;
 }
 
+function omitUndefined(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(omitUndefined);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined).map(([k, v]) => [k, omitUndefined(v)]));
+  }
+  return value;
+}
+
 export function signWorkPacketPayload(payload: unknown): string {
+  const normalizedPayload = omitUndefined(payload);
   const privateKey = signingPrivateKey();
   if (privateKey) {
     assertPacketSigningReady();
-    return signPayloadEd25519(payload, privateKey, process.env.PACKET_SIGNING_KEY_ID);
+    return signPayloadEd25519(normalizedPayload, privateKey, process.env.PACKET_SIGNING_KEY_ID);
   }
-  return signPayloadHmac(payload, hmacSecret());
+  return signPayloadHmac(normalizedPayload, hmacSecret());
 }
 
 export function verifyWorkPacketSignature(payload: unknown, signature: string): boolean {
