@@ -39,23 +39,23 @@ export default async function ImpactPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_35%)]" />
         <div className="relative max-w-3xl space-y-4">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Impact dashboard</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Open-science contribution, measured transparently.</h1>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Volunteer compute for open cancer research.</h1>
           <p className="text-lg text-slate-300">
-            OpenCause Compute turns spare compute into structured evidence work for open science. These numbers track processing, validation, and consensus progress — not clinical conclusions.
+            OpenCause Compute helps turn spare computing power into citation-backed research data from open-access cancer literature. This page tracks the project’s progress from raw literature to independently validated results.
           </p>
         </div>
       </div>
 
       {!hasWork ? (
         <p className="rounded-xl border border-line bg-panel p-4 text-sm text-slate-300">
-          OpenCause Compute is preparing its first volunteer compute runs. Once work begins, this page will show aggregate processing activity, structure-validated submissions, and consensus-passed evidence candidates.
+          OpenCause Compute is preparing its first volunteer compute runs. Once work begins, this page will show aggregate processing activity, validated submissions, and completed research sections.
         </p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Literature sections processed" value={impact.sectionsProcessed} emphasis />
-        <Metric label="Structure-validated submissions" value={impact.formatValidatedSubmissions} emphasis />
-        <Metric label="Consensus-passed evidence candidates" value={impact.consensusPassedContributions} />
+        <Metric label="Validated submissions" value={impact.formatValidatedSubmissions} emphasis />
+        <Metric label="Consensus-complete sections" value={impact.consensusPassedContributions} />
         <Metric label="Volunteer profiles" value={impact.volunteers} />
         <Metric label="Active nodes" value={impact.activeNodes} />
         <Metric label="Public teams" value={impact.teams} />
@@ -68,9 +68,9 @@ export default async function ImpactPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Current project</p>
                 <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Cancer Knowledge Miner</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Citation-backed evidence extraction from reusable open-access cancer literature.</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Building a structured, citation-backed map of findings from open-access cancer literature.</p>
               </div>
-              <div className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">PMC OA corpus</div>
+              <div className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">Open-access literature</div>
             </div>
           </div>
 
@@ -78,7 +78,7 @@ export default async function ImpactPage() {
             <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Consensus-complete packet progress</p>
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Research sections completed</p>
                   {progress.estimatedTotalPackets ? (
                     <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
                       {progress.consensusCompletedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedTotalPackets.toLocaleString()}
@@ -99,11 +99,11 @@ export default async function ImpactPage() {
                   <p className="mt-2 text-2xl font-semibold text-white">{progress.eligibleDocumentCount?.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm text-slate-400">Estimated literature packets</p>
+                  <p className="text-sm text-slate-400">Estimated research sections</p>
                   <p className="mt-2 text-2xl font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm text-slate-400">Total validation work completed</p>
+                  <p className="text-sm text-slate-400">Validation work completed</p>
                   <p className="mt-2 text-2xl font-semibold text-white">{progress.formatValidatedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()}</p>
                 </div>
               </div>
@@ -117,21 +117,21 @@ export default async function ImpactPage() {
                 </div>
                 <ProgressBar value={progress.percentValidationWorkComplete} />
                 <p className="mt-3 text-xs leading-5 text-slate-400">
-                  Estimates are based on the current PMC Open Access cancer corpus and will become more precise as more full-text documents are sampled.
+                  Estimates are based on the current open-access cancer literature corpus and will become more precise as the project processes more full-text documents.
                 </p>
               </div>
             ) : (
               <p className="rounded-2xl border border-line/70 bg-ink/80 p-4 text-sm leading-6 text-slate-300">
                 {progress.eligibleDocumentCount ? (
-                  <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Packet estimate will appear after more full-text documents are sampled.</>
+                  <>{progress.eligibleDocumentCount.toLocaleString()} eligible open-access cancer documents identified. Section estimates will appear after more full-text documents are processed.</>
                 ) : (
-                  <>Eligible open-access cancer document count has not been refreshed yet. Structure-validated throughput is shown separately above.</>
+                  <>Eligible open-access cancer document count has not been refreshed yet. Validated submission activity is shown separately above.</>
                 )}
               </p>
             )}
 
             <p className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-50">
-              Evidence candidates are intermediate research-support artifacts. They are not medical advice, clinical findings, or accepted science.
+              OpenCause Compute supports research organization and review. It does not provide medical advice, clinical findings, or accepted scientific conclusions.
             </p>
           </div>
         </div>
@@ -143,7 +143,7 @@ export default async function ImpactPage() {
               {topTeams.map((team) => <li key={team.slug}>#{team.rank} {team.name} — {team.contributionScore.toLocaleString()} contribution score</li>)}
             </ol>
           ) : (
-            <p className="mt-2 text-sm text-slate-300">Team impact will appear after teams are created and complete eligible contributions.</p>
+            <p className="mt-2 text-sm text-slate-300">Team impact will appear after teams are created and begin contributing validated work.</p>
           )}
         </div>
       </div>
