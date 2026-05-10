@@ -51,6 +51,10 @@
       .stat-card strong { display:block; font-size: 22px; margin-bottom: 4px; }
       .hero-dashboard { background: linear-gradient(135deg, #14213d, #101827); border-color: #38527c; }
       .log-card { background:#080d18; border:1px solid #25314d; border-radius:12px; padding:12px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+      .activity-card { border-radius: 12px; padding: 14px; background: #0d1425; border: 1px solid #25314d; margin: 12px 0; }
+      .activity-card.ready { border-color: #2f8f56; }
+      .activity-card.warning { border-color: #8a6d1d; }
+      .activity-card.blocked { border-color: #8f3a35; }
       @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
       @media (max-width: 950px) { .layout.dashboard-mode #profile-step, .layout.dashboard-mode #settings-step { grid-column: 1 / -1; } }
     </style>
@@ -183,6 +187,10 @@
           <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
             <h2>Worker dashboard</h2>
             <p id="worker-message">Checking worker...</p>
+            <div id="activity-summary" class="activity-card warning">
+              <strong>Checking activity…</strong>
+              <p class="small">Reading the latest worker log.</p>
+            </div>
             <p id="version-message" class="small"></p>
             <div class="grid">
               <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
@@ -265,6 +273,7 @@
       const dashboardGpu = document.getElementById('dashboard-gpu');
       const dashboardResourceReason = document.getElementById('dashboard-resource-reason');
       const dashboardHint = document.getElementById('dashboard-hint');
+      const activitySummary = document.getElementById('activity-summary');
       const latestLog = document.getElementById('latest-log');
       let latestState = null;
       let ollamaPoll = null;
@@ -336,7 +345,16 @@
         if (dashboardCpu) dashboardCpu.textContent = resources ? `${resources.cpuPercent}% / ${resources.maxCpuPercent}%` : '—';
         if (dashboardGpu) dashboardGpu.textContent = resources?.gpu?.available ? `${resources.gpu.utilizationPercent}% / ${resources.gpu.temperatureC}°C` : 'Unavailable';
         if (dashboardResourceReason) dashboardResourceReason.textContent = resources?.reason || '—';
-        if (dashboardHint && resources) dashboardHint.textContent = resources.eligible ? 'Ready to work when packets are available.' : `Waiting: ${resources.reason}. Adjust Models & resources if needed.`;
+        if (dashboardHint) dashboardHint.textContent = latestState?.activity?.detail || (resources ? (resources.eligible ? 'Ready for the next worker check.' : `Waiting: ${resources.reason}. Adjust Models & resources if needed.`) : 'Waiting for worker status.');
+      }
+
+      function renderActivity(activity) {
+        if (!activitySummary) return;
+        const severity = activity?.severity || 'warning';
+        activitySummary.className = `activity-card ${severity}`;
+        const when = activity?.at ? `<span class="pill">${activity.at}</span>` : '';
+        const packet = activity?.packetId ? `<span class="pill">packet ${activity.packetId.slice(0, 8)}</span>` : '';
+        activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong>${when}${packet}<p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p>`;
       }
 
       function statusLabel(status) {
@@ -405,7 +423,8 @@
           const stoppedDetail = runtime.lastMode === 'run-once'
             ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
             : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
-          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (runtime.running ? `Worker running with pid ${runtime.pid}.` : stoppedDetail);
+          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (runtime.running ? `Worker running with pid ${runtime.pid}. ${latestState.activity?.headline || ''}` : stoppedDetail);
+          renderActivity(latestState.activity);
           const log = await api.tailLog();
           latestLog.textContent = log || 'No log lines yet.';
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;

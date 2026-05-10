@@ -75,6 +75,7 @@ ipcMain.handle('desktop:get-state', async () => {
   const settings = await loadDesktopSettings(appDir);
   const sup = await supervisor();
   const runtime = sup.status();
+  const activity = await sup.activitySummary();
   const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   const resources = await resourceStatus(settings);
@@ -82,6 +83,7 @@ ipcMain.handle('desktop:get-state', async () => {
   return {
     settings: redactedSettings(settings),
     runtime,
+    activity,
     profileSetupUrl: credentials?.profileSetupUrl,
     modelRuntime,
     resources,
@@ -127,6 +129,7 @@ ipcMain.handle('desktop:diagnostics', async () => {
   const sup = await supervisor();
   return {
     status: sup.status(),
+    activity: await sup.activitySummary(),
     workerLog: await sup.tailLogNewestFirst(),
     registrationDebugLog: await sup.registrationDebugLog()
   };

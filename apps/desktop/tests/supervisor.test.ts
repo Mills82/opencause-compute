@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WorkerSupervisor } from '../src/supervisor';
+import { WorkerSupervisor, summarizeWorkerLog } from '../src/supervisor';
 
 describe('worker supervisor contract', () => {
   const supervisor = new WorkerSupervisor({
@@ -90,5 +90,16 @@ describe('worker supervisor contract', () => {
     const status = await localSupervisor.uninstallLocalState();
     expect(status.running).toBe(false);
     expect(status.configured).toBe(false);
+  });
+
+  it('summarizes a claimed packet running through local model extraction', () => {
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:45:00.883Z] signature verified for packet packet-1\n');
+    expect(summary).toMatchObject({ state: 'running_model', severity: 'ready', packetId: 'packet-1' });
+  });
+
+  it('summarizes local model timeout failures clearly', () => {
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:48:00.883Z] run failed local_llm_timeout:180000\n');
+    expect(summary).toMatchObject({ state: 'failed', severity: 'blocked', error: 'local_llm_timeout:180000' });
+    expect(summary.headline).toContain('timed out');
   });
 });

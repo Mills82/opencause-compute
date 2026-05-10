@@ -42,6 +42,16 @@ export type WorkerRuntimeStatus = {
   packetsCompletedThisRun: number;
 };
 
+export type WorkerActivitySummary = {
+  state: 'running_model' | 'waiting_idle' | 'no_work' | 'submitted' | 'failed' | 'heartbeat' | 'idle' | 'unknown';
+  headline: string;
+  detail: string;
+  severity: 'ready' | 'warning' | 'blocked';
+  at?: string;
+  packetId?: string;
+  error?: string;
+};
+
 export type WorkerCommand =
   | { kind: 'register'; enrollmentCode: string }
   | { kind: 'run-once'; forceNow?: boolean }
@@ -274,6 +284,10 @@ export class WorkerSupervisor {
     return content.split(/\r?\n/).filter(Boolean).reverse().join('\n');
   }
 
+  async activitySummary(): Promise<WorkerActivitySummary> {
+    return summarizeWorkerLog(await this.tailLog());
+  }
+
   async registrationDebugLog(maxBytes = 16_384): Promise<string> {
     const content = await readFile(path.join(this.config.appDir, 'registration-debug.log'), 'utf8').catch(() => '');
     return content.length <= maxBytes ? content : content.slice(content.length - maxBytes);
@@ -284,4 +298,57 @@ export class WorkerSupervisor {
     await rm(this.config.appDir, { recursive: true, force: true });
     return this.status();
   }
+}
+
+export function summarizeWorkerLog(content: string): WorkerActivitySummary {
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  const parsed = lines.map((line) => {
+    const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
+    return { at: match?.[1], message: match?.[2] ?? line };
+  });
+
+  const latest = [...parsed].reverse().find((entry) => !entry.message.startsWith('worker process exited'));
+  const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
+  const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
+  const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal '));
+  const packetId = latestClaim?.message.match(/claimed packet\s+([^\s]+)/)?.[1];
+
+  if (latest?.message.includes('signature verified')) {
+    return {
+      state: 'running_model',
+      headline: 'Running local model on a claimed packet',
+      detail: packetId ? `Packet ${packetId} is claimed and the local model is generating evidence.` : 'A packet is claimed and the local model is generating evidence.',
+      severity: 'ready',
+      at: latest.at,
+      packetId
+    };
+  }
+  if (latestFailure && (!latestSubmitted || (latestFailure.at ?? '') > (latestSubmitted.at ?? ''))) {
+    const error = latestFailure.message.replace(/^run failed\s+/, '').replace(/^fatal\s+/, '');
+    return {
+      state: 'failed',
+      headline: error.startsWith('local_llm_timeout') ? 'Local model timed out before submitting' : 'Worker hit an error before submitting',
+      detail: error.startsWith('local_llm_timeout')
+        ? 'The coordinator has work and the worker can claim it, but the local model needs more time or a lighter model/resource setting.'
+        : error,
+      severity: 'blocked',
+      at: latestFailure.at,
+      packetId,
+      error
+    };
+  }
+  if (latest?.message.includes('idle gate blocked')) {
+    const reason = latest.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
+    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latest.at };
+  }
+  if (latest?.message.includes('no work available')) {
+    return { state: 'no_work', headline: 'Coordinator has no eligible packets for this worker', detail: 'The worker checked in successfully but did not receive a packet.', severity: 'warning', at: latest.at };
+  }
+  if (latestSubmitted) {
+    return { state: 'submitted', headline: 'Packet submitted successfully', detail: latestSubmitted.message, severity: 'ready', at: latestSubmitted.at };
+  }
+  if (latest?.message.includes('heartbeat')) {
+    return { state: 'heartbeat', headline: 'Connected to coordinator', detail: 'Heartbeat succeeded. Waiting for the next work check.', severity: 'ready', at: latest.at };
+  }
+  return { state: 'unknown', headline: 'No worker activity yet', detail: latest?.message ?? 'Start the worker to begin heartbeats, packet claims, and submissions.', severity: 'warning', at: latest?.at };
 }
