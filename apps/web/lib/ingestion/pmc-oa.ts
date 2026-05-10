@@ -169,6 +169,12 @@ async function fetchPmcOaArchiveHref(pmcid: string, options: { email?: string; a
 }
 
 async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiKey?: string } = {}): Promise<string> {
+  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', id: pmcid.replace(/^PMC/i, ''), retmode: 'xml' }), options);
+  const efetchResponse = await fetchNcbi(`${EUTILS_BASE}/efetch.fcgi?${params.toString()}`, options);
+  if (efetchResponse.ok) {
+    return stripXmlToText(await efetchResponse.text());
+  }
+
   const href = await fetchPmcOaArchiveHref(pmcid, options);
   const response = await fetchNcbi(href, options);
   if (!response.ok) {
