@@ -1,7 +1,7 @@
+export const dynamic = 'force-dynamic';
+
 import { loadDb } from '../../lib/db';
 import { publicLaunchReadiness } from '../../lib/readiness/public-launch';
-
-export const dynamic = 'force-dynamic';
 
 export default async function ReadinessPage() {
   const readiness = publicLaunchReadiness(await loadDb());

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { notFound } from 'next/navigation';
 import { loadDb } from '../../../lib/db';
 import { canShowVolunteerProfile, latestVolunteerStats } from '../../../lib/gamification/public';

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { loadDb } from '../../../lib/db';
 import { buildTeamLeaderboard } from '../../../lib/gamification/public';
 
