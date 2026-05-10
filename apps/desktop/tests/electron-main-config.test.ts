@@ -38,9 +38,10 @@ describe('electron main window config', () => {
   it('only starts hidden for OS login launches and shows manual launches maximized', () => {
     expect(source).toContain("const loginLaunchArg = '--opencause-open-at-login'");
     expect(source).toContain('function isLoginStartupLaunch');
-    expect(source).toContain('settings.startMinimized && isLoginStartupLaunch()');
+    expect(source).toContain('settings.startupOnLogin && isLoginStartupLaunch()');
     expect(source).toContain('win.maximize()');
     expect(source).toContain('app.on(\'second-instance\'');
+    expect(source).toContain('openAsHidden: settings.startupOnLogin');
     expect(source).toContain('args: settings.startupOnLogin ? [loginLaunchArg] : []');
   });
 

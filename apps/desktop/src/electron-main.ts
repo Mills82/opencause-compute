@@ -67,7 +67,7 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T): Partial<
 
 function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
   assertPlainObject(update);
-  const allowed = new Set(['coordinatorUrl', 'localPaused', 'startupOnLogin', 'startMinimized', 'autoStartWorker', 'setupCompletedAt', 'resourceControls', 'modelRuntime']);
+  const allowed = new Set(['coordinatorUrl', 'localPaused', 'startupOnLogin', 'autoStartWorker', 'setupCompletedAt', 'resourceControls', 'modelRuntime']);
   for (const key of Object.keys(update)) if (!allowed.has(key)) throw new Error(`unknown_setting_${key}`);
   const next: Partial<DesktopSettings> = {};
   if (update.coordinatorUrl !== undefined) {
@@ -81,7 +81,6 @@ function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
   }
   next.localPaused = optionalBoolean(update.localPaused, 'localPaused');
   next.startupOnLogin = optionalBoolean(update.startupOnLogin, 'startupOnLogin');
-  next.startMinimized = optionalBoolean(update.startMinimized, 'startMinimized');
   next.autoStartWorker = optionalBoolean(update.autoStartWorker, 'autoStartWorker');
   if (update.setupCompletedAt !== undefined) {
     if (typeof update.setupCompletedAt !== 'string' || Number.isNaN(Date.parse(update.setupCompletedAt))) throw new Error('invalid_setupCompletedAt');
@@ -274,7 +273,7 @@ async function createWindow() {
     }
   });
   await win.loadFile(resolveStaticIndex());
-  const startHidden = settings.startMinimized && isLoginStartupLaunch();
+  const startHidden = settings.startupOnLogin && isLoginStartupLaunch();
   if (startHidden) {
     win.hide();
   } else {
@@ -353,7 +352,7 @@ ipcMain.handle('desktop:update-settings', async (event, update: unknown) => {
   previousSupervisor?.stop();
   cachedSupervisor = null;
   cachedSupervisorKey = '';
-  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startMinimized, args: settings.startupOnLogin ? [loginLaunchArg] : [] });
+  app.setLoginItemSettings({ openAtLogin: settings.startupOnLogin, openAsHidden: settings.startupOnLogin, args: settings.startupOnLogin ? [loginLaunchArg] : [] });
   return redactedSettings(settings);
 });
 

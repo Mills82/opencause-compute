@@ -10,7 +10,6 @@ export type DesktopSettings = {
   nodeToken?: string;
   localPaused: boolean;
   startupOnLogin: boolean;
-  startMinimized: boolean;
   autoStartWorker: boolean;
   setupCompletedAt?: string;
   resourceControls: {
@@ -36,7 +35,6 @@ export const defaultDesktopSettings: DesktopSettings = {
   coordinatorUrl: 'https://opencause.appassist.ai',
   localPaused: false,
   startupOnLogin: false,
-  startMinimized: false,
   autoStartWorker: false,
   setupCompletedAt: undefined,
   resourceControls: {

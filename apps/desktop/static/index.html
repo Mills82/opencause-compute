@@ -198,7 +198,6 @@
               </label>
             </div>
             <label><input id="startup" type="checkbox" /> Start OpenCause Compute when I sign in to Windows</label>
-            <label><input id="start-minimized" type="checkbox" /> Start minimized</label>
             <label><input id="auto-start-worker" type="checkbox" /> Automatically resume/start worker when the app opens</label>
             <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
             <button id="save-settings" class="primary">Save settings</button>
@@ -294,7 +293,6 @@
       const numPredict = document.getElementById('num-predict');
       const schedule = document.getElementById('schedule');
       const startup = document.getElementById('startup');
-      const startMinimized = document.getElementById('start-minimized');
       const autoStartWorker = document.getElementById('auto-start-worker');
       const battery = document.getElementById('battery');
       const progressSteps = document.getElementById('progress-steps');
@@ -567,7 +565,6 @@
             minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
             schedule.value = latestState.settings.resourceControls.schedule;
             startup.checked = latestState.settings.startupOnLogin;
-            startMinimized.checked = latestState.settings.startMinimized;
             autoStartWorker.checked = latestState.settings.autoStartWorker;
             battery.checked = latestState.settings.resourceControls.runOnBattery;
             qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
@@ -600,7 +597,6 @@
         const saved = await api.updateSettings({
 
           startupOnLogin: startup.checked,
-          startMinimized: startMinimized.checked,
           autoStartWorker: autoStartWorker.checked,
           setupCompletedAt: latestState?.settings?.setupCompletedAt || (registered() && latestState?.modelRuntime?.available && selectedModelInstalled() ? new Date().toISOString() : undefined),
           modelRuntime: { model: selectedModel, qualityMode: qualityMode.value, numCtx: Number(numCtx.value), numPredict: Number(numPredict.value) },
@@ -612,7 +608,7 @@
         await refresh();
       }
 
-      [maxCpu, minIdle, numCtx, numPredict, schedule, startup, startMinimized, autoStartWorker, battery, modelSelect].forEach((input) => {
+      [maxCpu, minIdle, numCtx, numPredict, schedule, startup, autoStartWorker, battery, modelSelect].forEach((input) => {
         input.addEventListener('input', () => { settingsDirty = true; });
         input.addEventListener('change', () => { settingsDirty = true; if (['max-cpu','min-idle','num-ctx','num-predict','schedule','battery'].includes(input.id)) qualityMode.value = 'custom'; });
       });

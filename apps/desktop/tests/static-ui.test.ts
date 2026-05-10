@@ -23,7 +23,7 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Pause');
     expect(html).toContain('Max CPU percent');
     expect(html).toContain('Start OpenCause Compute when I sign in to Windows');
-    expect(html).toContain('Start minimized');
+    expect(html).not.toContain('Start minimized');
     expect(html).toContain('Automatically resume/start worker when the app opens');
     expect(html).toContain('App version:');
     expect(html).toContain('Remove local worker data');
