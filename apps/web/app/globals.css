@@ -6,9 +6,14 @@
   color-scheme: dark;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   background: #0b1324;
   color: #e2e8f0;
+  overflow-x: hidden;
 }
 
 a {
@@ -17,4 +22,73 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table {
+  min-width: 760px;
+}
+
+.table-scroll::after {
+  content: 'Scroll →';
+  display: none;
+  padding: 0.5rem 0.75rem 0.75rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .table-scroll::after {
+    display: block;
+  }
+
+  .mobile-card-list table,
+  .mobile-card-list thead,
+  .mobile-card-list tbody,
+  .mobile-card-list tr,
+  .mobile-card-list th,
+  .mobile-card-list td {
+    display: block;
+  }
+
+  .mobile-card-list table {
+    min-width: 0;
+  }
+
+  .mobile-card-list thead {
+    display: none;
+  }
+
+  .mobile-card-list tr {
+    border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+    padding: 0.85rem 1rem;
+  }
+
+  .mobile-card-list td {
+    border: 0;
+    padding: 0.25rem 0;
+  }
+
+  .mobile-card-list td::before {
+    content: attr(data-label);
+    display: block;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
 }
