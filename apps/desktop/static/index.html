@@ -281,6 +281,7 @@
       const profileMessage = document.getElementById('profile-message');
       const openProfile = document.getElementById('open-profile');
       const versionMessage = document.getElementById('version-message');
+      const updateMessage = document.getElementById('update-message');
       const settingsMessage = document.getElementById('settings-message');
       const coordinatorUrl = document.getElementById('coordinator-url');
       const maxCpu = document.getElementById('max-cpu');
@@ -623,6 +624,20 @@
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { const log = await api.tailLog(); latestLog.textContent = log || 'No log lines yet.'; output.textContent = log || 'No log lines yet.'; };
+      document.getElementById('check-updates').onclick = async () => {
+        updateMessage.textContent = 'Checking for updates...';
+        try {
+          const result = await api.checkForUpdates();
+          if (result.updateAvailable) {
+            updateMessage.innerHTML = `Update available: ${result.latestVersion}. <button id="open-release" type="button">Open download page</button>`;
+            document.getElementById('open-release').onclick = () => api.openExternal(result.releaseUrl);
+          } else {
+            updateMessage.textContent = `You are up to date (${result.currentVersion}).`;
+          }
+        } catch (error) {
+          updateMessage.textContent = `Update check failed: ${error?.message ?? error}`;
+        }
+      };
       document.getElementById('diagnostics').onclick = async () => {
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;

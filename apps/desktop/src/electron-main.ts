@@ -123,6 +123,25 @@ function validateDownloadId(value: unknown): string {
   return value;
 }
 
+function compareVersions(a: string, b: string): number {
+  const left = a.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  const right = b.split('.').map((part) => Number.parseInt(part, 10) || 0);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    if ((left[i] ?? 0) > (right[i] ?? 0)) return 1;
+    if ((left[i] ?? 0) < (right[i] ?? 0)) return -1;
+  }
+  return 0;
+}
+
+async function checkForUpdates() {
+  const response = await fetch('https://api.github.com/repos/Mills82/opencause-compute/releases/latest', { headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'OpenCause-Compute-Desktop' } });
+  if (!response.ok) throw new Error(`update_check_failed:${response.status}`);
+  const release = await response.json() as { tag_name?: string; html_url?: string; name?: string; body?: string };
+  const latestVersion = (release.tag_name ?? '').replace(/^v/, '');
+  const currentVersion = app.getVersion();
+  return { currentVersion, latestVersion, updateAvailable: Boolean(latestVersion) && compareVersions(latestVersion, currentVersion) > 0, releaseUrl: release.html_url, releaseName: release.name ?? release.tag_name, notes: (release.body ?? '').slice(0, 500) };
+}
+
 function validateExternalUrl(value: unknown): string {
   if (typeof value !== 'string') throw new Error('invalid_url');
   const url = new URL(value);
@@ -244,8 +263,8 @@ async function createWindow() {
   });
   await win.loadFile(resolveStaticIndex());
   if (settings.startMinimized) win.hide();
-  if (settings.autoStartWorker && !settings.localPaused && settings.resourceControls.schedule !== 'manual') {
-    void supervisor().then((sup) => sup.startLoop());
+  if (settings.autoStartWorker && settings.resourceControls.schedule !== 'manual') {
+    void updateDesktopSettings(appDir, { localPaused: false }).then(() => supervisor()).then((sup) => sup.startLoop());
   }
 }
 
@@ -375,6 +394,11 @@ ipcMain.handle('desktop:model-download-status', async (event, id: unknown) => {
   assertTrustedIpc(event);
   return modelDownloadStatus(validateDownloadId(id));
 });
+ipcMain.handle('desktop:check-for-updates', async (event) => {
+  assertTrustedIpc(event);
+  return checkForUpdates();
+});
+
 ipcMain.handle('desktop:open-external', async (event, url: unknown) => {
   assertTrustedIpc(event);
   await shell.openExternal(validateExternalUrl(url));

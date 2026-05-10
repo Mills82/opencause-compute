@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('opencauseDesktop', {
   registerWorker: (enrollmentCode) => ipcRenderer.invoke('desktop:register-worker', enrollmentCode),
   startModelDownload: (model) => ipcRenderer.invoke('desktop:start-model-download', model),
   modelDownloadStatus: (id) => ipcRenderer.invoke('desktop:model-download-status', id),
+  checkForUpdates: () => ipcRenderer.invoke('desktop:check-for-updates'),
   openExternal: (url) => ipcRenderer.invoke('desktop:open-external', url),
   pullModel: (model) => ipcRenderer.invoke('desktop:pull-model', model)
 });

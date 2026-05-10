@@ -21,6 +21,8 @@ describe('electron main window config', () => {
     expect(source).toContain('dialog.showMessageBox');
     expect(source).toContain('OPENCAUSE_DESKTOP_ALLOW_CUSTOM_COORDINATOR');
     expect(source).toContain('custom_coordinator_disabled');
+    expect(source).toContain("desktop:check-for-updates");
+    expect(source).toContain('api.github.com/repos/Mills82/opencause-compute/releases/latest');
   });
 
   it('uses a dashboard-sized window and custom desktop menus', () => {

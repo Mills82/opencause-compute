@@ -81,6 +81,12 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('This model is not downloaded yet. Download it before applying it to the worker.');
   });
 
+  it('offers a manual update check in Advanced', () => {
+    expect(html).toContain('Check for updates');
+    expect(html).toContain('checkForUpdates');
+    expect(html).toContain('Open download page');
+  });
+
   it('uses resource presets with custom override and keeps the coordinator locked', () => {
     expect(html).toContain('Locked to the official coordinator in beta builds.');
     expect(html).toContain('Budget — lighter CPU');
