@@ -61,8 +61,12 @@ describePg('real Postgres relational storage integration', () => {
 
       const report = await repo.createPublicReportRelational({ targetType: 'team', targetSlug: 'bad-team', reason: 'spam' });
       expect(report?.status).toBe('open');
+      const run = await repo.startIngestionRunRelational({ sourceType: 'pubmed_abstract', mode: 'manual', query: 'q', retmax: 1, usedNcbiEmail: false, usedNcbiApiKey: false });
+      const ingested = await repo.ingestSourcesRelational({ projectSlug: 'proj', projectName: 'Project', projectDescription: 'Desc', sources: [{ title: 'T', sourceText: 'text', sourceCitation: 'cite', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v1' });
+      await repo.completeIngestionRunRelational(run.id, { fetchedCount: 1, packetsCreated: ingested.packetsCreated, packetsSkipped: ingested.packetsSkipped });
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_packets WHERE status = 'queued'")).rows[0].count)).toBe(1);
       await repo.appendAuditEventRelational({ actorType: 'system', action: 'test.audit.append', targetType: 'system' });
-      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM audit_events')).rows[0].count)).toBeGreaterThanOrEqual(4);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM audit_events')).rows[0].count)).toBeGreaterThanOrEqual(6);
     } finally {
       await pool.end();
       delete process.env.OPENCAUSE_HOSTED;

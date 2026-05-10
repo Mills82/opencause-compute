@@ -1,10 +1,13 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
-import type { AuditEvent, VolunteerEnrollment, VolunteerNode, WorkerControlConfig } from '@opencause/shared';
+import { hashText, type AuditEvent, type IngestionRun, type Project, type VolunteerEnrollment, type VolunteerNode, type WorkerControlConfig, type WorkPacketPayload } from '@opencause/shared';
 import { createNodeToken, hashNodeToken } from './node-auth';
 import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
+import { signWorkPacketPayload } from './signing';
 import { isHostedMode } from './runtime-config';
+
+type IngestSource = { title: string; sourceText: string; sourceCitation: string; sourceUrl: string; sourcePublishedAt?: string };
 
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 
@@ -25,6 +28,18 @@ function iso(value: string | Date | null | undefined): string | null {
   if (!value) return null;
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
+
+
+function projectFromRow(row: any): Project {
+  return { id: row.id, slug: row.slug, name: row.name, description: row.description, status: row.status, createdAt: iso(row.created_at)! };
+}
+
+function ingestionRunFromRow(row: any): IngestionRun {
+  return { id: row.id, sourceType: row.source_type, mode: row.mode, status: row.status, query: row.query, retmax: Number(row.retmax), startedAt: iso(row.started_at)!, completedAt: iso(row.completed_at), fetchedCount: Number(row.fetched_count), skippedCount: Number(row.skipped_count), failedCount: Number(row.failed_count), failureReasons: row.failure_reasons ?? [], packetsCreated: Number(row.packets_created), packetsSkipped: Number(row.packets_skipped), usedNcbiEmail: Boolean(row.used_ncbi_email), usedNcbiApiKey: Boolean(row.used_ncbi_api_key) };
+}
+
+export type StartIngestionRunRelationalInput = Pick<IngestionRun, 'sourceType' | 'mode' | 'query' | 'retmax' | 'usedNcbiEmail' | 'usedNcbiApiKey'>;
+export type CompleteIngestionRunRelationalInput = Partial<Pick<IngestionRun, 'fetchedCount' | 'skippedCount' | 'failedCount' | 'failureReasons' | 'packetsCreated' | 'packetsSkipped'>> & { status?: IngestionRun['status'] };
 
 function nodeFromRow(row: any): VolunteerNode {
   return {
@@ -282,4 +297,71 @@ export async function updateNodeStatusRelational(nodeId: string, status: 'online
   } finally {
     client.release();
   }
+}
+
+
+export async function queueSnapshotRelational(): Promise<{ totalPackets: number; queuedPackets: number; availableToFirstPass: number; awaitingIndependentValidation: number; completedPackets: number; claimedPackets: number } | undefined> {
+  if (!enabled()) return undefined;
+  const result = await getPool().query(`SELECT
+    COUNT(*)::int AS total_packets,
+    COUNT(*) FILTER (WHERE status = 'queued')::int AS queued_packets,
+    COUNT(*) FILTER (WHERE status = 'queued' AND NOT EXISTS (SELECT 1 FROM extraction_results r WHERE r.work_packet_id = work_packets.id))::int AS available_to_first_pass,
+    COUNT(*) FILTER (WHERE status = 'queued' AND EXISTS (SELECT 1 FROM extraction_results r WHERE r.work_packet_id = work_packets.id))::int AS awaiting_independent_validation,
+    COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_packets,
+    COUNT(*) FILTER (WHERE status = 'claimed')::int AS claimed_packets
+    FROM work_packets`);
+  const row = result.rows[0];
+  return { totalPackets: Number(row.total_packets), queuedPackets: Number(row.queued_packets), availableToFirstPass: Number(row.available_to_first_pass), awaitingIndependentValidation: Number(row.awaiting_independent_validation), completedPackets: Number(row.completed_packets), claimedPackets: Number(row.claimed_packets) };
+}
+
+export async function startIngestionRunRelational(input: StartIngestionRunRelationalInput): Promise<IngestionRun | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const run = (await client.query(`INSERT INTO ingestion_runs(id,source_type,mode,status,query,retmax,started_at,completed_at,fetched_count,skipped_count,failed_count,failure_reasons,packets_created,packets_skipped,used_ncbi_email,used_ncbi_api_key)
+      VALUES($1,$2,$3,'running',$4,$5,NOW(),NULL,0,0,0,'[]'::jsonb,0,0,$6,$7) RETURNING *`, [randomUUID(), input.sourceType, input.mode, input.query, input.retmax, input.usedNcbiEmail, input.usedNcbiApiKey])).rows[0];
+    await appendAuditEventRelational({ actorType: input.mode === 'cron' ? 'cron' : 'admin', action: 'ingestion.started', targetType: 'ingestion_run', targetId: run.id, metadata: { sourceType: input.sourceType, query: input.query, retmax: input.retmax } }, client);
+    await client.query('COMMIT');
+    return ingestionRunFromRow(run);
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function completeIngestionRunRelational(runId: string, input: CompleteIngestionRunRelationalInput): Promise<IngestionRun | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const existing = (await client.query('SELECT * FROM ingestion_runs WHERE id = $1 FOR UPDATE', [runId])).rows[0];
+    if (!existing) throw new Error('ingestion_run_not_found');
+    const status = input.status ?? (input.failedCount && input.failedCount > 0 ? 'partial_failed' : 'completed');
+    const row = (await client.query(`UPDATE ingestion_runs SET status=$2, completed_at=NOW(), fetched_count=$3, skipped_count=$4, failed_count=$5, failure_reasons=$6, packets_created=$7, packets_skipped=$8 WHERE id=$1 RETURNING *`, [runId, status, input.fetchedCount ?? existing.fetched_count, input.skippedCount ?? existing.skipped_count, input.failedCount ?? existing.failed_count, JSON.stringify(input.failureReasons ?? existing.failure_reasons ?? []), input.packetsCreated ?? existing.packets_created, input.packetsSkipped ?? existing.packets_skipped])).rows[0];
+    await appendAuditEventRelational({ actorType: row.mode === 'cron' ? 'cron' : 'admin', action: `ingestion.${row.status}`, targetType: 'ingestion_run', targetId: row.id, metadata: { sourceType: row.source_type, fetchedCount: Number(row.fetched_count), skippedCount: Number(row.skipped_count), failedCount: Number(row.failed_count), packetsCreated: Number(row.packets_created), packetsSkipped: Number(row.packets_skipped) } }, client);
+    await client.query('COMMIT');
+    return ingestionRunFromRow(row);
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function ingestSourcesRelational(input: { projectSlug: string; projectName: string; projectDescription: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'mock-extractor-v1' }): Promise<{ project: Project; packetsCreated: number; packetsSkipped: number } | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    let project = (await client.query('SELECT * FROM projects WHERE slug = $1 FOR UPDATE', [input.projectSlug])).rows[0];
+    if (!project) project = (await client.query("INSERT INTO projects(id,slug,name,description,status,created_at) VALUES($1,$2,$3,$4,'active',NOW()) RETURNING *", [randomUUID(), input.projectSlug, input.projectName, input.projectDescription])).rows[0];
+    let packetsCreated = 0;
+    let packetsSkipped = 0;
+    const extractor = input.extractor ?? 'local-llm-v1';
+    for (const source of input.sources) {
+      const exists = (await client.query('SELECT 1 FROM work_packets WHERE project_id = $1 AND source_url = $2 LIMIT 1', [project.id, source.sourceUrl])).rowCount;
+      if (exists) { packetsSkipped += 1; continue; }
+      const now = new Date().toISOString();
+      const payload: WorkPacketPayload = { id: randomUUID(), projectId: project.id, title: source.title, sourceText: source.sourceText, sourceCitation: source.sourceCitation, sourceUrl: source.sourceUrl, sourcePublishedAt: source.sourcePublishedAt, inputHash: hashText(source.sourceText), extractor, createdAt: now };
+      const signature = signWorkPacketPayload(payload);
+      await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'queued',$11,$11)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, now]);
+      packetsCreated += 1;
+    }
+    await client.query('COMMIT');
+    return { project: projectFromRow(project), packetsCreated, packetsSkipped };
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
