@@ -11,6 +11,11 @@ import { recomputeGamification } from './gamification/recompute';
 
 type IngestSource = { title: string; sourceText: string; sourceCitation: string; sourceUrl: string; sourcePublishedAt?: string; sectionTitle?: string; sectionType?: string; paragraphIndex?: number };
 
+function sourceInputHash(source: IngestSource): string {
+  const sectionKey = [source.sourceUrl, source.sectionTitle, source.sectionType, source.paragraphIndex].filter((value) => value !== undefined && value !== '').join('|');
+  return hashText(`${sectionKey || source.sourceUrl}|${source.sourceCitation}|${source.sourceText}`);
+}
+
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -378,10 +383,11 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
     let packetsSkipped = 0;
     const extractor = input.extractor ?? 'local-llm-v2';
     for (const source of input.sources) {
-      const exists = (await client.query('SELECT 1 FROM work_packets WHERE project_id = $1 AND source_url = $2 LIMIT 1', [project.id, source.sourceUrl])).rowCount;
+      const inputHash = sourceInputHash(source);
+      const exists = (await client.query('SELECT 1 FROM work_packets WHERE project_id = $1 AND input_hash = $2 LIMIT 1', [project.id, inputHash])).rowCount;
       if (exists) { packetsSkipped += 1; continue; }
       const now = new Date().toISOString();
-      const payload: WorkPacketPayload = { id: randomUUID(), projectId: project.id, title: source.title, sourceText: source.sourceText, sourceCitation: source.sourceCitation, sourceUrl: source.sourceUrl, sourcePublishedAt: source.sourcePublishedAt, inputHash: hashText(source.sourceText), extractor, createdAt: now };
+      const payload: WorkPacketPayload = { id: randomUUID(), projectId: project.id, title: source.title, sourceText: source.sourceText, sourceCitation: source.sourceCitation, sourceUrl: source.sourceUrl, sourcePublishedAt: source.sourcePublishedAt, sectionTitle: source.sectionTitle, sectionType: source.sectionType as WorkPacketPayload['sectionType'], paragraphIndex: source.paragraphIndex, inputHash, extractor, createdAt: now };
       const signature = signWorkPacketPayload(payload);
       await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'queued',$11,$11)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, now]);
       packetsCreated += 1;
