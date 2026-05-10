@@ -7,7 +7,7 @@ export default function ResponsibleDisclosurePage() {
         component, reproduction steps, likely impact, and any relevant logs or screenshots.
       </p>
       <p className="text-slate-300">
-        Contact: <a href="mailto:security@appassist.ai?subject=OpenCause%20Compute%20security%20report">security@appassist.ai</a>
+        Contact: <a href="mailto:alan@appassist.ai?subject=OpenCause%20Compute%20security%20report">alan@appassist.ai</a>
       </p>
       <p className="text-slate-300">
         We prioritize reports involving authentication bypass, node-token compromise, forged work packets, admin access, data
