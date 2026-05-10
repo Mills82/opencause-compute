@@ -23,7 +23,6 @@ const allowlisted = new Set([
   'app/api/admin/gamification/recompute/route.ts',
   'app/api/admin/gamification/teams/route.ts',
   'app/api/admin/gamification/teams/[teamId]/members/route.ts',
-  'app/api/volunteer/profile/route.ts',
   // These routes use targeted relational repositories first and withDb only as local/dev fallback.
   'app/api/admin/ingest/cron/route.ts',
   'app/api/admin/ingest/pmc-oa/route.ts',
@@ -32,6 +31,7 @@ const allowlisted = new Set([
   'app/api/nodes/heartbeat/route.ts',
   'app/api/admin/nodes/[nodeId]/status/route.ts',
   'app/api/volunteer/enroll/route.ts',
+  'app/api/volunteer/profile/route.ts',
   'app/api/admin/volunteer-enrollments/[enrollmentId]/status/route.ts',
   'app/api/report-public-content/route.ts',
   'app/api/worker/control/route.ts',

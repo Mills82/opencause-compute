@@ -365,3 +365,65 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
     return { project: projectFromRow(project), packetsCreated, packetsSkipped };
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
+
+function profileFromRow(row: any) {
+  return { id: row.id, displayName: row.display_name, slug: row.slug, privacyMode: row.privacy_mode, publicProfileEnabled: Boolean(row.public_profile_enabled), avatarColor: row.avatar_color, bio: row.bio ?? undefined, setupTokenHash: row.setup_token_hash ?? undefined, setupTokenExpiresAt: iso(row.setup_token_expires_at), moderationStatus: row.moderation_status ?? 'ok', moderationNote: row.moderation_note ?? undefined, joinedAt: iso(row.joined_at)!, lastActiveAt: iso(row.last_active_at), statsUpdatedAt: iso(row.stats_updated_at), createdAt: iso(row.created_at)!, updatedAt: iso(row.updated_at)! };
+}
+
+async function profileBySetupToken(client: PoolClient, token: string): Promise<any> {
+  const hash = hashProfileSetupToken(token);
+  const profile = (await client.query('SELECT * FROM volunteer_profiles WHERE setup_token_hash = $1 AND (setup_token_expires_at IS NULL OR setup_token_expires_at > NOW())', [hash])).rows[0];
+  if (!profile) throw new Error('invalid_or_expired_profile_setup_token');
+  return profile;
+}
+
+export async function readProfileSetupRelational(token: string): Promise<any | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    const profileRow = await profileBySetupToken(client, token);
+    const profile = profileFromRow(profileRow);
+    const [stats, digest, cards, badges, teams] = await Promise.all([
+      client.query("SELECT * FROM volunteer_stats_snapshots WHERE volunteer_profile_id = $1 AND stats_window = 'all_time' LIMIT 1", [profile.id]),
+      client.query('SELECT * FROM impact_digests WHERE volunteer_profile_id = $1 ORDER BY period_start DESC LIMIT 1', [profile.id]),
+      client.query('SELECT slug,title FROM impact_cards WHERE volunteer_profile_id = $1 AND public_enabled = true', [profile.id]),
+      client.query('SELECT badge_slug, awarded_at FROM volunteer_badges WHERE volunteer_profile_id = $1', [profile.id]),
+      client.query("SELECT id,name,slug,description FROM teams WHERE visibility = 'public' ORDER BY created_at")
+    ]);
+    return {
+      profile: { id: profile.id, displayName: profile.displayName, slug: profile.slug, privacyMode: profile.privacyMode, publicProfileEnabled: profile.publicProfileEnabled, avatarColor: profile.avatarColor, bio: profile.bio ?? '' },
+      stats: stats.rows[0] ?? null,
+      latestDigest: digest.rows[0] ?? null,
+      impactCards: cards.rows.map((row) => ({ slug: row.slug, title: row.title })),
+      badges: badges.rows.map((row) => ({ slug: row.badge_slug, awardedAt: iso(row.awarded_at)! })),
+      teams: teams.rows.map((row) => ({ id: row.id, name: row.name, slug: row.slug, description: row.description }))
+    };
+  } finally { client.release(); }
+}
+
+export async function updateProfileSetupRelational(input: { token: string; displayName?: string; privacyMode?: 'private' | 'public_anonymous' | 'public_named'; publicProfileEnabled?: boolean; bio?: string; avatarColor?: string; teamId?: string | null }): Promise<any | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await profileBySetupToken(client, input.token);
+    let displayName = existing.display_name;
+    if (input.displayName !== undefined) displayName = input.displayName.trim().slice(0, 80) || existing.display_name;
+    const privacyMode = input.privacyMode ?? existing.privacy_mode;
+    let publicProfileEnabled = input.publicProfileEnabled ?? existing.public_profile_enabled;
+    if (privacyMode === 'private') publicProfileEnabled = false;
+    const bio = input.bio !== undefined ? input.bio.trim().slice(0, 240) : existing.bio;
+    const avatarColor = input.avatarColor !== undefined ? (input.avatarColor.trim().slice(0, 32) || existing.avatar_color) : existing.avatar_color;
+    const row = (await client.query('UPDATE volunteer_profiles SET display_name=$2, privacy_mode=$3, public_profile_enabled=$4, bio=$5, avatar_color=$6, updated_at=NOW() WHERE id=$1 RETURNING *', [existing.id, displayName, privacyMode, publicProfileEnabled, bio, avatarColor])).rows[0];
+    if (input.teamId !== undefined) {
+      await client.query("UPDATE team_memberships SET status='left', left_at=NOW() WHERE volunteer_profile_id=$1 AND status='active'", [existing.id]);
+      if (input.teamId) {
+        const team = (await client.query("SELECT * FROM teams WHERE id=$1 AND visibility='public'", [input.teamId])).rows[0];
+        if (!team) throw new Error('team_not_found');
+        await client.query("INSERT INTO team_memberships(id,team_id,volunteer_profile_id,role,status,joined_at,left_at) VALUES($1,$2,$3,'member','active',NOW(),NULL) ON CONFLICT (team_id, volunteer_profile_id) DO UPDATE SET status='active', role='member', joined_at=NOW(), left_at=NULL", [randomUUID(), input.teamId, existing.id]);
+      }
+    }
+    await client.query('COMMIT');
+    return profileFromRow(row);
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}

@@ -144,4 +144,44 @@ describePg('real Postgres relational storage integration', () => {
       await pool.end();
     }
   });
+
+  it('supports volunteer profile setup read/update/team changes without clobbering worker state', async () => {
+    const pool = await freshDb();
+    try {
+      const repo = await import('../lib/relational-app');
+      process.env.OPENCAUSE_HOSTED = 'true';
+      const code = `occ_${randomBytes(18).toString('base64url')}`;
+      await repo.issueVolunteerEnrollmentRelational('profile@example.com', hashEnrollmentCode(code));
+      const registration = await repo.registerNodeRelational({ nodeName: 'profile-node', platform: 'win32', version: '0.1.0', capabilities: [], enrollmentCode: code });
+      const token = registration.profileSetupToken;
+      const setup = await repo.readProfileSetupRelational(token);
+      expect(setup.profile.displayName).toMatch(/^Volunteer/);
+      await expect(repo.readProfileSetupRelational('bad-token')).rejects.toThrow('invalid_or_expired_profile_setup_token');
+      await pool.query("UPDATE volunteer_profiles SET setup_token_expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1", [setup.profile.id]);
+      await expect(repo.readProfileSetupRelational(token)).rejects.toThrow('invalid_or_expired_profile_setup_token');
+      await pool.query("UPDATE volunteer_profiles SET setup_token_expires_at = NOW() + INTERVAL '1 day' WHERE id = $1", [setup.profile.id]);
+      const team = (await pool.query("INSERT INTO teams(id,name,slug,description,visibility,created_at,updated_at) VALUES(gen_random_uuid(),'Public Team','public-team','Public','public',NOW(),NOW()) RETURNING id")).rows[0];
+      const privateTeam = (await pool.query("INSERT INTO teams(id,name,slug,description,visibility,created_at,updated_at) VALUES(gen_random_uuid(),'Private Team','private-team','Private','private',NOW(),NOW()) RETURNING id")).rows[0];
+      const updated = await repo.updateProfileSetupRelational({ token, displayName: '  New Name  ', privacyMode: 'public_named', publicProfileEnabled: true, bio: '  hi  ', avatarColor: ' #fff ', teamId: team.id });
+      expect(updated.displayName).toBe('New Name');
+      expect(updated.publicProfileEnabled).toBe(true);
+      expect(updated.bio).toBe('hi');
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM volunteer_profile_nodes WHERE volunteer_profile_id=$1 AND detached_at IS NULL', [setup.profile.id])).rows[0].count)).toBe(1);
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM team_memberships WHERE volunteer_profile_id=$1 AND team_id=$2 AND status='active'", [setup.profile.id, team.id])).rows[0].count)).toBe(1);
+      await expect(repo.updateProfileSetupRelational({ token, teamId: privateTeam.id })).rejects.toThrow('team_not_found');
+      await repo.updateProfileSetupRelational({ token, teamId: null });
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM team_memberships WHERE volunteer_profile_id=$1 AND status='active'", [setup.profile.id])).rows[0].count)).toBe(0);
+      await repo.ingestSourcesRelational({ projectSlug: 'p', projectName: 'P', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/profile-state' }], extractor: 'local-llm-v1' });
+      const packet = (await pool.query("UPDATE work_packets SET status='claimed' WHERE source_url='https://example.com/profile-state' RETURNING id")).rows[0];
+      await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes')", [packet.id, registration.node.id]);
+      await pool.query("INSERT INTO extraction_results(id,work_packet_id,node_id,claim_id,extractor_version,result_hash,payload,summary,validated,format_validated,consensus_status,review_status,validation_errors,warnings,submitted_at,provenance) VALUES(gen_random_uuid(),$1,$2,gen_random_uuid(),'v','h','{}','ok',true,true,'consensus_pending','not_reviewed','[]','[]',NOW(),'{}')", [packet.id, registration.node.id]);
+      await repo.updateProfileSetupRelational({ token, bio: 'still safe' });
+      expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_claims WHERE status='claimed'")).rows[0].count)).toBe(1);
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extraction_results')).rows[0].count)).toBe(1);
+    } finally {
+      await pool.end();
+      delete process.env.OPENCAUSE_HOSTED;
+    }
+  });
+
 });
