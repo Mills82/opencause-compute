@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chunkArticleText, parseOaTgzHref, stripXmlToText } from '../lib/ingestion/pmc-oa';
+import { chunkArticleText, extractPmcSections, parseOaTgzHref, stripXmlToText } from '../lib/ingestion/pmc-oa';
 
 describe('pmc oa ingestion helpers', () => {
   it('parses tgz link from oa response', () => {
@@ -9,11 +9,15 @@ describe('pmc oa ingestion helpers', () => {
     );
   });
 
-  it('extracts readable text from nxml body', () => {
-    const xml = '<article><body><sec><p>First sentence with cancer response signal.</p><p>Second paragraph with biomarker context.</p></sec></body></article>';
+  it('extracts readable section text from nxml body', () => {
+    const xml = '<article><body><sec><title>Results</title><p>First sentence with cancer response signal.</p><p>Second paragraph with biomarker context that is long enough to pass the paragraph filter threshold.</p></sec><sec><title>References</title><p>Boilerplate reference content should be skipped.</p></sec></body></article>';
+    const sections = extractPmcSections(xml);
     const text = stripXmlToText(xml);
+    expect(sections[0]?.title).toBe('Results');
+    expect(sections[0]?.type).toBe('results');
     expect(text).toContain('First sentence');
     expect(text).toContain('Second paragraph');
+    expect(text).not.toContain('Boilerplate reference');
   });
 
   it('chunks long text for packetization', () => {

@@ -9,7 +9,7 @@ import { isHostedMode } from './runtime-config';
 import { loadDb } from './db';
 import { recomputeGamification } from './gamification/recompute';
 
-type IngestSource = { title: string; sourceText: string; sourceCitation: string; sourceUrl: string; sourcePublishedAt?: string };
+type IngestSource = { title: string; sourceText: string; sourceCitation: string; sourceUrl: string; sourcePublishedAt?: string; sectionTitle?: string; sectionType?: string; paragraphIndex?: number };
 
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
 

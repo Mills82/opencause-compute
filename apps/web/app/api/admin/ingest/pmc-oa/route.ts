@@ -6,6 +6,7 @@ import { completeIngestionRun, startIngestionRun } from '../../../../../lib/inge
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { isAdminAuthorized } from '../../../../../lib/admin-auth';
 import { ingestPmcOaFullTextWithReport } from '../../../../../lib/ingestion/pmc-oa';
+import { advanceIngestionCursor, getIngestionCursor } from '../../../../../lib/ingestion/cursors';
 import { completeIngestionRunRelational, ingestSourcesRelational, startIngestionRunRelational } from '../../../../../lib/relational-app';
 
 const requestSchema = z.object({
@@ -23,9 +24,11 @@ export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   const options = parsed.data;
+  const cursor = await getIngestionCursor('pmc_oa_full_text', options.query);
+  const retstart = cursor?.nextRetstart ?? 0;
   const run = (await startIngestionRunRelational({ sourceType: 'pmc_oa_full_text', mode: 'manual', query: options.query, retmax: options.retmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) })) ?? await withDb((db) => startIngestionRun(db, { sourceType: 'pmc_oa_full_text', mode: 'manual', query: options.query, retmax: options.retmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) }));
   try {
-    const report = await ingestPmcOaFullTextWithReport({ query: options.query, retmax: options.retmax, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY });
+    const report = await ingestPmcOaFullTextWithReport({ query: options.query, retmax: options.retmax, retstart, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY });
     const relationalPackets = await ingestSourcesRelational({ projectSlug: options.projectSlug, projectName: options.projectName, projectDescription: options.projectDescription, sources: report.sources, extractor: 'local-llm-v2' });
     const output = relationalPackets ? {
       project: relationalPackets.project,
@@ -43,7 +46,8 @@ export async function POST(request: Request) {
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: report.documentsIngested, skippedCount: report.skippedCount, failedCount: report.failures.length, failureReasons: report.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: packetSummary.packetsCreated, packetsSkipped: packetSummary.packetsSkipped });
       return { project, fetchedChunks: report.sources.length, recordsFetched: report.recordsFetched, pmcRecords: report.pmcRecords, failures: report.failures, ...packetSummary, run: completedRun };
     });
-    return NextResponse.json({ ingest: output });
+    await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: options.query, retmax: options.retmax, recordsFetched: report.recordsFetched, runId: run.id });
+    return NextResponse.json({ ingest: { ...output, retstart, nextRetstart: retstart + report.recordsFetched } });
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'pmc_oa_ingest_failed';
     const failedRun = (await completeIngestionRunRelational(run.id, { status: 'failed', failedCount: 1, failureReasons: [reason] })) ?? await withDb((db) => completeIngestionRun(db, run.id, { status: 'failed', failedCount: 1, failureReasons: [reason] }));

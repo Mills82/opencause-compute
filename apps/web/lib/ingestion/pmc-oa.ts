@@ -18,6 +18,9 @@ export type PmcOaIngestReport = {
 
 export type PmcOaSource = {
   title: string;
+  sectionTitle?: string;
+  sectionType?: string;
+  paragraphIndex?: number;
   sourceText: string;
   sourceCitation: string;
   sourceUrl: string;
@@ -58,21 +61,56 @@ export function parseOaTgzHref(oaXml: string): string | null {
   return href;
 }
 
-export function stripXmlToText(xml: string): string {
+export type PmcSectionText = {
+  title?: string;
+  type: 'abstract' | 'introduction' | 'methods' | 'results' | 'discussion' | 'conclusion' | 'figure_table' | 'supplement' | 'unknown';
+  paragraphs: string[];
+};
+
+function classifySectionTitle(title?: string): PmcSectionText['type'] {
+  const normalized = (title ?? '').toLowerCase();
+  if (!normalized) return 'unknown';
+  if (/abstract/.test(normalized)) return 'abstract';
+  if (/introduction|background/.test(normalized)) return 'introduction';
+  if (/method|material|patient|cohort|statistical analysis/.test(normalized)) return 'methods';
+  if (/result|finding/.test(normalized)) return 'results';
+  if (/discussion/.test(normalized)) return 'discussion';
+  if (/conclusion/.test(normalized)) return 'conclusion';
+  if (/figure|table/.test(normalized)) return 'figure_table';
+  if (/supplement/.test(normalized)) return 'supplement';
+  return 'unknown';
+}
+
+function shouldSkipSection(title?: string): boolean {
+  const normalized = (title ?? '').toLowerCase();
+  return /reference|acknowledg|funding|author contribution|conflict|competing interest|ethics|availability|supplementary material|abbreviation|publisher/.test(normalized);
+}
+
+function cleanParagraph(input: string): string {
+  return decodeXmlEntities(input.replace(/<xref[\s\S]*?<\/xref>/gi, ' ').replace(/<[^>]+>/g, ' '));
+}
+
+export function extractPmcSections(xml: string): PmcSectionText[] {
   const body = xml.match(/<body[\s\S]*?<\/body>/i)?.[0] ?? xml;
-  const paragraphMatches = [...body.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map((entry) =>
-    decodeXmlEntities(entry[1].replace(/<[^>]+>/g, ' '))
-  );
-
-  const paragraphs = paragraphMatches
-    .map((text) => text.trim())
-    .filter((text) => text.length > 10);
-
-  if (paragraphs.length > 0) {
-    return paragraphs.join('\n\n');
+  const sections = [...body.matchAll(/<sec\b[^>]*>([\s\S]*?)<\/sec>/gi)].map((entry) => entry[1]);
+  const rawSections = sections.length ? sections : [body];
+  const out: PmcSectionText[] = [];
+  for (const sectionXml of rawSections) {
+    const title = cleanParagraph(sectionXml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '').trim() || undefined;
+    if (shouldSkipSection(title)) continue;
+    const paragraphs = [...sectionXml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+      .map((entry) => cleanParagraph(entry[1]).trim())
+      .filter((text) => text.length > 40)
+      .filter((text) => !/^(copyright|©|creative commons|author information|data availability)/i.test(text));
+    if (paragraphs.length) out.push({ title, type: classifySectionTitle(title), paragraphs });
   }
+  if (out.length) return out;
+  const fallback = cleanParagraph(body).trim();
+  return fallback ? [{ type: 'unknown', paragraphs: [fallback] }] : [];
+}
 
-  return decodeXmlEntities(body.replace(/<[^>]+>/g, ' '));
+export function stripXmlToText(xml: string): string {
+  return extractPmcSections(xml).flatMap((section) => section.paragraphs).join('\n\n');
 }
 
 export function chunkArticleText(text: string, maxChars = 3500): string[] {
@@ -168,11 +206,11 @@ async function fetchPmcOaArchiveHref(pmcid: string, options: { email?: string; a
   return href;
 }
 
-async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiKey?: string } = {}): Promise<string> {
+async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiKey?: string } = {}): Promise<PmcSectionText[]> {
   const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', id: pmcid.replace(/^PMC/i, ''), retmode: 'xml' }), options);
   const efetchResponse = await fetchNcbi(`${EUTILS_BASE}/efetch.fcgi?${params.toString()}`, options);
   if (efetchResponse.ok) {
-    return stripXmlToText(await efetchResponse.text());
+    return extractPmcSections(await efetchResponse.text());
   }
 
   const href = await fetchPmcOaArchiveHref(pmcid, options);
@@ -183,11 +221,11 @@ async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiK
 
   const arrayBuffer = await response.arrayBuffer();
   const xml = await extractNxmlFromTgz(Buffer.from(arrayBuffer));
-  return stripXmlToText(xml);
+  return extractPmcSections(xml);
 }
 
-async function fetchPmcSearchRecords(options: { query: string; retmax: number; email?: string; apiKey?: string }): Promise<PmcSearchRecord[]> {
-  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', term: options.query, retmode: 'json', retmax: String(options.retmax), sort: 'relevance' }), options);
+async function fetchPmcSearchRecords(options: { query: string; retmax: number; retstart?: number; email?: string; apiKey?: string }): Promise<PmcSearchRecord[]> {
+  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', term: options.query, retmode: 'json', retmax: String(options.retmax), retstart: String(options.retstart ?? 0), sort: 'relevance' }), options);
   const response = await fetchNcbi(`${EUTILS_BASE}/esearch.fcgi?${params.toString()}`, options);
   if (!response.ok) throw new Error(`pmc_esearch_failed:${response.status}`);
   const json = (await response.json()) as { esearchresult?: { idlist?: string[] } };
@@ -202,11 +240,12 @@ async function fetchPmcSearchRecords(options: { query: string; retmax: number; e
 export async function ingestPmcOaFullTextWithReport(options: {
   query: string;
   retmax: number;
+  retstart?: number;
   email?: string;
   apiKey?: string;
   perRecordDelayMs?: number;
 }): Promise<PmcOaIngestReport> {
-  const records = await fetchPmcSearchRecords({ query: options.query, retmax: options.retmax, email: options.email, apiKey: options.apiKey });
+  const records = await fetchPmcSearchRecords({ query: options.query, retmax: options.retmax, retstart: options.retstart, email: options.email, apiKey: options.apiKey });
   const pmcRecords = records.filter((record) => Boolean(record.pmcid));
   const out: PmcOaSource[] = [];
   const failures: PmcOaFailure[] = [];
@@ -218,17 +257,23 @@ export async function ingestPmcOaFullTextWithReport(options: {
     if (!pmcid) continue;
 
     try {
-      const fullText = await fetchPmcOaFullText(pmcid, options);
-      const chunks = chunkArticleText(fullText, 3500);
-      if (chunks.length > 0) documentsIngested += 1;
+      const sections = await fetchPmcOaFullText(pmcid, options);
+      const sectionChunks = sections.flatMap((section) => {
+        const chunks = chunkArticleText(section.paragraphs.join('\n\n'), 3500);
+        return chunks.map((chunk, index) => ({ section, chunk, index }));
+      });
+      if (sectionChunks.length > 0) documentsIngested += 1;
 
-      for (let index = 0; index < chunks.length; index += 1) {
-        const chunk = chunks[index];
-        if (!chunk) continue;
+      for (let index = 0; index < sectionChunks.length; index += 1) {
+        const item = sectionChunks[index];
+        if (!item?.chunk) continue;
         const chunkNum = index + 1;
         out.push({
-          title: `${record.title} (chunk ${chunkNum}/${chunks.length})`,
-          sourceText: chunk,
+          title: `${record.title} (${item.section.title ?? item.section.type} chunk ${chunkNum}/${sectionChunks.length})`,
+          sectionTitle: item.section.title,
+          sectionType: item.section.type,
+          paragraphIndex: item.index,
+          sourceText: item.chunk,
           sourceCitation: `${record.sourceCitation}; PMCID:${pmcid}`,
           sourceUrl: `https://pmc.ncbi.nlm.nih.gov/articles/${pmcid}/`,
           sourcePublishedAt: record.sourcePublishedAt
@@ -254,6 +299,7 @@ export async function ingestPmcOaFullTextWithReport(options: {
 export async function ingestPmcOaFullText(options: {
   query: string;
   retmax: number;
+  retstart?: number;
   email?: string;
   apiKey?: string;
   perRecordDelayMs?: number;

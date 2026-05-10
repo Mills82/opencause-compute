@@ -5,6 +5,7 @@ import { completeIngestionRun, startIngestionRun } from '../../../../../lib/inge
 import { isAdminAuthorized, isCronAuthorized } from '../../../../../lib/admin-auth';
 import { fetchPubMedRecords } from '../../../../../lib/ingestion/pubmed';
 import { ingestPmcOaFullTextWithReport } from '../../../../../lib/ingestion/pmc-oa';
+import { advanceIngestionCursor, getIngestionCursor } from '../../../../../lib/ingestion/cursors';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/rate-limit';
 import { completeIngestionRunRelational, ingestSourcesRelational, queueSnapshotRelational, startIngestionRunRelational } from '../../../../../lib/relational-app';
 
@@ -72,9 +73,11 @@ async function runIngestion() {
   const run = (await startIngestionRunRelational({ sourceType, mode: 'cron', query: runQuery, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) })) ?? await withDb((db) => startIngestionRun(db, { sourceType, mode: 'cron', query: runQuery, retmax: pubmedRetmax + pmcRetmax, usedNcbiEmail: Boolean(process.env.NCBI_EMAIL), usedNcbiApiKey: Boolean(process.env.NCBI_API_KEY) }));
 
   try {
+    const pmcCursor = pmcRetmax > 0 ? await getIngestionCursor('pmc_oa_full_text', config.pmcQuery) : undefined;
+    const pmcRetstart = pmcCursor?.nextRetstart ?? 0;
     const [pubmedRecords, pmcReport] = await Promise.all([
       fetchPubMedRecords({ query: config.pubmedQuery, retmax: pubmedRetmax, retstart: beforeQueue.totalPackets, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }),
-      pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({ query: config.pmcQuery, retmax: pmcRetmax, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, documentsIngested: 0, sources: [], failures: [], skippedCount: 0 })
+      pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({ query: config.pmcQuery, retmax: pmcRetmax, retstart: pmcRetstart, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, documentsIngested: 0, sources: [], failures: [], skippedCount: 0 })
     ]);
     const pubmedSources = pubmedRecords.map((record) => ({ title: record.title, sourceText: record.abstractText, sourceCitation: record.sourceCitation, sourceUrl: record.sourceUrl, sourcePublishedAt: record.sourcePublishedAt }));
     const relationalPubmed = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pubmedSources, extractor: 'local-llm-v2' });
@@ -82,14 +85,16 @@ async function runIngestion() {
       const pmcOa = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pmcReport.sources, extractor: 'local-llm-v2' });
       if (!pmcOa) throw new Error('relational_ingest_unavailable');
       const runSummary = await completeIngestionRunRelational(run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped });
-      return { project: relationalPubmed.project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
+      await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: config.pmcQuery, retmax: pmcRetmax, recordsFetched: pmcReport.recordsFetched, runId: run.id });
+      return { project: relationalPubmed.project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
     })() : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: config.projectSlug, name: config.projectName, description: config.projectDescription });
       const pubmed = createWorkPacketsFromSources(db, { projectId: project.id, sources: pubmedSources, extractor: 'local-llm-v2' });
       const pmcOa = createWorkPacketsFromSources(db, { projectId: project.id, sources: pmcReport.sources, extractor: 'local-llm-v2' });
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped });
-      return { project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcChunksFetched: pmcReport.sources.length, packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed, pmcOa, pmcFailures: pmcReport.failures, run: completedRun };
+      return { project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed, pmcOa, pmcFailures: pmcReport.failures, run: completedRun };
     });
+    if (!relationalPubmed) await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: config.pmcQuery, retmax: pmcRetmax, recordsFetched: pmcReport.recordsFetched, runId: run.id });
     return { ...output, afterQueue: await queueSnapshot() };
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'cron_ingest_failed';
