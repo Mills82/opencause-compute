@@ -29,7 +29,11 @@ export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
   const consensusCompletedPackets = db.volunteerStatsSnapshots
     .filter((snapshot) => snapshot.window === 'all_time')
     .reduce((total, snapshot) => total + snapshot.consensusPassedContributions, 0);
+  const formatValidatedPackets = db.volunteerStatsSnapshots
+    .filter((snapshot) => snapshot.window === 'all_time')
+    .reduce((total, snapshot) => total + snapshot.formatValidatedSubmissions, 0);
   const percentComplete = estimatedTotalPackets ? (consensusCompletedPackets / estimatedTotalPackets) * 100 : null;
+  const percentFormatValidated = estimatedTotalPackets ? (formatValidatedPackets / estimatedTotalPackets) * 100 : null;
 
   return {
     projectSlug: CKM_PROJECT_SLUG,
@@ -39,7 +43,9 @@ export function buildCancerKnowledgeMinerProgressEstimate(db: DatabaseState) {
     averagePacketsPerDocument,
     estimatedTotalPackets,
     consensusCompletedPackets,
+    formatValidatedPackets,
     percentComplete,
+    percentFormatValidated,
     sampleMinMet,
     estimateMethod: latestEstimate?.estimateMethod ?? 'mean_packets_per_ingested_document',
     sampleMinimumDocuments: MIN_DOCUMENT_SAMPLE_FOR_PROGRESS_ESTIMATE,

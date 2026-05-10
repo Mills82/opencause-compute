@@ -75,6 +75,18 @@ export default async function ImpactPage() {
                 <div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(progress.percentComplete ?? 0, 100)}%` }} />
               </div>
             ) : null}
+            {progress.estimatedTotalPackets ? (
+              <div className="mt-4 grid gap-3 text-xs text-slate-300 sm:grid-cols-2">
+                <div className="rounded-lg border border-line/60 p-3">
+                  <p className="font-semibold text-white">First-pass structure progress</p>
+                  <p className="mt-1">{progress.formatValidatedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()} packets ({formatPercent(progress.percentFormatValidated)})</p>
+                </div>
+                <div className="rounded-lg border border-line/60 p-3">
+                  <p className="font-semibold text-white">Consensus-complete progress</p>
+                  <p className="mt-1">{progress.consensusCompletedPackets.toLocaleString()} / ~{progress.estimatedTotalPackets.toLocaleString()} packets ({formatPercent(progress.percentComplete)})</p>
+                </div>
+              </div>
+            ) : null}
             <p className="mt-3 text-xs text-slate-400">
               {progress.estimatedTotalPackets ? (
                 <>Estimated from {progress.eligibleDocumentCount?.toLocaleString()} eligible documents and {progress.ingestedDocumentCount.toLocaleString()} ingested documents averaging {progress.averagePacketsPerDocument.toFixed(1)} packets per document.</>
