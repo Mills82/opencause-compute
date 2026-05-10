@@ -4,6 +4,7 @@ import { getWorkerControl, updateWorkerControl } from '../../../../lib/coordinat
 import { withDb } from '../../../../lib/db';
 import { isAdminAuthorized } from '../../../../lib/admin-auth';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
+import { getWorkerControlRelational, updateWorkerControlRelational } from '../../../../lib/relational-app';
 
 const updateSchema = z.object({
   paused: z.boolean().optional(),
@@ -15,7 +16,7 @@ const updateSchema = z.object({
 export async function GET(request: Request) {
   const rateLimit = await checkNamedRateLimitAsync(request, 'workerControl');
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
-  const config = await withDb((db) => getWorkerControl(db));
+  const config = (await getWorkerControlRelational()) ?? await withDb((db) => getWorkerControl(db));
   return NextResponse.json({ config });
 }
 
@@ -30,6 +31,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const config = await withDb((db) => updateWorkerControl(db, parsed.data));
+  const config = (await updateWorkerControlRelational(parsed.data)) ?? await withDb((db) => updateWorkerControl(db, parsed.data));
   return NextResponse.json({ config });
 }

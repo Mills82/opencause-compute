@@ -5,6 +5,7 @@ import { withDb } from '../../../../../../lib/db';
 import { recordAuditEvent } from '../../../../../../lib/audit';
 
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../../lib/rate-limit';
+import { updateNodeStatusRelational } from '../../../../../../lib/relational-app';
 const requestSchema = z.object({
   status: z.enum(['online', 'offline', 'suspended', 'revoked'])
 });
@@ -22,7 +23,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ nod
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const node = await withDb((db) => {
+  const relationalNode = await updateNodeStatusRelational(nodeId, parsed.data.status);
+  const node = relationalNode !== undefined ? relationalNode : await withDb((db) => {
     const existing = db.nodes.find((candidate) => candidate.id === nodeId);
     if (!existing) throw new Error('node_not_found');
     existing.status = parsed.data.status;

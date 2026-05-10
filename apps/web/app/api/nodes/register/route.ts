@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isNodeEnrollmentRequired, registerNode } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
+import { registerNodeRelational } from '../../../../lib/relational-app';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 
 const requestSchema = z.object({
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const registration = await withDb((db) => registerNode(db, parsed.data));
+    const relationalRegistration = await registerNodeRelational(parsed.data);
+    const registration = relationalRegistration ?? await withDb((db) => registerNode(db, parsed.data));
     return NextResponse.json(registration);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'registration_failed';

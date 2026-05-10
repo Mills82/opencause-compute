@@ -4,6 +4,7 @@ import { heartbeatNode } from '../../../../lib/coordinator';
 import { withDb } from '../../../../lib/db';
 import { extractNodeToken, isNodeAuthorized } from '../../../../lib/node-auth';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
+import { heartbeatNodeRelational } from '../../../../lib/relational-app';
 
 const requestSchema = z.object({
   nodeId: z.string().min(1)
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
 
   try {
     const token = extractNodeToken(request);
-    const node = await withDb((db) => {
+    const relationalNode = await heartbeatNodeRelational(parsed.data.nodeId, token);
+    const node = relationalNode ?? await withDb((db) => {
       if (!isNodeAuthorized(db, parsed.data.nodeId, token)) throw new Error('node_unauthorized');
       return heartbeatNode(db, parsed.data.nodeId);
     });

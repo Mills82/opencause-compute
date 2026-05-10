@@ -7,6 +7,7 @@ import { hashEnrollmentCode } from '../../../../lib/coordinator';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../lib/rate-limit';
 import { clientIp, verifyTurnstile } from '../../../../lib/turnstile';
 import { enrollmentEmail, enrollmentEmailConfigured, sendEmail } from '../../../../lib/email';
+import { issueVolunteerEnrollmentRelational, recordVolunteerChallengeFailedRelational, recordVolunteerEnrollmentDeliveryRelational } from '../../../../lib/relational-app';
 
 const requestSchema = z.object({
   email: z.string().email(),
@@ -40,14 +41,17 @@ export async function POST(request: Request) {
 
   const turnstileOk = await verifyTurnstile(parsed.data.turnstileToken, clientIp(request));
   if (!turnstileOk) {
-    await withDb((db) => {
-      recordAuditEvent(db, {
-        actorType: 'system',
-        action: 'volunteer_enrollment.challenge_failed',
-        targetType: 'volunteer_enrollment',
-        metadata: { email: parsed.data.email.toLowerCase(), ip: clientIp(request) }
+    const relationalRecorded = await recordVolunteerChallengeFailedRelational(parsed.data.email.toLowerCase(), clientIp(request) ?? 'unknown');
+    if (relationalRecorded === undefined) {
+      await withDb((db) => {
+        recordAuditEvent(db, {
+          actorType: 'system',
+          action: 'volunteer_enrollment.challenge_failed',
+          targetType: 'volunteer_enrollment',
+          metadata: { email: parsed.data.email.toLowerCase(), ip: clientIp(request) }
+        });
       });
-    });
+    }
     return NextResponse.json({ error: 'challenge_failed' }, { status: 403 });
   }
 
@@ -56,7 +60,8 @@ export async function POST(request: Request) {
   const enrollmentCodeHash = hashEnrollmentCode(enrollmentCode);
   const now = new Date().toISOString();
 
-  const enrollment = await withDb((db) => {
+  const relationalEnrollment = await issueVolunteerEnrollmentRelational(email, enrollmentCodeHash);
+  const enrollment = relationalEnrollment !== undefined ? relationalEnrollment : await withDb((db) => {
     const recentIssued = db.volunteerEnrollments.filter(
       (candidate) => candidate.email === email && candidate.status === 'issued'
     );
@@ -97,15 +102,18 @@ export async function POST(request: Request) {
 
   const showCode = !isHostedOrProduction() && (process.env.SHOW_ENROLLMENT_CODE_IN_BROWSER === 'true' || !emailResult.sent);
 
-  await withDb((db) => {
-    recordAuditEvent(db, {
-      actorType: 'system',
-      action: 'volunteer_enrollment.delivery',
-      targetType: 'volunteer_enrollment',
-      targetId: enrollment.id,
-      metadata: { email, delivery: emailResult, shownInBrowser: showCode }
+  const relationalDeliveryRecorded = await recordVolunteerEnrollmentDeliveryRelational(enrollment.id, email, emailResult, showCode);
+  if (relationalDeliveryRecorded === undefined) {
+    await withDb((db) => {
+      recordAuditEvent(db, {
+        actorType: 'system',
+        action: 'volunteer_enrollment.delivery',
+        targetType: 'volunteer_enrollment',
+        targetId: enrollment.id,
+        metadata: { email, delivery: emailResult, shownInBrowser: showCode }
+      });
     });
-  });
+  }
 
   return NextResponse.json({
     enrollment: {

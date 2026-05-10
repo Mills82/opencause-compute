@@ -4,6 +4,7 @@ import { isAdminAuthorized } from '../../../../../../lib/admin-auth';
 import { recordAuditEvent } from '../../../../../../lib/audit';
 import { withDb } from '../../../../../../lib/db';
 import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../../lib/rate-limit';
+import { updateVolunteerEnrollmentStatusRelational } from '../../../../../../lib/relational-app';
 
 const requestSchema = z.object({ status: z.enum(['issued', 'revoked']) });
 
@@ -20,7 +21,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ enr
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const enrollment = await withDb((db) => {
+  const relationalEnrollment = await updateVolunteerEnrollmentStatusRelational(enrollmentId, parsed.data.status);
+  const enrollment = relationalEnrollment !== undefined ? relationalEnrollment : await withDb((db) => {
     const existing = db.volunteerEnrollments.find((candidate) => candidate.id === enrollmentId);
     if (!existing) throw new Error('enrollment_not_found');
     if (existing.status === 'used') throw new Error('enrollment_already_used');
