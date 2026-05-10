@@ -18,3 +18,31 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm run test
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: opencause
+          POSTGRES_PASSWORD: opencause
+          POSTGRES_DB: opencause_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run web tests with real Postgres integration enabled
+        run: npm run test -w @opencause/web
+        env:
+          TEST_DATABASE_URL: postgres://opencause:opencause@localhost:5432/opencause_test

@@ -18,6 +18,7 @@ async function applyMigrations(pool: Pool) {
 async function freshDb() {
   const pool = new Pool({ connectionString: url });
   await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
+  await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
   await applyMigrations(pool);
   process.env.DATABASE_URL = url;
   process.env.OPENCAUSE_RELATIONAL_STORAGE = 'true';
