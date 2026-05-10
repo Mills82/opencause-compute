@@ -10,4 +10,14 @@ describe('electron main window config', () => {
     expect(source).toContain('sandbox: false');
     expect(source).toContain("preload: path.join(__dirname, 'electron-preload.js')");
   });
+
+  it('uses a dashboard-sized window and custom desktop menus', () => {
+    expect(source).toContain('width: 1180');
+    expect(source).toContain('height: 820');
+    expect(source).toContain('minWidth: 980');
+    expect(source).toContain('installApplicationMenu');
+    expect(source).toContain('Fit Dashboard');
+    expect(source).toContain('Hide to Tray');
+    expect(source).toContain('OpenCause Compute Website');
+  });
 });

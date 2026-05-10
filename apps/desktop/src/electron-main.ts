@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, type BrowserWindow as BrowserWindowType } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, type BrowserWindow as BrowserWindowType, type MenuItemConstructorOptions } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDesktopViewModel } from './view-model.js';
@@ -27,6 +27,74 @@ let cachedSupervisorKey = '';
 let mainWindow: BrowserWindowType | null = null;
 let tray: Tray | null = null;
 
+function showMainWindow() {
+  if (!mainWindow) return;
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function setDashboardSize() {
+  mainWindow?.setContentSize(1120, 780);
+}
+
+function installApplicationMenu() {
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        { label: 'Show Dashboard', accelerator: 'CmdOrCtrl+1', click: showMainWindow },
+        { label: 'Refresh Status', accelerator: 'CmdOrCtrl+R', click: () => mainWindow?.reload() },
+        { type: 'separator' },
+        { label: 'Hide to Tray', accelerator: 'CmdOrCtrl+W', click: () => mainWindow?.hide() },
+        { label: 'Quit OpenCause Compute', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Fit Dashboard', accelerator: 'CmdOrCtrl+0', click: setDashboardSize },
+        { label: 'Reload', accelerator: 'F5', click: () => mainWindow?.reload() },
+        { type: 'separator' },
+        { role: 'toggleDevTools' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Show OpenCause Compute', click: showMainWindow },
+        { label: 'Fit to Dashboard', click: setDashboardSize },
+        { type: 'separator' },
+        { role: 'minimize' },
+        { role: 'close' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'OpenCause Compute Website', click: () => shell.openExternal('https://opencause.appassist.ai') },
+        { label: 'Download / Setup Help', click: () => shell.openExternal('https://opencause.appassist.ai/download') },
+        { label: 'Science Disclaimer', click: () => shell.openExternal('https://opencause.appassist.ai/science-disclaimer') }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function ensureTray(win: BrowserWindowType) {
   if (tray) return;
   const iconPath = path.join(__dirname, 'static', 'assets', 'icon.png');
@@ -34,17 +102,19 @@ function ensureTray(win: BrowserWindowType) {
   tray = new Tray(image);
   tray.setToolTip('OpenCause Compute Worker');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show OpenCause Compute', click: () => { win.show(); win.focus(); } },
+    { label: 'Show OpenCause Compute', click: showMainWindow },
     { label: 'Quit', click: () => { app.quit(); } }
   ]));
-  tray.on('click', () => { win.show(); win.focus(); });
+  tray.on('click', showMainWindow);
 }
 
 async function createWindow() {
   const settings = await loadDesktopSettings(appDir);
   const win = new BrowserWindow({
-    width: 980,
-    height: 720,
+    width: 1180,
+    height: 820,
+    minWidth: 980,
+    minHeight: 700,
     title: 'OpenCause Compute Worker',
     webPreferences: {
       preload: path.join(__dirname, 'electron-preload.js'),
@@ -55,6 +125,7 @@ async function createWindow() {
   });
 
   mainWindow = win;
+  installApplicationMenu();
   ensureTray(win);
   win.on('close', (event) => {
     if (!(app as typeof app & { isQuitting?: boolean }).isQuitting) {
@@ -185,6 +256,6 @@ app.on('window-all-closed', () => {
   // Keep running in the tray unless the user explicitly quits.
 });
 app.on('activate', () => {
-  if (mainWindow) { mainWindow.show(); mainWindow.focus(); return; }
+  if (mainWindow) { showMainWindow(); return; }
   void createWindow();
 });
