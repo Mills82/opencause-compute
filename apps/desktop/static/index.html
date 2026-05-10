@@ -219,7 +219,7 @@
               <summary>Latest activity timeline</summary>
               <div id="activity-timeline" class="log-card" style="margin-top:10px;">No structured events yet.</div>
             </details>
-            <p id="version-message" class="small"></p>
+
           </section>
 
           <section data-panel="activity" class="wide">
@@ -231,6 +231,7 @@
               <button id="stop">Stop process</button>
               <button id="uninstall-state" class="danger">Remove local worker data</button>
             </div>
+            <p id="version-message" class="small"></p>
             <h3>Latest worker log</h3>
             <pre id="latest-log" class="log-card">No log lines yet.</pre>
             <details>
@@ -383,8 +384,16 @@
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
         dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
-        if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `Waiting: ${resources.reason}. Adjust Models & resources if needed.` : '';
+        if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `${humanizeReason(resources.reason)} Adjust Models & resources if needed.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
+      }
+
+      function humanizeReason(reason) {
+        if (reason === 'user_not_idle') return 'Waiting for you to be away from the computer.';
+        if (reason === 'high_cpu') return 'Waiting for CPU usage to settle.';
+        if (reason === 'on_battery') return 'Waiting for AC power.';
+        if (reason === 'Worker is paused.') return 'Paused locally. Press Start worker when you want to contribute again.';
+        return String(reason || '').replaceAll('_', ' ');
       }
 
       function renderPreflight(preflight) {
@@ -392,7 +401,8 @@
         const severity = preflight?.eligible ? 'ready' : 'warning';
         preflightSummary.className = `activity-card ${severity}`;
         const checks = preflight?.checks || {};
-        preflightSummary.innerHTML = `<strong class="${severity}">${preflight?.eligible ? 'This machine can contribute comfortably now' : 'Waiting before contributing'}</strong><p class="small">${preflight?.reason || 'Checking machine readiness.'}</p><span class="pill">Ollama: ${checks.ollama ? 'ok' : 'needed'}</span><span class="pill">Model: ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources: ${checks.resources ? 'eligible' : 'waiting'}</span><span class="pill">Paused: ${checks.paused ? 'yes' : 'no'}</span>`;
+        const reason = humanizeReason(preflight?.reason || 'Checking machine readiness.');
+        preflightSummary.innerHTML = `<strong class="${severity}">${preflight?.eligible ? 'Ready to contribute' : 'Not contributing yet'}</strong><p class="small">${reason}</p><span class="pill">Ollama ${checks.ollama ? 'ready' : 'needed'}</span><span class="pill">Model ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources ${checks.resources ? 'ready' : 'waiting'}</span>${checks.paused ? '<span class="pill">Paused</span>' : ''}`;
       }
 
       function renderTimeline(timeline) {
@@ -498,7 +508,8 @@
           const stoppedDetail = runtime.lastMode === 'run-once'
             ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
             : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
-          workerMessage.textContent = latestState.settings.localPaused ? 'Worker is paused by local setting.' : (runtime.running ? `Worker running with pid ${runtime.pid}. ${latestState.activity?.headline || ''}` : stoppedDetail);
+          const reasonText = latestState?.activity?.detail || latestState?.preflight?.reason || '';
+          workerMessage.textContent = latestState.settings.localPaused ? 'Paused locally. Press Start worker when you want to contribute again.' : (runtime.running ? (reasonText || 'Worker is running.') : stoppedDetail);
           renderPreflight(latestState.preflight);
           renderActivity(latestState.activity);
           renderTimeline(latestState.timeline);

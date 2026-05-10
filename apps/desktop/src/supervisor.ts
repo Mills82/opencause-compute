@@ -345,26 +345,43 @@ export class WorkerSupervisor {
   }
 }
 
+function humanReason(reason: string): string {
+  if (reason === 'user_not_idle') return 'Waiting for you to be away from the computer.';
+  if (reason === 'high_cpu') return 'Waiting for CPU usage to settle.';
+  if (reason === 'on_battery') return 'Waiting for AC power.';
+  if (reason === 'user_idle_unavailable') return 'Waiting because idle detection is unavailable.';
+  return reason.replace(/_/g, ' ');
+}
+
 export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
   const lines = content.split(/\r?\n/).filter(Boolean);
-  return lines.map<WorkerTimelineEvent>((line) => {
+  const events = lines.map<WorkerTimelineEvent>((line) => {
     const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
     const at = match?.[1];
     const message = match?.[2] ?? line;
-    if (message.includes('claimed packet')) return { at, kind: 'claiming_work', label: 'Claimed work', detail: message, severity: 'ready' };
-    if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: message, severity: 'ready' };
-    if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: message, severity: 'ready' };
+    if (message.includes('claimed packet')) { const id = message.match(/claimed packet\s+([^\s]+)/)?.[1]; return { at, kind: 'claiming_work', label: 'Claimed work', detail: id ? `Packet ${id.slice(0, 8)} claimed.` : 'Packet claimed.', severity: 'ready' }; }
+    if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: 'The packet passed authenticity checks.', severity: 'ready' };
+    if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: 'The local result was sent to the coordinator.', severity: 'ready' };
     if (message.includes('reported released claim')) return { at, kind: 'claim_released', label: 'Released claim', detail: message, severity: 'warning' };
     if (message.includes('generation cancelled')) return { at, kind: 'claim_released', label: 'Released because resource policy changed', detail: message, severity: 'warning' };
     if (message.includes('battery policy')) return { at, kind: 'blocked_battery', label: 'Waiting for AC power', detail: message, severity: 'warning' };
     if (message.includes('reported failed claim')) return { at, kind: 'claim_failed', label: 'Reported failed claim', detail: message, severity: 'warning' };
-    if (message.includes('idle gate blocked')) return { at, kind: 'blocked_resources', label: 'Waiting for resources', detail: message, severity: 'warning' };
+    if (message.includes('idle gate blocked')) { const reason = message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings'; return { at, kind: 'blocked_resources', label: 'Waiting for resources', detail: humanReason(reason), severity: 'warning' }; }
     if (message.includes('run failed') || message.includes('fatal ')) return { at, kind: 'worker_error', label: 'Worker error', detail: message, severity: 'blocked' };
     if (message.includes('no work available')) return { at, kind: 'no_work', label: 'No work available', detail: message, severity: 'warning' };
-    if (message.includes('heartbeat')) return { at, kind: 'heartbeat', label: 'Coordinator heartbeat', detail: message, severity: 'ready' };
+    if (message.includes('heartbeat')) return { at, kind: 'heartbeat', label: 'Coordinator heartbeat', detail: 'Connected to the coordinator.', severity: 'ready' };
     return { at, kind: 'log', label: 'Worker log', detail: message, severity: 'warning' };
-  }).slice(-12).reverse();
+  });
+  const deduped: WorkerTimelineEvent[] = [];
+  for (const event of events.reverse()) {
+    const prev = deduped[deduped.length - 1];
+    if (prev && prev.kind === event.kind && prev.detail === event.detail) continue;
+    deduped.push(event);
+    if (deduped.length >= 6) break;
+  }
+  return deduped;
 }
+
 
 export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const lines = content.split(/\r?\n/).filter(Boolean);
@@ -394,7 +411,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   }
   if (latestIdleBlock && (!latestSubmitted || (latestIdleBlock.at ?? '') > (latestSubmitted.at ?? '')) && (!latestFailure || (latestIdleBlock.at ?? '') > (latestFailure.at ?? ''))) {
     const reason = latestIdleBlock.message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings';
-    return { state: 'waiting_idle', headline: 'Waiting for resource settings', detail: `Work is paused until this computer satisfies: ${reason}.`, severity: 'warning', at: latestIdleBlock.at };
+    return { state: 'waiting_idle', headline: 'Waiting for this computer to be ready', detail: humanReason(reason), severity: 'warning', at: latestIdleBlock.at };
   }
   if (latestReleasedReport && (!latestSubmitted || (latestReleasedReport.at ?? '') > (latestSubmitted.at ?? ''))) {
     const packetIdFromReport = latestReleasedReport.message.match(/reported released claim packet\s+([^\s]+)/)?.[1];
