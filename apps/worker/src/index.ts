@@ -325,6 +325,16 @@ async function runOnce(
   }
 
   await log(`signature verified for packet ${claimed.packet.id}`);
+  if (!bypassIdleGate) {
+    const beforeExtractIdleDecision = await checkHostIdle(idleConfig);
+    if (!beforeExtractIdleDecision.eligible) {
+      const userIdle = beforeExtractIdleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${beforeExtractIdleDecision.metrics.userIdleSeconds}s`;
+      await log(
+        `idle gate blocked extraction reason=${beforeExtractIdleDecision.reason} cpu=${beforeExtractIdleDecision.metrics.cpuPercent}% userIdle=${userIdle}`
+      );
+      return;
+    }
+  }
   try {
     const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed);
     await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);

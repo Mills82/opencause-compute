@@ -54,4 +54,12 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Retry one packet now');
     expect(html).toContain('Review idle settings');
   });
+
+  it('uses dashboard labels and disables duplicate start actions after setup', () => {
+    expect(html).toContain('id="model-step-title"');
+    expect(html).toContain('id="settings-step-title"');
+    expect(html).toContain("Worker running");
+    expect(html).toContain("Settings saved; worker running");
+  });
+
 });

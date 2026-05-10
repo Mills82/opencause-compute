@@ -21,7 +21,7 @@
       .layout.dashboard-mode [data-panel] { grid-column: 1 / -1; }
       .layout.dashboard-mode #dashboard-step { grid-column: 1 / -1; }
       .layout.dashboard-mode #profile-step { grid-column: span 5; }
-      .layout.dashboard-mode #settings-step { grid-column: span 7; }
+      .layout.dashboard-mode #settings-step { grid-column: 1 / -1; }
       .layout.dashboard-mode .wide { grid-column: 1 / -1; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
       .ready { color: #7ee787; } .warning { color: #f2cc60; } .blocked { color: #ff7b72; }
@@ -113,7 +113,7 @@
           </section>
 
           <section id="model-step" data-panel="settings">
-            <h2>2. Download a model</h2>
+            <h2 id="model-step-title">2. Download a model</h2>
             <label for="model-select">Approved local model</label>
             <select id="model-select"></select>
             <p id="model-guidance" class="small"></p>
@@ -143,7 +143,7 @@
           </section>
 
           <section id="settings-step" data-panel="settings">
-            <h2>4. Resource settings</h2>
+            <h2 id="settings-step-title">4. Resource settings</h2>
             <p id="model-config-guidance" class="small"></p>
             <label>
               Quality mode
@@ -268,6 +268,10 @@
       const registrationStep = document.getElementById('registration-step');
       const dashboardRuntime = document.getElementById('dashboard-runtime');
       const dashboardModel = document.getElementById('dashboard-model');
+      const startButton = document.getElementById('start');
+      const saveStartButton = document.getElementById('save-start');
+      const modelStepTitle = document.getElementById('model-step-title');
+      const settingsStepTitle = document.getElementById('settings-step-title');
       const dashboardWork = document.getElementById('dashboard-work');
       const dashboardEligible = document.getElementById('dashboard-eligible');
       const dashboardIdle = document.getElementById('dashboard-idle');
@@ -340,6 +344,16 @@
         });
         document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
+        if (modelStepTitle) modelStepTitle.textContent = setupComplete ? 'Local model' : '2. Download a model';
+        if (settingsStepTitle) settingsStepTitle.textContent = setupComplete ? 'Resource settings' : '4. Resource settings';
+        if (startButton) {
+          startButton.disabled = Boolean(latestState?.runtime?.running);
+          startButton.textContent = latestState?.runtime?.running ? 'Worker running' : 'Start worker';
+        }
+        if (saveStartButton) {
+          saveStartButton.disabled = Boolean(latestState?.runtime?.running);
+          saveStartButton.textContent = latestState?.runtime?.running ? 'Settings saved; worker running' : 'Save and start worker';
+        }
         dashboardModel.textContent = latestState?.modelRuntime?.selectedModel || '—';
         dashboardWork.textContent = String(latestState?.runtime?.packetsCompletedThisRun ?? 0);
         const resources = latestState?.resources;
@@ -510,7 +524,7 @@
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };
       openProfile.onclick = async () => { if (profileSetupUrl) await api.openExternal(profileSetupUrl); };
-      document.getElementById('start').onclick = async () => { workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('start').onclick = async () => { if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
       document.getElementById('log').onclick = async () => { const log = await api.tailLog(); latestLog.textContent = log || 'No log lines yet.'; output.textContent = log || 'No log lines yet.'; };
@@ -544,7 +558,7 @@
         } catch (error) { registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`; output.textContent = registrationMessage.textContent; }
       };
       document.getElementById('save-settings').onclick = saveSettings;
-      document.getElementById('save-start').onclick = async () => { await saveSettings(); workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
+      document.getElementById('save-start').onclick = async () => { await saveSettings(); if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now. It may return to not running when the one-shot check finishes.'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
       modelSelect.onchange = async () => {

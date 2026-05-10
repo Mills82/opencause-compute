@@ -104,7 +104,7 @@ describe('worker supervisor contract', () => {
   });
 
   it('treats idle gate blocks as waiting, not errors', () => {
-    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] run failed local_llm_invalid_json\n[2026-05-10T01:48:00.883Z] idle gate blocked run reason=user_not_idle cpu=11% userIdle=4s\n');
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] run failed local_llm_invalid_json\n[2026-05-10T01:48:00.883Z] idle gate blocked extraction reason=user_not_idle cpu=11% userIdle=4s\n');
     expect(summary).toMatchObject({ state: 'waiting_idle', severity: 'warning' });
   });
 
