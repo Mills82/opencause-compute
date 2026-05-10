@@ -2,6 +2,8 @@ import { appendFile, chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs
 import os from 'node:os';
 import path from 'node:path';
 import {
+  hashJson,
+  hashText,
   runMockExtractorV1,
   verifyPayloadEd25519,
   verifyPayloadHmac,
@@ -344,8 +346,10 @@ async function runOnce(
 
   let signatureEnvelope: { algorithm?: string; keyId?: string } = {};
   try { signatureEnvelope = JSON.parse(claimed.signature) as { algorithm?: string; keyId?: string }; } catch {}
+  const packetHash = hashJson(claimed.packet);
+  const publicKeyFingerprint = PACKET_SIGNING_PUBLIC_KEY ? hashText(PACKET_SIGNING_PUBLIC_KEY).slice(0, 16) : 'missing';
   if (signatureEnvelope.algorithm === 'ed25519' && !PACKET_SIGNING_PUBLIC_KEY) {
-    await log(`packet signing public key missing for keyId=${signatureEnvelope.keyId ?? 'unknown'}`);
+    await log(`packet signing public key missing for keyId=${signatureEnvelope.keyId ?? 'unknown'} packetHash=${packetHash}`);
     await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, 'packet_signing_public_key_missing', 'failed');
     return;
   }
@@ -353,12 +357,12 @@ async function runOnce(
     ? verifyPayloadEd25519(claimed.packet, claimed.signature, PACKET_SIGNING_PUBLIC_KEY, PACKET_SIGNING_KEY_ID)
     : verifyPayloadHmac(claimed.packet, claimed.signature, SIGNING_SECRET);
   if (!isValidSignature) {
-    await log(`signature verification failed for packet ${claimed.packet.id} algorithm=${signatureEnvelope.algorithm ?? 'unknown'} keyId=${signatureEnvelope.keyId ?? 'unknown'} publicKeyLoaded=${Boolean(PACKET_SIGNING_PUBLIC_KEY)}`);
+    await log(`signature verification failed for packet ${claimed.packet.id} algorithm=${signatureEnvelope.algorithm ?? 'unknown'} keyId=${signatureEnvelope.keyId ?? 'unknown'} publicKeyLoaded=${Boolean(PACKET_SIGNING_PUBLIC_KEY)} publicKeyFingerprint=${publicKeyFingerprint} packetHash=${packetHash} packetKeys=${Object.keys(claimed.packet).sort().join(',')}`);
     await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, 'invalid_packet_signature', 'failed');
     return;
   }
 
-  await log(`signature verified for packet ${claimed.packet.id} algorithm=${signatureEnvelope.algorithm ?? 'unknown'} keyId=${signatureEnvelope.keyId ?? 'unknown'}`);
+  await log(`signature verified for packet ${claimed.packet.id} algorithm=${signatureEnvelope.algorithm ?? 'unknown'} keyId=${signatureEnvelope.keyId ?? 'unknown'} publicKeyFingerprint=${publicKeyFingerprint} packetHash=${packetHash}`);
   const postClaimBatteryBlock = await checkBatteryPolicy(runOnBatteryAllowed());
   if (postClaimBatteryBlock) {
     await log('battery policy changed after claim reason=on_battery; releasing claim');
