@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { databaseSchema, type DatabaseState, type WorkerControlConfig } from '@opencause/shared';
+import { databaseSchema, workPacketPayloadSchema, type DatabaseState, type WorkerControlConfig } from '@opencause/shared';
 import { Pool, type PoolClient } from 'pg';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -514,7 +514,8 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
       await c.query('INSERT INTO volunteer_nodes(id,node_name,platform,version,status,capabilities,registered_at,last_heartbeat_at,node_token_hash,enrollment_code_hash,suspended_at,revoked_at) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12)', [node.id, node.nodeName, node.platform, node.version, node.status, JSON.stringify(node.capabilities), node.registeredAt, node.lastHeartbeatAt, node.nodeTokenHash, node.enrollmentCodeHash, node.suspendedAt, node.revokedAt]);
     }
     for (const packet of parsed.workPackets) {
-      await c.query('INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14)', [packet.id, packet.projectId, packet.title, packet.sourceText, packet.sourceCitation, packet.sourceUrl, packet.sourcePublishedAt, packet.inputHash, packet.extractor, packet.signature, JSON.stringify(packet), packet.status, packet.createdAt, packet.updatedAt]);
+      const signedPayload = workPacketPayloadSchema.parse(packet);
+      await c.query('INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14)', [packet.id, packet.projectId, packet.title, packet.sourceText, packet.sourceCitation, packet.sourceUrl, packet.sourcePublishedAt, packet.inputHash, packet.extractor, packet.signature, JSON.stringify(signedPayload), packet.status, packet.createdAt, packet.updatedAt]);
     }
     for (const claim of parsed.claims) {
       await c.query('INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at,completed_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [claim.id, claim.workPacketId, claim.nodeId, claim.status, claim.claimedAt, claim.leaseExpiresAt, claim.completedAt]);
