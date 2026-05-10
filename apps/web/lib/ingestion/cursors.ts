@@ -35,5 +35,5 @@ export async function getIngestionCursor(sourceType: string, query: string): Pro
 export async function advanceIngestionCursor(input: { sourceType: string; query: string; retmax: number; recordsFetched: number; runId?: string }): Promise<void> {
   if (!enabled() || input.retmax <= 0) return;
   await ensureCursorTable();
-  await getPool().query(`UPDATE ingestion_cursors SET next_retstart = CASE WHEN $4 < $3 THEN 0 ELSE next_retstart + $3 END, last_retmax=$3, last_records_fetched=$4, last_run_id=$5, updated_at=NOW() WHERE source_type=$1 AND query=$2`, [input.sourceType, input.query, input.retmax, input.recordsFetched, input.runId ?? null]);
+  await getPool().query(`UPDATE ingestion_cursors SET next_retstart = CASE WHEN $4::int < $3::int THEN 0 ELSE next_retstart + $3::int END, last_retmax=$3::int, last_records_fetched=$4::int, last_run_id=$5, updated_at=NOW() WHERE source_type=$1 AND query=$2`, [input.sourceType, input.query, input.retmax, input.recordsFetched, input.runId ?? null]);
 }
