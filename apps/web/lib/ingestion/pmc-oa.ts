@@ -1,9 +1,9 @@
 import tar from 'tar-stream';
 import { gunzipSync } from 'node:zlib';
-import { fetchPubMedRecords } from './pubmed';
-import { fetchNcbi, ncbiDelayMs, sleep } from './ncbi-client';
+import { fetchNcbi, ncbiDelayMs, sleep, appendNcbiParams } from './ncbi-client';
 
 const PMC_OA_BASE = 'https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi';
+const EUTILS_BASE = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
 export type PmcOaFailure = { pmcid?: string; pmid: string; reason: string };
 
@@ -21,6 +21,14 @@ export type PmcOaSource = {
   sourceText: string;
   sourceCitation: string;
   sourceUrl: string;
+  sourcePublishedAt?: string;
+};
+
+type PmcSearchRecord = {
+  pmid: string;
+  pmcid: string;
+  title: string;
+  sourceCitation: string;
   sourcePublishedAt?: string;
 };
 
@@ -172,6 +180,19 @@ async function fetchPmcOaFullText(pmcid: string, options: { email?: string; apiK
   return stripXmlToText(xml);
 }
 
+async function fetchPmcSearchRecords(options: { query: string; retmax: number; email?: string; apiKey?: string }): Promise<PmcSearchRecord[]> {
+  const params = appendNcbiParams(new URLSearchParams({ db: 'pmc', term: options.query, retmode: 'json', retmax: String(options.retmax), sort: 'relevance' }), options);
+  const response = await fetchNcbi(`${EUTILS_BASE}/esearch.fcgi?${params.toString()}`, options);
+  if (!response.ok) throw new Error(`pmc_esearch_failed:${response.status}`);
+  const json = (await response.json()) as { esearchresult?: { idlist?: string[] } };
+  return (json.esearchresult?.idlist ?? []).map((id) => ({
+    pmid: id,
+    pmcid: id.startsWith('PMC') ? id : `PMC${id}`,
+    title: `PMC article ${id}`,
+    sourceCitation: `PMC:${id.startsWith('PMC') ? id : `PMC${id}`}`
+  }));
+}
+
 export async function ingestPmcOaFullTextWithReport(options: {
   query: string;
   retmax: number;
@@ -179,13 +200,7 @@ export async function ingestPmcOaFullTextWithReport(options: {
   apiKey?: string;
   perRecordDelayMs?: number;
 }): Promise<PmcOaIngestReport> {
-  const records = await fetchPubMedRecords({
-    query: options.query,
-    retmax: options.retmax,
-    email: options.email,
-    apiKey: options.apiKey
-  });
-
+  const records = await fetchPmcSearchRecords({ query: options.query, retmax: options.retmax, email: options.email, apiKey: options.apiKey });
   const pmcRecords = records.filter((record) => Boolean(record.pmcid));
   const out: PmcOaSource[] = [];
   const failures: PmcOaFailure[] = [];
