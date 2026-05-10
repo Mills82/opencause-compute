@@ -176,10 +176,10 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
        WHERE status = 'queued'
        AND extractor = ANY($2::text[])
        AND (
-         COALESCE(($3->>'qualityTier'), 'balanced') NOT IN ('budget') OR char_length(source_text) <= 6000
+         COALESCE(($3::jsonb->>'qualityTier'), 'balanced') NOT IN ('budget') OR char_length(source_text) <= 6000
        )
        AND (
-         COALESCE(($3->>'qualityTier'), 'balanced') NOT IN ('balanced') OR char_length(source_text) <= 10000
+         COALESCE(($3::jsonb->>'qualityTier'), 'balanced') NOT IN ('balanced') OR char_length(source_text) <= 10000
        )
        AND NOT EXISTS (
          SELECT 1 FROM work_claims prior
