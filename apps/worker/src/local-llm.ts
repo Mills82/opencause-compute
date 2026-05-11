@@ -1,4 +1,4 @@
-import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadSchema, resultPayloadV2Schema, type ExtractedClaim, type ResultPayload, type ResultPayloadV2 } from '@opencause/shared';
+import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadSchema, resultPayloadV2Schema, type ExtractedClaim, type PacketTriage, type ResultPayload, type ResultPayloadV2 } from '@opencause/shared';
 
 const ALLOWED_RELATIONSHIPS = new Set([
   'associated_with_response',
@@ -10,7 +10,19 @@ const ALLOWED_RELATIONSHIPS = new Set([
 ]);
 
 export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
-export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-prompt-2026-05-10';
+export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite-prompt-2026-05-11';
+
+const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','studied_with','unclear'] as const;
+const EVIDENCE_ORIGINS = ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const;
+const EVIDENCE_TYPES = ['clinical','preclinical','computational','review','case_report','unclear'] as const;
+const STUDY_CONTEXTS = ['human_cohort','clinical_trial','cell_line','animal','organoid','mixed','unclear'] as const;
+const POLARITIES = ['affirmed','negated','speculative','uncertain'] as const;
+const DIRECTIONS = ['increased','decreased','associated','no_association','mixed','unclear'] as const;
+const REVIEW_PRIORITIES = ['high','medium','low'] as const;
+const NO_CLAIM_REASONS = ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const;
+const PLACEHOLDER_STRINGS = new Set(['n/a', 'na', 'none', 'null', 'unknown', 'not mentioned', 'not applicable', 'not provided']);
+const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
+const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|toxicit|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
 
 export type LocalLlmConfig = {
   endpoint: string;
@@ -91,32 +103,64 @@ export function extractionPrompt(sourceText: string): string {
 export function extractionPromptV2(sourceText: string): string {
   return [
     'You extract candidate cancer-literature claims from source text.',
-    'These are NOT accepted scientific facts or discoveries. They are candidate claims for later independent validation and consensus.',
-    'Return ONLY valid compact JSON matching this schema:',
-    '{"schemaVersion":"claims-v2","claims":[{"claimType":"treatment_response|resistance|prognosis|risk|progression|diagnosis|biology|studied_with|unclear","evidenceOrigin":"this_study_result|cited_prior_work|background|methods_only|hypothesis_or_speculation|review_summary|unclear","evidenceType":"clinical|preclinical|computational|review|case_report|unclear","studyContext":"human_cohort|clinical_trial|cell_line|animal|organoid|mixed|unclear","polarity":"affirmed|negated|speculative|uncertain","direction":"increased|decreased|associated|no_association|mixed|unclear","cancerType":"optional string","biomarkerMention":"optional exact text","biomarkerNormalizedGuess":"optional non-authoritative guess","drugOrInterventionMention":"optional exact text","drugNormalizedGuess":"optional non-authoritative guess","variantMention":"optional exact text","pathwayMention":"optional exact text","cellLineMention":"optional exact text","speciesOrModelMention":"optional exact text","outcomeMention":"optional exact text","outcomeMeasureMention":"optional exact text","statisticalEvidenceMention":"optional exact text","sampleSizeMention":"optional exact text","pmid":"optional string","pmcid":"optional string","sectionTitle":"optional string","sectionType":"abstract|introduction|methods|results|discussion|conclusion|figure_table|supplement|unknown","paragraphIndex":0,"sentenceIndex":0,"charStart":0,"charEnd":0,"exactEvidenceSentence":"verbatim sentence from source","evidenceContext":"optional nearby source text","reviewPriority":"high|medium|low","confidence":0.0}],"noClaimReason":"no_cancer_claim|methods_only|background_only|insufficient_context|extraction_uncertain|other","summary":"string","warnings":[]}',
-    'Optional fields may be omitted. Never use null. Do not include pseudo-JSON keys with question marks.',
+    'Important: these are NOT accepted scientific facts. They are candidate claims for later validation.',
+    'Return ONLY valid JSON. No markdown. No commentary.',
+    'JSON shape: {"schemaVersion":"claims-v2-lite","claims":[],"noClaimReason":"","summary":"","warnings":[]}',
+    'Each claim: {"claimType":"","evidenceOrigin":"","evidenceType":"","studyContext":"","polarity":"","direction":"","cancerType":"","biomarkerMention":"","drugOrInterventionMention":"","outcomeMention":"","statisticalEvidenceMention":"","sampleSizeMention":"","exactEvidenceSentence":"","reviewPriority":"","confidence":0}',
+    'Allowed values:',
+    'claimType = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, studied_with, unclear',
+    'evidenceOrigin = this_study_result, cited_prior_work, background, methods_only, hypothesis_or_speculation, review_summary, unclear',
+    'evidenceType = clinical, preclinical, computational, review, case_report, unclear',
+    'studyContext = human_cohort, clinical_trial, cell_line, animal, organoid, mixed, unclear',
+    'polarity = affirmed, negated, speculative, uncertain',
+    'direction = increased, decreased, associated, no_association, mixed, unclear',
+    'reviewPriority = high, medium, low',
     'Rules:',
-    '- Return 0 to 8 claims. Fewer high-quality grounded claims are better than filling the list.',
-    '- The full JSON response must fit within the response token budget; if needed, return fewer claims rather than producing incomplete JSON.',
-    '- Do not create duplicate or near-duplicate claims. Use each exactEvidenceSentence at most once; choose the single best claimType for that sentence.',
-    '- Only extract specific, named relationships directly supported by one sentence. Do not expand broad network/table/supplementary-list summaries into many claims.',
-    '- If a sentence only says many drugs, genes, plants, compounds, or candidates were found without naming a specific relationship, return zero claims or one low-priority aggregate claim at most.',
-    '- exactEvidenceSentence must be copied exactly from source text. If no exact sentence supports a claim, omit the claim.',
-    '- Omit evidenceContext; exactEvidenceSentence should be sufficient.',
-    '- Preserve exact mentions separately from normalized guesses. Normalized guesses are not authoritative.',
-    '- Label evidenceOrigin carefully: this study result, cited prior work, background, methods-only, speculation, review summary, or unclear.',
-    '- Methods-only mentions may be labeled methods_only, but do not turn them into scientific findings.',
-    '- Separate negated and speculative claims from affirmed claims using polarity and direction.',
-    '- Prefer cancer-relevant claims involving cancer type, biomarkers, variants, pathways, drugs/interventions, outcomes, clinical/preclinical context, or statistical evidence.',
-    '- Do not infer beyond the source. Return zero claims if there are no grounded cancer-relevant claims.',
-    '- If claims is empty, include noClaimReason.',
-    '- Keep output compact: one short summary sentence, no evidenceContext, and no repeated source passages.',
-    '- Prefer omitting optional fields over adding verbose, uncertain, duplicative, or low-value text.',
-    '- Output minified JSON with no extra whitespace.',
+    '- Return 0 to 2 claims.',
+    '- Only extract cancer-related claims supported by one exact source sentence.',
+    '- Copy exactEvidenceSentence exactly from the source text.',
+    '- Prefer zero claims over weak, vague, duplicated, or inferred claims.',
+    '- Do not extract methods-only mentions as findings.',
+    '- Do not expand broad lists of genes, drugs, compounds, pathways, or candidates into many claims.',
+    '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
+    '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
+    '- summary must be one short sentence. warnings must be an array of short strings or [].',
     '- Output JSON only. No markdown or commentary.',
     'Source text follows:',
     sourceText
   ].join('\n');
+}
+
+export type PacketTriageInput = {
+  sourceText: string;
+  title?: string;
+  sourceCitation?: string;
+  sourceUrl?: string;
+  sourcePublishedAt?: string;
+};
+
+export function triagePacketLocally(input: PacketTriageInput | string, legacyTitle = ''): PacketTriage {
+  const packet = typeof input === 'string' ? { sourceText: input, title: legacyTitle } : input;
+  const metadataText = [packet.title, packet.sourceCitation, packet.sourceUrl, packet.sourcePublishedAt].filter(Boolean).join('\n');
+  const text = `${metadataText}\n${packet.sourceText}`;
+  const lowerTitle = (packet.title ?? '').toLowerCase();
+  const lower = text.toLowerCase();
+  const hasCancerTerms = CANCER_TERMS.test(text);
+  const hasClaimTerms = CLAIM_OPPORTUNITY_TERMS.test(text);
+  const base = { schemaVersion: 'packet-triage-v1' as const, cancerRelevance: hasCancerTerms ? 0.7 : 0, claimOpportunity: hasCancerTerms && hasClaimTerms ? 0.65 : 0.1, warnings: [] as string[] };
+  if (/correction|erratum|corrigendum/.test(lowerTitle) || /following publication of the original article/.test(lower)) return { ...base, decision: 'skip_correction_notice', cancerRelevance: Math.min(base.cancerRelevance, 0.2), claimOpportunity: 0.05, reason: 'Correction or figure-caption notice without extractable cancer claim.', suggestedNoClaimReason: 'no_cancer_claim' };
+  if (/ethical|ethics|privacy|consent/.test(lowerTitle)) return { ...base, decision: 'skip_ethics_or_consent', claimOpportunity: 0.05, reason: 'Ethics, privacy, or consent section is not a claim opportunity.', suggestedNoClaimReason: 'methods_only' };
+  if (!hasCancerTerms) return { ...base, decision: 'skip_non_cancer', reason: 'No cancer-relevance terms found in packet.', suggestedNoClaimReason: 'no_cancer_claim' };
+  if (hasClaimTerms) return { ...base, decision: 'extract_now', reason: 'Cancer-relevance and claim-opportunity terms are present.' };
+  if (/participants?|recruitment|eligibility/.test(lowerTitle)) return { ...base, decision: 'skip_recruitment_or_participants', claimOpportunity: 0.1, reason: 'Recruitment or participant-description section is not a claim opportunity.', suggestedNoClaimReason: 'methods_only' };
+  if (/data collection|analysis|methods? and materials|materials and methods|climate|study population|sampling/.test(lowerTitle)) return { ...base, decision: 'skip_methods_only', claimOpportunity: 0.1, reason: 'Methods or context-only section is unlikely to contain grounded cancer claims.', suggestedNoClaimReason: 'methods_only' };
+  if (/qualitative|process evaluation|interview|focus group/.test(lowerTitle) || /qualitative process evaluation|semi-structured interviews/.test(lower)) return { ...base, decision: 'skip_qualitative_or_process_section', claimOpportunity: 0.1, reason: 'Qualitative/process section is outside the cancer-claim extraction target.', suggestedNoClaimReason: 'insufficient_context' };
+  if (!hasClaimTerms) return { ...base, decision: 'low_opportunity', reason: 'Cancer terms are present, but no clear claim-opportunity terms were found.', suggestedNoClaimReason: 'insufficient_context' };
+  return { ...base, decision: 'extract_now', reason: 'Cancer-relevance and claim-opportunity terms are present.' };
+}
+
+export function emptyClaimsV2FromTriage(triage: PacketTriage): ResultPayloadV2 {
+  return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: [], noClaimReason: triage.suggestedNoClaimReason ?? 'extraction_uncertain', summary: `Worker triage: ${triage.reason}`, warnings: [`packet_triage:${triage.decision}`, ...triage.warnings] });
 }
 
 export function extractJsonBlock(raw: string): string {
@@ -128,7 +172,7 @@ export function extractJsonBlock(raw: string): string {
 
 export function parseLocalLlmJson(raw: string): unknown {
   try {
-    return parseLocalLlmJson(raw);
+    return JSON.parse(extractJsonBlock(raw));
   } catch (error) {
     if (error instanceof Error && error.message === 'local_llm_invalid_json') throw error;
     throw new Error('local_llm_invalid_json');
@@ -136,7 +180,10 @@ export function parseLocalLlmJson(raw: string): unknown {
 }
 
 function optionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || PLACEHOLDER_STRINGS.has(trimmed.toLowerCase())) return undefined;
+  return trimmed;
 }
 
 function requiredString(value: unknown, fallback: string): string {
@@ -149,8 +196,25 @@ function confidence(value: unknown): number {
   return Math.max(0, Math.min(1, numeric));
 }
 
+function strictConfidence(value: unknown): number | undefined {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= 1 ? numeric : undefined;
+}
+
 function optionalEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? value as T : fallback;
+}
+
+function strictEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? value as T : undefined;
+}
+
+function hasNullishOrPlaceholder(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value === 'string') return PLACEHOLDER_STRINGS.has(value.trim().toLowerCase());
+  if (Array.isArray(value)) return value.some(hasNullishOrPlaceholder);
+  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).some(hasNullishOrPlaceholder);
+  return false;
 }
 
 function optionalNumber(value: unknown): number | undefined {
@@ -167,58 +231,52 @@ function reviewPriorityForClaim(claim: ExtractedClaim): 'high' | 'medium' | 'low
 
 export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = ''): ResultPayloadV2 {
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
+  const schemaVersion = source.schemaVersion;
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = claimsSourceRaw.slice(0, 3);
+  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' ? claimsSourceRaw.slice(0, 2) : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
   const seenEvidenceSentences = new Set<string>();
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
+    if (hasNullishOrPlaceholder(claim)) return null;
     const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
     if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return null;
     const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
     if (seenEvidenceSentences.has(evidenceKey)) return null;
     seenEvidenceSentences.add(evidenceKey);
-    const evidenceContext = optionalString(claim.evidenceContext);
-    const charStart = optionalNumber(claim.charStart);
-    const rawCharEnd = optionalNumber(claim.charEnd);
-    const charEnd = charStart !== undefined && rawCharEnd !== undefined && rawCharEnd > charStart ? rawCharEnd : undefined;
+    const claimType = strictEnum(claim.claimType, CLAIM_TYPES);
+    const evidenceOrigin = strictEnum(claim.evidenceOrigin, EVIDENCE_ORIGINS);
+    const evidenceType = strictEnum(claim.evidenceType, EVIDENCE_TYPES);
+    const studyContext = strictEnum(claim.studyContext, STUDY_CONTEXTS);
+    const polarity = strictEnum(claim.polarity, POLARITIES);
+    const direction = strictEnum(claim.direction, DIRECTIONS);
+    const confidenceValue = strictConfidence(claim.confidence);
+    if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return null;
+    const charStart = sourceText ? sourceText.indexOf(exactEvidenceSentence) : -1;
+    const charEnd = charStart >= 0 ? charStart + exactEvidenceSentence.length : undefined;
     const normalized: ExtractedClaim = {
-      claimType: optionalEnum(claim.claimType, ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','studied_with','unclear'] as const, 'unclear'),
-      evidenceOrigin: optionalEnum(claim.evidenceOrigin, ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const, 'unclear'),
-      evidenceType: optionalEnum(claim.evidenceType, ['clinical','preclinical','computational','review','case_report','unclear'] as const, 'unclear'),
-      studyContext: optionalEnum(claim.studyContext, ['human_cohort','clinical_trial','cell_line','animal','organoid','mixed','unclear'] as const, 'unclear'),
-      polarity: optionalEnum(claim.polarity, ['affirmed','negated','speculative','uncertain'] as const, 'uncertain'),
-      direction: optionalEnum(claim.direction, ['increased','decreased','associated','no_association','mixed','unclear'] as const, 'unclear'),
+      claimType,
+      evidenceOrigin,
+      evidenceType,
+      studyContext,
+      polarity,
+      direction,
       cancerType: optionalString(claim.cancerType),
       biomarkerMention: optionalString(claim.biomarkerMention),
-      biomarkerNormalizedGuess: optionalString(claim.biomarkerNormalizedGuess),
       drugOrInterventionMention: optionalString(claim.drugOrInterventionMention),
-      drugNormalizedGuess: optionalString(claim.drugNormalizedGuess),
-      variantMention: optionalString(claim.variantMention),
-      pathwayMention: optionalString(claim.pathwayMention),
-      cellLineMention: optionalString(claim.cellLineMention),
-      speciesOrModelMention: optionalString(claim.speciesOrModelMention),
       outcomeMention: optionalString(claim.outcomeMention),
-      outcomeMeasureMention: optionalString(claim.outcomeMeasureMention),
       statisticalEvidenceMention: optionalString(claim.statisticalEvidenceMention),
       sampleSizeMention: optionalString(claim.sampleSizeMention),
-      pmid: optionalString(claim.pmid),
-      pmcid: optionalString(claim.pmcid),
-      sectionTitle: optionalString(claim.sectionTitle),
-      sectionType: optionalEnum(claim.sectionType, ['abstract','introduction','methods','results','discussion','conclusion','figure_table','supplement','unknown'] as const, 'unknown'),
-      paragraphIndex: optionalNumber(claim.paragraphIndex),
-      sentenceIndex: optionalNumber(claim.sentenceIndex),
-      charStart: charEnd === undefined ? undefined : charStart,
+      charStart: charStart >= 0 ? charStart : undefined,
       charEnd,
       exactEvidenceSentence,
-      evidenceContext: evidenceContext && (!sourceText || sourceText.includes(evidenceContext)) ? evidenceContext : undefined,
-      confidence: confidence(claim.confidence)
+      confidence: confidenceValue
     };
-    normalized.reviewPriority = optionalEnum(claim.reviewPriority, ['high','medium','low'] as const, reviewPriorityForClaim(normalized));
+    normalized.reviewPriority = optionalEnum(claim.reviewPriority, REVIEW_PRIORITIES, reviewPriorityForClaim(normalized));
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
-  if (claimsSourceRaw.length > 3) warnings.push('local_model_returned_too_many_claims_truncated_to_3');
+  if (claimsSourceRaw.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
   if (!claims.length) warnings.push('local_model_returned_no_claims');
-  const noClaimReason = claims.length ? undefined : optionalEnum(source.noClaimReason, ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const, 'extraction_uncertain');
+  const noClaimReason = claims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
   return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims, noClaimReason, summary: requiredString(source.summary, claims.length ? `Extracted ${claims.length} candidate claim${claims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
 }
 

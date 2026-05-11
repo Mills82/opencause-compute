@@ -14,7 +14,7 @@ import {
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkBatteryPolicy, checkHostIdle, checkHostStillIdle, type IdleConfig, type IdleMode } from './idle.js';
-import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, verifyLocalLlmAvailable, type LocalLlmProgress } from './local-llm.js';
+import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, emptyClaimsV2FromTriage, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, triagePacketLocally, verifyLocalLlmAvailable, type LocalLlmProgress } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
 type JsonValue = Record<string, unknown>;
@@ -276,7 +276,9 @@ function endpointType(endpoint: string): string {
 function buildProvenance(
   extractorVersion: ExtractorVersion,
   extractorMode: ExtractorMode,
-  capabilities: string[]
+  capabilities: string[],
+  packetTriage?: ResultProvenance['packetTriage'],
+  extractionAttempted = true
 ): ResultProvenance {
   return {
     workerVersion: WORKER_VERSION,
@@ -292,7 +294,10 @@ function buildProvenance(
     generationQualityTier: extractorMode === 'local-llm' ? generationQualityTier(localLlmConfig) : 'mock',
     workerPlatform: `${process.platform}-${process.arch}`,
     workerCapabilities: capabilities,
-    resultValidationVersion: extractorVersion === 'Local LLM v2' ? 'claims-v2' : RESULT_VALIDATION_VERSION
+    resultValidationVersion: extractorVersion === 'Local LLM v2' ? 'claims-v2' : RESULT_VALIDATION_VERSION,
+    resultKind: extractionAttempted ? 'llm_extraction' : 'triage_skip',
+    extractionAttempted,
+    packetTriage
   };
 }
 
@@ -320,11 +325,26 @@ async function extractFromPacket(
   }
 
   if (packet.extractor === 'local-llm-v2') {
+    const triage = triagePacketLocally({
+      sourceText: packet.sourceText,
+      title: packet.title,
+      sourceCitation: packet.sourceCitation,
+      sourceUrl: packet.sourceUrl,
+      sourcePublishedAt: packet.sourcePublishedAt
+    });
+    if (triage.decision !== 'extract_now' && triage.decision !== 'unclear') {
+      await log(`triaged packet ${packet.id} decision=${triage.decision} cancerRelevance=${triage.cancerRelevance} claimOpportunity=${triage.claimOpportunity}`);
+      return {
+        extractorVersion: 'Local LLM v2',
+        result: emptyClaimsV2FromTriage(triage),
+        provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, false)
+      };
+    }
     const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress);
     return {
       extractorVersion: 'Local LLM v2',
       result,
-      provenance: buildProvenance('Local LLM v2', extractorMode, capabilities)
+      provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, true)
     };
   }
 

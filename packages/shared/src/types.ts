@@ -48,6 +48,17 @@ export const directionSchema = z.enum(['increased', 'decreased', 'associated', '
 export const sectionTypeSchema = z.enum(['abstract', 'introduction', 'methods', 'results', 'discussion', 'conclusion', 'figure_table', 'supplement', 'unknown']);
 export const noClaimReasonSchema = z.enum(['no_cancer_claim', 'methods_only', 'background_only', 'insufficient_context', 'extraction_uncertain', 'other']);
 export const reviewPrioritySchema = z.enum(['high', 'medium', 'low']);
+export const packetTriageDecisionSchema = z.enum(['extract_now', 'low_opportunity', 'skip_non_cancer', 'skip_methods_only', 'skip_correction_notice', 'skip_ethics_or_consent', 'skip_recruitment_or_participants', 'skip_qualitative_or_process_section', 'unclear']);
+
+export const packetTriageSchema = z.object({
+  schemaVersion: z.literal('packet-triage-v1'),
+  decision: packetTriageDecisionSchema,
+  cancerRelevance: z.number().min(0).max(1),
+  claimOpportunity: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  suggestedNoClaimReason: noClaimReasonSchema.optional(),
+  warnings: z.array(z.string())
+});
 
 export const extractedClaimSchema = z.object({
   claimType: claimTypeSchema,
@@ -169,7 +180,10 @@ export const resultProvenanceSchema = z.object({
   generationQualityTier: z.enum(['mock', 'low', 'balanced', 'high', 'ultra']).optional(),
   workerPlatform: z.string(),
   workerCapabilities: z.array(z.string()),
-  resultValidationVersion: z.string()
+  resultValidationVersion: z.string(),
+  resultKind: z.enum(['triage_skip', 'llm_extraction']).optional(),
+  extractionAttempted: z.boolean().optional(),
+  packetTriage: packetTriageSchema.optional()
 });
 
 export const extractionResultSchema = z.object({
@@ -457,6 +471,7 @@ export type ExtractedClaimRecord = z.infer<typeof extractedClaimRecordSchema>;
 export type ResultPayloadV1 = z.infer<typeof resultPayloadV1Schema>;
 export type ResultPayloadV2 = z.infer<typeof resultPayloadV2Schema>;
 export type ResultPayload = z.infer<typeof resultPayloadSchema>;
+export type PacketTriage = z.infer<typeof packetTriageSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type WorkPacketPayload = z.infer<typeof workPacketPayloadSchema>;
 export type WorkPacket = z.infer<typeof workPacketSchema>;
