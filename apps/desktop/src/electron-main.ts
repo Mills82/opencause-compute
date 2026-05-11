@@ -314,8 +314,11 @@ ipcMain.handle('desktop:get-state', async (event) => {
   const settings = await loadDesktopSettings(appDir);
   const sup = await supervisor();
   const runtime = sup.status();
-  const activity = await sup.activitySummary();
-  const timeline = await sup.activityTimeline();
+  const rawActivity = await sup.activitySummary();
+  const activity = !runtime.running && (rawActivity.state === 'running_model' || rawActivity.state === 'heartbeat')
+    ? { state: 'unknown' as const, headline: 'Worker is not running', detail: runtime.lastMode === 'run-once' ? 'The last one-shot run finished. Start the worker or run one packet now to check for new work.' : 'Start the worker to begin checking for packets.', severity: 'warning' as const, at: runtime.lastExitedAt }
+    : rawActivity;
+  const timeline = runtime.running ? await sup.activityTimeline() : [];
   const credentials = await sup.readCredentials();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   const resources = await resourceStatus(settings);

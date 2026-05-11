@@ -51,8 +51,9 @@
       .stat-card strong { display:block; font-size: 20px; margin-bottom: 3px; }
       .hero-dashboard { background: linear-gradient(135deg, #14213d, #101827); border-color: #38527c; }
       .dashboard-compact { display:grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .8fr); gap:12px; align-items:stretch; margin-top:10px; }
-      .now-card { margin:0; min-height:132px; }
-      .readiness-card { margin:0; }
+      .now-card { margin:0; min-height:158px; height:100%; box-sizing:border-box; }
+      .current-meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+      .current-note { margin-top:10px; padding-top:10px; border-top:1px solid #25314d; }
       .dashboard-stats { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
       .dashboard-stats .stat-card { min-height:74px; }
       .dashboard-secondary { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
@@ -241,10 +242,6 @@
                 <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Model</p></div>
               </div>
             </div>
-            <div id="preflight-summary" class="activity-card warning readiness-card">
-              <strong>Checking readiness…</strong>
-              <p class="small">Checking model, pause, and resource settings.</p>
-            </div>
             <p id="dashboard-hint" class="small">OpenCause starts new packets only when your settings allow it.</p>
             <div class="dashboard-secondary">
               <div class="stat-card"><strong id="dashboard-success-rate">—</strong><p class="small">Success rate</p></div>
@@ -333,7 +330,6 @@
       const dashboardAverageSeconds = document.getElementById('dashboard-average-seconds');
 
       const dashboardHint = document.getElementById('dashboard-hint');
-      const preflightSummary = document.getElementById('preflight-summary');
       const activitySummary = document.getElementById('activity-summary');
       const activityTimeline = document.getElementById('activity-timeline');
       const activityActions = document.getElementById('activity-actions');
@@ -446,18 +442,15 @@
         return activity?.state === 'running_model' || activity?.state === 'submitted';
       }
 
-      function renderPreflight(preflight, activity) {
-        if (!preflightSummary) return;
+      function readinessLine(preflight, activity) {
         const checks = preflight?.checks || {};
         const hasActiveClaim = activeClaimActivity(activity);
-        const severity = preflight?.eligible || hasActiveClaim ? 'ready' : 'warning';
-        preflightSummary.className = `activity-card ${severity}`;
-        const resourceLabel = hasActiveClaim ? 'next packet waits' : checks.resources ? 'ready' : 'waiting';
-        const headline = hasActiveClaim ? 'Next packet checks are paused' : preflight?.eligible ? 'Ready for new packets' : 'Waiting before starting new work';
-        const reason = hasActiveClaim
-          ? 'Ollama is already working. CPU limits will be checked again before the next packet starts.'
-          : humanizeReason(preflight?.reason || 'Checking machine readiness.');
-        preflightSummary.innerHTML = `<strong class="${severity}">${headline}</strong><p class="small">${reason}</p><span class="pill">Ollama ${checks.ollama ? 'ready' : 'needed'}</span><span class="pill">Model ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources ${resourceLabel}</span>${checks.paused ? '<span class="pill">Paused</span>' : ''}`;
+        if (hasActiveClaim) return 'CPU and idle checks apply before the next packet starts; this packet can finish.';
+        if (preflight?.eligible) return 'Ready to start a new packet when work is available.';
+        if (!checks.ollama) return 'Ollama is needed before this worker can contribute.';
+        if (!checks.modelInstalled) return 'Download the selected model before starting work.';
+        if (checks.paused) return 'Paused. Press Start worker when you want to contribute again.';
+        return humanizeReason(preflight?.reason || 'Waiting for this computer to be ready.');
       }
 
       function renderTimeline(timeline) {
@@ -484,7 +477,9 @@
         activitySummary.className = `activity-card ${severity}`;
         const when = activity?.at ? `<span class="pill">${formatLocalTime(activity.at)}</span>` : '';
         const packet = activity?.packetId ? `<span class="pill">packet ${activity.packetId.slice(0, 8)}</span>` : '';
-        activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong>${when}${packet}<p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p>`;
+        const model = latestState?.modelRuntime?.selectedModel ? `<span class="pill">${latestState.modelRuntime.selectedModel}</span>` : '';
+        const note = readinessLine(preflight, activity);
+        activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong><div class="current-meta">${when}${packet}${model}</div><p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p><p class="small current-note">${note}</p>`;
         if (!activityActions) return;
         const actions = [];
         if (activity?.state === 'failed' && String(activity?.error || '').startsWith('local_llm_timeout')) {
@@ -581,7 +576,6 @@
             : (latestState?.preflight?.reason || latestState?.activity?.detail || '');
           workerMessage.textContent = latestState.settings.localPaused ? 'Paused locally. Press Start worker when you want to contribute again.' : (runtime.running ? '' : stoppedDetail);
           workerMessage.classList.toggle('hidden', runtime.running && !latestState.settings.localPaused);
-          renderPreflight(latestState.preflight, latestState.activity);
           renderActivity(latestState.activity, latestState.preflight);
           renderTimeline(latestState.timeline);
           const log = await api.tailLog();
