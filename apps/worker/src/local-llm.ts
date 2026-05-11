@@ -97,6 +97,7 @@ export function extractionPromptV2(sourceText: string): string {
     'Optional fields may be omitted. Never use null. Do not include pseudo-JSON keys with question marks.',
     'Rules:',
     '- Return 0 to 8 claims. Fewer high-quality grounded claims are better than filling the list.',
+    '- The full JSON response must fit within the response token budget; if needed, return fewer claims rather than producing incomplete JSON.',
     '- exactEvidenceSentence must be copied exactly from source text. If no exact sentence supports a claim, omit the claim.',
     '- evidenceContext, if present, must also be copied exactly from nearby source text.',
     '- Preserve exact mentions separately from normalized guesses. Normalized guesses are not authoritative.',
@@ -119,6 +120,15 @@ export function extractJsonBlock(raw: string): string {
   const last = raw.lastIndexOf('}');
   if (first === -1 || last === -1 || last <= first) throw new Error('local_llm_invalid_json');
   return raw.slice(first, last + 1);
+}
+
+export function parseLocalLlmJson(raw: string): unknown {
+  try {
+    return parseLocalLlmJson(raw);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'local_llm_invalid_json') throw error;
+    throw new Error('local_llm_invalid_json');
+  }
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -261,7 +271,7 @@ async function generateWithPrompt(sourceText: string, prompt: string, config: Lo
 
   if (!response.body) {
     const json = (await response.json()) as { response?: string };
-    return JSON.parse(extractJsonBlock(json.response ?? ''));
+    return parseLocalLlmJson(json.response ?? '');
   }
 
   const reader = response.body.getReader();
@@ -300,7 +310,7 @@ async function generateWithPrompt(sourceText: string, prompt: string, config: Lo
   }
   buffer += decoder.decode();
   handleLine(buffer);
-  return JSON.parse(extractJsonBlock(raw));
+  return parseLocalLlmJson(raw);
 }
 
 export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayload> {

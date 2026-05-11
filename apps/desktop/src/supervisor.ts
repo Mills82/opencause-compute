@@ -396,10 +396,15 @@ export function buildActivityTimeline(content: string, sinceIso?: string): Worke
     return { at, kind: 'log', label: 'Worker log', detail: message, severity: 'warning' };
   }).filter((event): event is WorkerTimelineEvent => Boolean(event));
   const deduped: WorkerTimelineEvent[] = [];
+  const seenProgressPackets = new Set<string>();
   for (const event of events.reverse()) {
     const prev = deduped[deduped.length - 1];
     if (prev && prev.kind === event.kind && prev.detail === event.detail) continue;
-    if (event.kind === 'running_model' && deduped.some((existing) => existing.kind === 'running_model' && existing.packetId === event.packetId)) continue;
+    if (event.kind === 'running_model') {
+      const key = event.packetId ?? 'unknown-active-packet';
+      if (seenProgressPackets.has(key)) continue;
+      seenProgressPackets.add(key);
+    }
     deduped.push(event);
     if (deduped.length >= 6) break;
   }
