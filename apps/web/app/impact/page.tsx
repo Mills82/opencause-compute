@@ -32,17 +32,28 @@ export default async function ImpactPage() {
   const topTeams = buildTeamLeaderboard(db).slice(0, 3);
   const hasWork = impact.sectionsProcessed > 0 || impact.formatValidatedSubmissions > 0;
   const progress = impact.currentProjectProgress;
+  const estimatedTotalPackets = progress.estimatedTotalPackets;
+  const validationTarget = progress.estimatedConsensusSubmissionTarget;
 
   return (
     <section className="space-y-8">
       <div className="relative overflow-hidden rounded-3xl border border-line bg-panel p-6 shadow-2xl shadow-black/20 sm:p-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.12),transparent_35%)]" />
-        <div className="relative max-w-3xl space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Impact dashboard</p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Volunteer compute for open cancer research.</h1>
-          <p className="text-lg text-slate-300">
-            OpenCause Compute helps turn spare computing power into citation-backed research data from open-access cancer literature. This page tracks the project’s progress from raw literature to independently validated results.
-          </p>
+        <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div className="max-w-3xl space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent sm:text-sm">Impact dashboard</p>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Early progress against an enormous open-literature challenge.</h1>
+            <p className="text-lg leading-8 text-slate-300">
+              OpenCause Compute helps turn spare computing power into citation-backed research data from open-access cancer literature. This page tracks both the live beta activity and the long-term scale of Cancer Knowledge Miner.
+            </p>
+          </div>
+          {estimatedTotalPackets ? (
+            <div className="rounded-2xl border border-cyan-300/20 bg-ink/80 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">Long-term corpus estimate</p>
+              <p className="mt-2 text-4xl font-semibold text-white sm:text-5xl">~{estimatedTotalPackets.toLocaleString()}</p>
+              <p className="mt-2 text-sm text-slate-300">research sections estimated from {progress.eligibleDocumentCount?.toLocaleString()} eligible open-access cancer documents.</p>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -54,14 +65,14 @@ export default async function ImpactPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Literature sections processed" value={impact.sectionsProcessed} emphasis />
-        <Metric label="Validated submissions" value={impact.formatValidatedSubmissions} emphasis />
+        <Metric label="Structure-validated submissions" value={impact.formatValidatedSubmissions} emphasis />
         <Metric label="Consensus-complete sections" value={impact.consensusPassedContributions} />
         <Metric label="Volunteer profiles" value={impact.volunteers} />
         <Metric label="Active nodes" value={impact.activeNodes} />
         <Metric label="Public teams" value={impact.teams} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="overflow-hidden rounded-3xl border border-line bg-panel shadow-2xl shadow-black/20">
           <div className="border-b border-line/70 bg-gradient-to-br from-slate-900 via-slate-950 to-ink p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -75,18 +86,45 @@ export default async function ImpactPage() {
           </div>
 
           <div className="space-y-5 p-5 sm:p-6">
-            <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Early beta activity</p>
-                  <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{progress.formatValidatedPackets.toLocaleString()} validated submissions</p>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">The first volunteer runs are building the validated submission baseline. Consensus completion starts after independent workers produce matching submissions for the same research sections.</p>
-                </div>
-                <p className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">Limited beta</p>
+            <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+              <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Progress being made</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{progress.formatValidatedPackets.toLocaleString()}</p>
+                <p className="mt-2 text-sm text-slate-300">validated submissions from early beta worker runs.</p>
+                <p className="mt-4 text-sm leading-6 text-slate-300">The project is now proving the worker pipeline: claim packets, run local extraction, submit citation-backed results, and pass structure validation.</p>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-300/20 bg-gradient-to-br from-emerald-300/10 via-slate-900/70 to-cyan-300/10 p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-100">Scale of the challenge</p>
+                {estimatedTotalPackets ? (
+                  <>
+                    <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">~{estimatedTotalPackets.toLocaleString()}</p>
+                    <p className="mt-2 text-sm text-slate-300">estimated research sections to process.</p>
+                    <p className="mt-4 text-sm leading-6 text-slate-300">At full scale, independent validation may require roughly {validationTarget?.toLocaleString()} worker submissions before consensus and review.</p>
+                  </>
+                ) : (
+                  <p className="mt-3 text-sm leading-6 text-slate-300">Corpus estimates will appear after enough full-text documents are sampled.</p>
+                )}
               </div>
             </div>
 
-            {progress.estimatedTotalPackets ? (
+            <div className="rounded-2xl border border-line/70 bg-ink/80 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Pipeline status</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">Early beta is strongest in first-pass processing and structure validation. Consensus grows as independent workers process overlapping sections.</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">Limited beta</span>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.sectionsProcessed.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Sections processed</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.formatValidatedSubmissions.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Structure-validated</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.consensusPassedContributions.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Consensus-complete</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.activeNodes.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Active nodes</p></div>
+              </div>
+            </div>
+
+            {estimatedTotalPackets ? (
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
                   <p className="text-sm text-slate-400">Eligible open-access cancer documents</p>
@@ -94,23 +132,24 @@ export default async function ImpactPage() {
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
                   <p className="text-sm text-slate-400">Estimated research sections</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">~{estimatedTotalPackets.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm text-slate-400">Current validated submissions</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{progress.formatValidatedPackets.toLocaleString()}</p>
+                  <p className="text-sm text-slate-400">Current share of estimated sections</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{formatPercent(progress.percentFormatValidated)}</p>
                 </div>
               </div>
             ) : null}
 
-            {progress.estimatedTotalPackets ? (
+            {estimatedTotalPackets ? (
               <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <p className="font-semibold text-white">Long-term corpus scale</p>
-                  <p className="font-semibold text-slate-200">~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()} validation submissions at full scale</p>
+                  <p className="font-semibold text-white">Long-term validation progress</p>
+                  <p className="font-semibold text-slate-200">{formatPercent(progress.percentValidationWorkComplete)}</p>
                 </div>
+                <ProgressBar value={progress.percentValidationWorkComplete} />
                 <p className="mt-3 text-xs leading-5 text-slate-400">
-                  These large estimates describe the size of the open-access cancer literature corpus, not the near-term beta target. They will become more precise as the project processes more full-text documents.
+                  This percentage is intentionally tiny in early beta because the corpus is large. It shows the scale of the open-literature challenge, while the beta metrics above show the working pipeline gaining traction.
                 </p>
               </div>
             ) : (
@@ -129,15 +168,26 @@ export default async function ImpactPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-line bg-panel p-5 shadow-2xl shadow-black/20">
-          <h2 className="text-xl font-semibold">Top teams</h2>
-          {topTeams.length ? (
-            <ol className="mt-4 space-y-3 text-sm text-slate-300">
-              {topTeams.map((team) => <li key={team.slug}>#{team.rank} {team.name} — {team.contributionScore.toLocaleString()} contribution score</li>)}
-            </ol>
-          ) : (
-            <p className="mt-2 text-sm text-slate-300">Team impact will appear after teams are created and begin contributing validated work.</p>
-          )}
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-line bg-panel p-5 shadow-2xl shadow-black/20">
+            <h2 className="text-xl font-semibold">Why the numbers matter</h2>
+            <div className="mt-4 space-y-4 text-sm leading-6 text-slate-300">
+              <p><span className="font-semibold text-white">Progress:</span> each validated submission proves another worker can process a signed literature packet and return structured evidence with source text and provenance.</p>
+              <p><span className="font-semibold text-white">Scale:</span> open cancer literature is vast. Millions of estimated sections mean the project is designed for sustained volunteer participation, not a one-off demo.</p>
+              <p><span className="font-semibold text-white">Consensus:</span> candidate evidence becomes more useful after independent workers agree on overlapping claims and reviewers can inspect the source context.</p>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-line bg-panel p-5 shadow-2xl shadow-black/20">
+            <h2 className="text-xl font-semibold">Top teams</h2>
+            {topTeams.length ? (
+              <ol className="mt-4 space-y-3 text-sm text-slate-300">
+                {topTeams.map((team) => <li key={team.slug}>#{team.rank} {team.name} — {team.contributionScore.toLocaleString()} contribution score</li>)}
+              </ol>
+            ) : (
+              <p className="mt-2 text-sm text-slate-300">Team impact will appear after teams are created and begin contributing validated work.</p>
+            )}
+          </div>
         </div>
       </div>
     </section>
