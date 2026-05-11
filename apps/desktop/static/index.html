@@ -438,7 +438,16 @@
       function renderTimeline(timeline) {
         if (!activityTimeline) return;
         const events = Array.isArray(timeline) ? timeline : [];
-        activityTimeline.innerHTML = events.length ? events.map(event => `<div class="small"><strong class="${event.severity || 'warning'}">${event.label}</strong> <span class="pill">${event.at || ''}</span><br>${event.detail}</div>`).join('<hr style="border-color:#25314d">') : 'No structured events yet.';
+        activityTimeline.innerHTML = events.length ? events.map(event => `<div class="small"><strong class="${event.severity || 'warning'}">${event.label}</strong> <span class="pill">${formatLocalTime(event.at)}</span><br>${event.detail}</div>`).join('<hr style="border-color:#25314d">') : 'No structured events yet.';
+      }
+
+      function formatLocalTime(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return new Intl.DateTimeFormat(undefined, {
+          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short'
+        }).format(date);
       }
 
       function renderActivity(activity, preflight) {
@@ -448,7 +457,7 @@
         }
         const severity = activity?.severity || 'warning';
         activitySummary.className = `activity-card ${severity}`;
-        const when = activity?.at ? `<span class="pill">${activity.at}</span>` : '';
+        const when = activity?.at ? `<span class="pill">${formatLocalTime(activity.at)}</span>` : '';
         const packet = activity?.packetId ? `<span class="pill">packet ${activity.packetId.slice(0, 8)}</span>` : '';
         activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong>${when}${packet}<p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p>`;
         if (!activityActions) return;
@@ -539,7 +548,7 @@
           if (!latestState.modelRuntime.available) startOllamaPolling('Ollama not detected yet. Rechecking automatically...');
           const runtime = latestState.runtime;
           const stoppedDetail = runtime.lastMode === 'run-once'
-            ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + runtime.lastExitedAt : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
+            ? `Last one-shot run finished${runtime.lastExitedAt ? ' at ' + formatLocalTime(runtime.lastExitedAt) : ''}${runtime.lastExitCode !== undefined ? ' with exit code ' + runtime.lastExitCode : ''}.`
             : `Worker is not running.${runtime.lastExitCode !== undefined ? ' Last exit code: ' + runtime.lastExitCode + '.' : ''}${runtime.lastError ? ' Last error: ' + runtime.lastError : ''}`;
           const preflightEligible = Boolean(latestState?.preflight?.eligible);
           const reasonText = preflightEligible

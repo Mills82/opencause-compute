@@ -190,7 +190,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
          AND prior.node_id = $1
          AND prior.status IN ('completed', 'failed')
        )
-       ORDER BY created_at
+       ORDER BY updated_at, created_at
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
       [nodeId, node.capabilities ?? [], node.hostSnapshot ?? {}]

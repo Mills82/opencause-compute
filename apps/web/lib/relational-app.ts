@@ -198,7 +198,10 @@ export async function heartbeatNodeRelational(nodeId: string, token: string | nu
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
-    await assertNodeAuthorized(client, nodeId, token);
+    if (!token) throw new Error('node_unauthorized');
+    const existing = (await client.query('SELECT * FROM volunteer_nodes WHERE id = $1 FOR UPDATE', [nodeId])).rows[0];
+    if (!existing?.node_token_hash || hashNodeToken(token) !== existing.node_token_hash) throw new Error('node_unauthorized');
+    if (existing.status === 'revoked' || existing.status === 'suspended') throw new Error(`node_${existing.status}`);
     const row = (await client.query("UPDATE volunteer_nodes SET status = 'online', last_heartbeat_at = NOW(), capabilities = CASE WHEN $2::jsonb IS NULL THEN capabilities ELSE $2::jsonb END WHERE id = $1 RETURNING *", [nodeId, capabilities ? JSON.stringify(capabilities) : null])).rows[0];
     await client.query('COMMIT');
     return nodeFromRow(row);

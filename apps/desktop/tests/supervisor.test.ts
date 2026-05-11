@@ -133,4 +133,10 @@ describe('structured activity timeline', () => {
     expect(events[0]).toMatchObject({ kind: 'submitting_result', severity: 'ready' });
     expect(events[1]).toMatchObject({ kind: 'claiming_work', severity: 'ready' });
   });
+
+  it('explains node_offline as a reconnecting state', () => {
+    const events = buildActivityTimeline('[2026-05-10T01:00:00.000Z] loop error node_offline\n');
+    expect(events[0]).toMatchObject({ kind: 'worker_error', severity: 'warning' });
+    expect(events[0].detail).toContain('marked this worker offline');
+  });
 });

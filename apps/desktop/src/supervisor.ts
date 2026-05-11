@@ -353,6 +353,7 @@ export class WorkerSupervisor {
 }
 
 function humanReason(reason: string): string {
+  if (reason === 'node_offline') return 'The coordinator had marked this worker offline after missed heartbeats. The worker will reconnect automatically when heartbeats succeed.';
   if (reason === 'user_not_idle') return 'Waiting for you to be away from the computer.';
   if (reason === 'high_cpu') return 'Waiting for CPU usage to settle.';
   if (reason === 'on_battery') return 'Waiting for AC power.';
@@ -374,7 +375,10 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
     if (message.includes('battery policy')) return { at, kind: 'blocked_battery', label: 'Waiting for AC power', detail: message, severity: 'warning' };
     if (message.includes('reported failed claim')) return { at, kind: 'claim_failed', label: 'Reported failed claim', detail: message, severity: 'warning' };
     if (message.includes('idle gate blocked')) { const reason = message.match(/reason=([^\s]+)/)?.[1] ?? 'resource settings'; return { at, kind: 'blocked_resources', label: 'Waiting for resources', detail: humanReason(reason), severity: 'warning' }; }
-    if (message.includes('run failed') || message.includes('fatal ')) return { at, kind: 'worker_error', label: 'Worker error', detail: message, severity: 'blocked' };
+    if (message.includes('run failed') || message.includes('fatal ') || message.includes('loop error')) {
+      const rawReason = message.replace(/^run failed\s+/, '').replace(/^fatal\s+/, '').replace(/^loop error\s+/, '');
+      return { at, kind: 'worker_error', label: 'Worker error', detail: humanReason(rawReason), severity: rawReason === 'node_offline' ? 'warning' : 'blocked' };
+    }
     if (message.includes('no work available')) return { at, kind: 'no_work', label: 'No work available', detail: message, severity: 'warning' };
     if (message.includes('heartbeat')) return { at, kind: 'heartbeat', label: 'Coordinator heartbeat', detail: 'Connected to the coordinator.', severity: 'ready' };
     return { at, kind: 'log', label: 'Worker log', detail: message, severity: 'warning' };
@@ -400,7 +404,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latest = [...parsed].reverse().find((entry) => !entry.message.startsWith('worker process exited'));
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
   const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
-  const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal '));
+  const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal ') || entry.message.includes('loop error'));
   const latestIdleBlock = [...parsed].reverse().find((entry) => entry.message.includes('idle gate blocked'));
   const latestFailedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported failed claim packet'));
   const latestReleasedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported released claim packet'));
@@ -436,14 +440,14 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
     };
   }
   if (latestFailure && (!latestSubmitted || (latestFailure.at ?? '') > (latestSubmitted.at ?? ''))) {
-    const error = latestFailure.message.replace(/^run failed\s+/, '').replace(/^fatal\s+/, '');
+    const error = latestFailure.message.replace(/^run failed\s+/, '').replace(/^fatal\s+/, '').replace(/^loop error\s+/, '');
     return {
       state: 'failed',
-      headline: error.startsWith('local_llm_timeout') ? 'Local model timed out before submitting' : 'Worker hit an error before submitting',
+      headline: error === 'node_offline' ? 'Reconnecting to coordinator' : error.startsWith('local_llm_timeout') ? 'Local model timed out before submitting' : 'Worker hit an error before submitting',
       detail: error.startsWith('local_llm_timeout')
         ? 'The coordinator has work and the worker can claim it, but the local model timed out. Try the default small model, lower quality mode, or run one packet now after closing heavy apps.'
-        : error,
-      severity: 'blocked',
+        : humanReason(error),
+      severity: error === 'node_offline' ? 'warning' : 'blocked',
       at: latestFailure.at,
       packetId,
       error

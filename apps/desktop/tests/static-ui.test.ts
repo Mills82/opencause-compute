@@ -73,6 +73,8 @@ describe('desktop static first-run UI', () => {
     expect(html.indexOf('Session stats')).toBe(-1);
     expect(html.indexOf('activity-timeline')).toBeGreaterThan(html.indexOf('dashboard-average-seconds'));
     expect(html).toContain('Latest activity timeline');
+    expect(html).toContain('function formatLocalTime');
+    expect(html).toContain('Intl.DateTimeFormat');
   });
 
   it('preserves an in-progress model dropdown choice while editing settings', () => {
