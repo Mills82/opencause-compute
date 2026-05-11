@@ -368,7 +368,7 @@ function humanReason(reason: string): string {
 
 export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
   const lines = content.split(/\r?\n/).filter(Boolean);
-  const events = lines.map<WorkerTimelineEvent>((line) => {
+  const events = lines.map<WorkerTimelineEvent | null>((line) => {
     const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
     const at = match?.[1];
     const message = match?.[2] ?? line;
@@ -385,9 +385,9 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
       return { at, kind: 'worker_error', label: 'Worker error', detail: humanReason(rawReason), severity: rawReason === 'node_offline' ? 'warning' : 'blocked' };
     }
     if (message.includes('no work available')) return { at, kind: 'no_work', label: 'No work available', detail: message, severity: 'warning' };
-    if (message.includes('heartbeat')) return { at, kind: 'heartbeat', label: 'Coordinator heartbeat', detail: 'Connected to the coordinator.', severity: 'ready' };
+    if (message.includes('heartbeat')) return null;
     return { at, kind: 'log', label: 'Worker log', detail: message, severity: 'warning' };
-  });
+  }).filter((event): event is WorkerTimelineEvent => Boolean(event));
   const deduped: WorkerTimelineEvent[] = [];
   for (const event of events.reverse()) {
     const prev = deduped[deduped.length - 1];

@@ -139,4 +139,9 @@ describe('structured activity timeline', () => {
     expect(events[0]).toMatchObject({ kind: 'worker_error', severity: 'warning' });
     expect(events[0].detail).toContain('marked this worker offline');
   });
+
+  it('suppresses routine heartbeats from the user-facing timeline', () => {
+    const events = buildActivityTimeline('[2026-05-10T01:00:00.000Z] heartbeat node-1\n[2026-05-10T01:01:00.000Z] claimed packet packet-1\n');
+    expect(events.map((event) => event.kind)).toEqual(['claiming_work']);
+  });
 });
