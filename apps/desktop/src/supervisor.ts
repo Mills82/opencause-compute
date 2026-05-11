@@ -374,6 +374,7 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
     const message = match?.[2] ?? line;
     if (message.includes('claimed packet')) { const id = message.match(/claimed packet\s+([^\s]+)/)?.[1]; return { at, kind: 'claiming_work', label: 'Claimed work', detail: id ? `Packet ${id.slice(0, 8)} claimed.` : 'Packet claimed.', severity: 'ready' }; }
     if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: 'The packet passed authenticity checks.', severity: 'ready' };
+    if (message.includes('local llm progress')) return { at, kind: 'running_model', label: 'Ollama is generating', detail: message.replace(/^local llm progress packet\s+[^\s]+\s+/, ''), severity: 'ready' };
     if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: 'The local result was sent to the coordinator.', severity: 'ready' };
     if (message.includes('reported released claim')) return { at, kind: 'claim_released', label: 'Released claim', detail: message, severity: 'warning' };
     if (message.includes('generation cancelled')) return { at, kind: 'claim_released', label: 'Released because resource policy changed', detail: message, severity: 'warning' };
@@ -410,6 +411,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
   const latestSignatureVerified = [...parsed].reverse().find((entry) => entry.message.includes('signature verified'));
   const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
+  const latestProgress = [...parsed].reverse().find((entry) => entry.message.includes('local llm progress'));
   const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal ') || entry.message.includes('loop error'));
   const latestIdleBlock = [...parsed].reverse().find((entry) => entry.message.includes('idle gate blocked'));
   const latestFailedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported failed claim packet'));
@@ -421,6 +423,19 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
     .sort()
     .at(-1) ?? '';
 
+  if (latestProgress && (latestProgress.at ?? '') >= latestTerminalAt) {
+    const chars = latestProgress.message.match(/chars=(\d+)/)?.[1];
+    const chunks = latestProgress.message.match(/chunks=(\d+)/)?.[1];
+    const tokens = latestProgress.message.match(/tokens=(\d+)/)?.[1];
+    return {
+      state: 'running_model',
+      headline: latestProgress.message.includes(' done ') ? 'Ollama finished generating; validating output' : 'Ollama is generating packet output',
+      detail: `Packet ${packetId ?? 'claimed'} is active.${chars ? ` Response chars: ${chars}.` : ''}${chunks ? ` Stream chunks: ${chunks}.` : ''}${tokens ? ` Tokens: ${tokens}.` : ''}`,
+      severity: 'ready',
+      at: latestProgress.at,
+      packetId
+    };
+  }
   if (latestSignatureVerified && (latestSignatureVerified.at ?? '') >= latestTerminalAt) {
     return {
       state: 'running_model',

@@ -20,6 +20,8 @@ export type LocalLlmConfig = {
   qualityTier: 'low' | 'balanced' | 'high' | 'ultra';
 };
 
+export type LocalLlmProgress = { phase: 'streaming' | 'completed'; responseChars: number; chunkCount: number; evalCount?: number; totalDurationMs?: number; evalDurationMs?: number };
+
 export type OllamaGenerationOptions = {
   temperature: number;
   top_p: number;
@@ -251,17 +253,58 @@ export function localLlmV2PromptHash(): string {
   return hashText(extractionPromptV2('{{sourceText}}'));
 }
 
-async function generateWithPrompt(sourceText: string, prompt: string, config: LocalLlmConfig, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetchWithTimeout(`${config.endpoint}/api/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: config.model, prompt, stream: false, format: 'json', options: config.options }) }, config.timeoutMs, signal);
+async function generateWithPrompt(sourceText: string, prompt: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<unknown> {
+  const response = await fetchWithTimeout(`${config.endpoint}/api/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: config.model, prompt, stream: true, format: 'json', options: config.options }) }, config.timeoutMs, signal);
   if (!response.ok) throw new Error(`local_llm_generate_failed:${response.status}`);
-  const json = (await response.json()) as { response?: string };
-  return JSON.parse(extractJsonBlock(json.response ?? ''));
+
+  if (!response.body) {
+    const json = (await response.json()) as { response?: string };
+    return JSON.parse(extractJsonBlock(json.response ?? ''));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let raw = '';
+  let chunkCount = 0;
+
+  const handleLine = (line: string) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line) as { response?: string; done?: boolean; eval_count?: number; total_duration?: number; eval_duration?: number };
+    if (event.response) {
+      raw += event.response;
+      chunkCount += 1;
+      onProgress?.({ phase: 'streaming', responseChars: raw.length, chunkCount });
+    }
+    if (event.done) {
+      onProgress?.({
+        phase: 'completed',
+        responseChars: raw.length,
+        chunkCount,
+        evalCount: event.eval_count,
+        totalDurationMs: event.total_duration === undefined ? undefined : Math.round(event.total_duration / 1_000_000),
+        evalDurationMs: event.eval_duration === undefined ? undefined : Math.round(event.eval_duration / 1_000_000)
+      });
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) handleLine(line);
+  }
+  buffer += decoder.decode();
+  handleLine(buffer);
+  return JSON.parse(extractJsonBlock(raw));
 }
 
-export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal): Promise<ResultPayload> {
-  return normalizeLocalLlmPayload(await generateWithPrompt(sourceText, extractionPrompt(sourceText), config, signal), sourceText);
+export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayload> {
+  return normalizeLocalLlmPayload(await generateWithPrompt(sourceText, extractionPrompt(sourceText), config, signal, onProgress), sourceText);
 }
 
-export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal): Promise<ResultPayloadV2> {
-  return normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, extractionPromptV2(sourceText), config, signal), sourceText);
+export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayloadV2> {
+  return normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, extractionPromptV2(sourceText), config, signal, onProgress), sourceText);
 }

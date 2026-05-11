@@ -14,7 +14,7 @@ import {
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkBatteryPolicy, checkHostIdle, checkHostStillIdle, type IdleConfig, type IdleMode } from './idle.js';
-import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, verifyLocalLlmAvailable } from './local-llm.js';
+import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, verifyLocalLlmAvailable, type LocalLlmProgress } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
 type JsonValue = Record<string, unknown>;
@@ -300,7 +300,8 @@ async function extractFromPacket(
   packet: WorkPacketPayload,
   extractorMode: ExtractorMode,
   mockAllowed: boolean,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onProgress?: (progress: LocalLlmProgress) => void
 ): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
   const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1', 'local-llm-v2'] : ['mock-extractor-v1'];
   if (packet.extractor === 'mock-extractor-v1') {
@@ -319,7 +320,7 @@ async function extractFromPacket(
   }
 
   if (packet.extractor === 'local-llm-v2') {
-    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal);
+    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress);
     return {
       extractorVersion: 'Local LLM v2',
       result,
@@ -327,7 +328,7 @@ async function extractFromPacket(
     };
   }
 
-  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig, signal);
+  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig, signal, onProgress);
   return {
     extractorVersion: 'Local LLM v1',
     result,
@@ -422,7 +423,16 @@ async function runOnce(
     } catch {}
   }, Math.max(1000, Number(process.env.CANCELLATION_POLL_MS ?? '5000')));
   try {
-    const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed, controller.signal);
+    let lastProgressLogMs = 0;
+    const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed, controller.signal, (progress) => {
+      const nowMs = Date.now();
+      if (progress.phase === 'streaming' && nowMs - lastProgressLogMs < 15_000) return;
+      lastProgressLogMs = nowMs;
+      const stats = progress.phase === 'completed'
+        ? `done chars=${progress.responseChars} chunks=${progress.chunkCount}${progress.evalCount === undefined ? '' : ` tokens=${progress.evalCount}`}${progress.totalDurationMs === undefined ? '' : ` totalMs=${progress.totalDurationMs}`}`
+        : `chars=${progress.responseChars} chunks=${progress.chunkCount}`;
+      void log(`local llm progress packet ${claimed.packet.id} ${stats}`);
+    });
     await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
     failureAttempts.delete(claimed.packet.id);
     await saveFailureAttempts(failureAttempts);
