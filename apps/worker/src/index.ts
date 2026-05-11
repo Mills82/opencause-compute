@@ -403,8 +403,14 @@ async function runOnce(
     }
   }
   const controller = new AbortController();
+  let lastExtractionHeartbeatMs = 0;
   const watchdog = setInterval(async () => {
     try {
+      const nowMs = Date.now();
+      if (nowMs - lastExtractionHeartbeatMs >= 60_000) {
+        await heartbeat(server, credentials, extractorMode);
+        lastExtractionHeartbeatMs = nowMs;
+      }
       const control = await getControlConfig(server);
       if (control.paused) controller.abort(new Error('cancelled:paused'));
       const battery = await checkBatteryPolicy(runOnBatteryAllowed());

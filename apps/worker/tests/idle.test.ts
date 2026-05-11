@@ -79,6 +79,16 @@ describe('idle policy', () => {
 });
 
 describe('active packet continuation policy', () => {
+  it('does not interrupt active packet work when user idle detection is temporarily unavailable', () => {
+    const decision = decideContinueEligibility(
+      { cpuPercent: 10, userIdleSeconds: null },
+      { mode: 'user-and-cpu', minIdleSeconds: 60, maxCpuPercent: 50, sampleMs: 1 }
+    );
+
+    expect(decision.eligible).toBe(true);
+    expect(decision.reason).toBe('ok');
+  });
+
   it('ignores high cpu while continuing an already claimed packet', () => {
     const decision = decideContinueEligibility(
       {

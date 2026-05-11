@@ -63,7 +63,7 @@ export function decideIdleEligibility(metrics: IdleMetrics, config: IdleConfig):
 export function decideContinueEligibility(metrics: IdleMetrics, config: IdleConfig): IdleDecision {
   if (config.mode === 'user-and-cpu') {
     if (metrics.userIdleSeconds === null) {
-      return { eligible: false, reason: 'user_idle_unavailable', metrics };
+      return { eligible: true, reason: 'ok', metrics };
     }
 
     if (metrics.userIdleSeconds < config.minIdleSeconds) {
