@@ -427,7 +427,7 @@
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
         dashboardEligible.textContent = hasActiveClaim ? 'Finishing packet' : resources ? (resources.eligible ? 'Ready' : 'Waiting') : '—';
-        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? '' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
+        if (dashboardHint) dashboardHint.textContent = hasActiveClaim || (latestState?.activity?.state === 'waiting_idle' && resources && !resources.eligible) ? '' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
 
@@ -479,8 +479,10 @@
         const when = activity?.at ? `<span class="pill">${formatLocalTime(activity.at)}</span>` : '';
         const packet = activity?.packetId ? `<span class="pill">packet ${activity.packetId.slice(0, 8)}</span>` : '';
         const model = latestState?.modelRuntime?.selectedModel ? `<span class="pill">${latestState.modelRuntime.selectedModel}</span>` : '';
+        const detail = activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.';
         const note = readinessLine(preflight, activity);
-        activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong><div class="current-meta">${when}${packet}${model}</div><p class="small">${activity?.detail || 'Start the worker to begin heartbeats, packet claims, and submissions.'}</p><p class="small current-note">${note}</p>`;
+        const noteHtml = note && note !== detail ? `<p class="small current-note">${note}</p>` : '';
+        activitySummary.innerHTML = `<strong class="${severity}">${activity?.headline || 'No worker activity yet'}</strong><div class="current-meta">${when}${packet}${model}</div><p class="small">${detail}</p>${noteHtml}`;
         if (!activityActions) return;
         const actions = [];
         if (activity?.state === 'failed' && String(activity?.error || '').startsWith('local_llm_timeout')) {

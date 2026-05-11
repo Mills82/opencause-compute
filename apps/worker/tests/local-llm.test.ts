@@ -51,6 +51,16 @@ describe('local llm helpers', () => {
     expect(normalized.claims[0].biomarkerNormalizedGuess).toBe('EGFR');
   });
 
+
+  it('deduplicates repeated claims by exact evidence sentence and caps claims-v2 output', () => {
+    const sentence = 'EGFR mutation was associated with improved response to osimertinib in lung cancer.';
+    const repeated = Array.from({ length: 7 }, (_, index) => ({ claimType: index === 0 ? 'treatment_response' : 'prognosis', exactEvidenceSentence: index < 3 ? sentence : `${sentence} ${index}`, confidence: 0.8 }));
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2', claims: repeated, summary: 'ok', warnings: [] }, [sentence, `${sentence} 3`, `${sentence} 4`].join(' '));
+    expect(normalized.claims).toHaveLength(3);
+    expect(new Set(normalized.claims.map((claim) => claim.exactEvidenceSentence)).size).toBe(3);
+    expect(normalized.warnings).toContain('local_model_returned_too_many_claims_truncated_to_5');
+  });
+
   it('drops claims-v2 entries without exact source evidence and records no-claim reason', () => {
     const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2', claims: [{ claimType: 'biology', exactEvidenceSentence: 'not present', confidence: 0.5 }], noClaimReason: 'insufficient_context', summary: 'none', warnings: [] }, 'source text');
     expect(normalized.claims).toHaveLength(0);

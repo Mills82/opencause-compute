@@ -98,6 +98,7 @@ export function extractionPromptV2(sourceText: string): string {
     'Rules:',
     '- Return 0 to 8 claims. Fewer high-quality grounded claims are better than filling the list.',
     '- The full JSON response must fit within the response token budget; if needed, return fewer claims rather than producing incomplete JSON.',
+    '- Do not create duplicate or near-duplicate claims. Use each exactEvidenceSentence at most once; choose the single best claimType for that sentence.',
     '- exactEvidenceSentence must be copied exactly from source text. If no exact sentence supports a claim, omit the claim.',
     '- evidenceContext, if present, must also be copied exactly from nearby source text.',
     '- Preserve exact mentions separately from normalized guesses. Normalized guesses are not authoritative.',
@@ -164,11 +165,15 @@ function reviewPriorityForClaim(claim: ExtractedClaim): 'high' | 'medium' | 'low
 export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = ''): ResultPayloadV2 {
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = claimsSourceRaw.slice(0, 8);
+  const claimsSource = claimsSourceRaw.slice(0, 5);
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
+  const seenEvidenceSentences = new Set<string>();
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
     const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
     if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return null;
+    const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (seenEvidenceSentences.has(evidenceKey)) return null;
+    seenEvidenceSentences.add(evidenceKey);
     const evidenceContext = optionalString(claim.evidenceContext);
     const charStart = optionalNumber(claim.charStart);
     const rawCharEnd = optionalNumber(claim.charEnd);
@@ -208,7 +213,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     normalized.reviewPriority = optionalEnum(claim.reviewPriority, ['high','medium','low'] as const, reviewPriorityForClaim(normalized));
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
-  if (claimsSourceRaw.length > 8) warnings.push('local_model_returned_too_many_claims_truncated_to_8');
+  if (claimsSourceRaw.length > 5) warnings.push('local_model_returned_too_many_claims_truncated_to_5');
   if (!claims.length) warnings.push('local_model_returned_no_claims');
   const noClaimReason = claims.length ? undefined : optionalEnum(source.noClaimReason, ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const, 'extraction_uncertain');
   return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims, noClaimReason, summary: requiredString(source.summary, claims.length ? `Extracted ${claims.length} candidate claim${claims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
