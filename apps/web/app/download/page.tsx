@@ -3,6 +3,8 @@ export default function DownloadPage() {
   const checksumUrl = process.env.NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL;
   const releaseNotesUrl = process.env.NEXT_PUBLIC_WINDOWS_WORKER_RELEASE_NOTES_URL;
   const isEarlyAccess = process.env.NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE !== 'public';
+  const releaseMatch = windowsUrl?.match(/releases\/download\/([^/]+)/);
+  const currentRelease = releaseMatch?.[1]?.replace(/^desktop-/, '') ?? 'early access';
 
   return (
     <section className="space-y-6">
@@ -70,6 +72,27 @@ export default function DownloadPage() {
         </article>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+          <h2 className="text-xl font-medium text-white">Release status</h2>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div><dt className="text-slate-400">Current release</dt><dd className="font-semibold text-white">{currentRelease}</dd></div>
+            <div><dt className="text-slate-400">Installer signing</dt><dd className="font-semibold text-yellow-100">In progress</dd></div>
+            <div><dt className="text-slate-400">Checksums</dt><dd className="font-semibold text-white">{checksumUrl ? 'Available' : 'Pending'}</dd></div>
+            <div><dt className="text-slate-400">Source code</dt><dd><a className="text-accent" href="https://github.com/Mills82/opencause-compute">Available on GitHub</a></dd></div>
+          </dl>
+        </article>
+        <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+          <h2 className="text-xl font-medium text-white">Known early-access limitations</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-6">
+            <li>Windows is the first supported desktop installer.</li>
+            <li>The installer may show SmartScreen warnings until code signing is complete.</li>
+            <li>The worker requires Ollama and an approved local model.</li>
+            <li>Consensus and reviewer workflows are still maturing.</li>
+          </ul>
+        </article>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
           <h2 className="text-lg font-semibold text-white">What the worker can access</h2>
@@ -84,6 +107,15 @@ export default function DownloadPage() {
           <p className="mt-2">The desktop app lets you pause work, run only while idle, limit CPU use, avoid battery work, inspect activity, and remove local worker data when needed.</p>
         </article>
       </div>
+
+      <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
+        <h2 className="text-xl font-medium text-white">Why local AI?</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div><p className="font-medium text-accent">Volunteer compute matters</p><p>OpenCause uses spare local compute instead of only central servers.</p></div>
+          <div><p className="font-medium text-accent">Literature stays in the worker flow</p><p>Work packets are processed by the desktop app with a local model rather than sent to a third-party model API by default.</p></div>
+          <div><p className="font-medium text-accent">Resources are adjustable</p><p>Volunteers can choose model quality, idle behavior, CPU limits, and battery policy.</p></div>
+        </div>
+      </article>
 
       <article className="rounded-xl border border-line bg-panel p-5 text-sm text-slate-300">
         <h2 className="text-xl font-medium text-white">What happens after setup?</h2>

@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     delivery: emailResult,
     ...(showCode ? { enrollmentCode } : {}),
     instructions: showCode
-      ? 'Use this one-time code as NODE_ENROLLMENT_CODE or pass --enrollment-code when registering the worker.'
+      ? 'Use this one-time code in the official OpenCause Compute Worker app during registration.'
       : 'Check your email for the one-time worker enrollment code.'
   });
 }

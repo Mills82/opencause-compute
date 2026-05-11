@@ -38,6 +38,9 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
         <p className="mt-1 text-sm text-slate-300">
           We’ll send a one-time enrollment code for registering a worker on a computer you control.
         </p>
+        <p className="mt-2 text-xs leading-5 text-slate-400">
+          We use this email to send your enrollment code and setup-related messages. The desktop app lets you pause work and remove local worker data.
+        </p>
       </div>
       <label className="block text-sm">
         <span className="block text-slate-300">Email</span>
@@ -65,8 +68,7 @@ export function VolunteerEnrollForm({ enabled, turnstileSiteKey }: { enabled: bo
           <p className="font-medium text-white">One-time enrollment code</p>
           <code className="block break-all text-accent">{enrollmentCode}</code>
           <p className="text-slate-300">
-            Use this code only on a computer you control. Open the desktop worker and enter the code during registration. Developer
-            testers can still set <code>NODE_ENROLLMENT_CODE</code> or pass <code>--enrollment-code</code> during CLI registration.
+            Use this code only on a computer you control. Open the desktop worker and enter the code during registration.
           </p>
         </div>
       ) : null}

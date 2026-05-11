@@ -48,6 +48,15 @@ export default function HomePage() {
         ))}
       </div>
 
+      <article className="rounded-2xl border border-line bg-panel p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Why local AI?</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div><h3 className="font-semibold text-white">Volunteer compute matters</h3><p className="mt-2 text-sm leading-6 text-slate-300">The worker contributes local processing capacity to open-science infrastructure instead of relying only on central servers.</p></div>
+          <div><h3 className="font-semibold text-white">No third-party model API by default</h3><p className="mt-2 text-sm leading-6 text-slate-300">Open literature packets are processed by the desktop app with an approved local model.</p></div>
+          <div><h3 className="font-semibold text-white">You choose the limits</h3><p className="mt-2 text-sm leading-6 text-slate-300">Model quality, idle behavior, CPU limits, battery policy, and pause controls stay visible in the app.</p></div>
+        </div>
+      </article>
+
       <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="rounded-2xl border border-line bg-panel p-6 text-sm leading-6 text-slate-300">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Current research track</p>

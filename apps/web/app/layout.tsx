@@ -14,7 +14,9 @@ const footerLinks = [
   ['Terms', '/terms'],
   ['Security', '/security'],
   ['Science disclaimer', '/science-disclaimer'],
-  ['Responsible disclosure', '/responsible-disclosure']
+  ['Responsible disclosure', '/responsible-disclosure'],
+  ['Source', 'https://github.com/Mills82/opencause-compute'],
+  ['Releases', 'https://github.com/Mills82/opencause-compute/releases']
 ] as const;
 
 export const metadata: Metadata = {
