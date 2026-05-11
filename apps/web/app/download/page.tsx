@@ -1,3 +1,5 @@
+import { ScreenshotLightbox } from '../screenshot-lightbox';
+
 export default function DownloadPage() {
   const windowsUrl = process.env.NEXT_PUBLIC_WINDOWS_WORKER_DOWNLOAD_URL;
   const checksumUrl = process.env.NEXT_PUBLIC_WINDOWS_WORKER_CHECKSUM_URL;
@@ -103,10 +105,11 @@ export default function DownloadPage() {
             </p>
           </div>
           <figure className="overflow-hidden rounded-xl border border-cyan-300/20 bg-ink shadow-xl shadow-black/30">
-            <img
+            <ScreenshotLightbox
               src="/screenshots/worker-dashboard.png"
               alt="OpenCause Compute Worker dashboard showing ready status, worker controls, local model status, contribution totals, and recent activity."
-              className="w-full"
+              title="Worker dashboard"
+              caption="Dashboard view from the early-access Windows worker."
             />
             <figcaption className="border-t border-line px-4 py-3 text-xs text-slate-400">
               Dashboard view from the early-access Windows worker.
@@ -133,10 +136,11 @@ export default function DownloadPage() {
       <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <figure className="overflow-hidden rounded-xl border border-cyan-300/20 bg-ink shadow-xl shadow-black/30">
-            <img
+            <ScreenshotLightbox
               src="/screenshots/worker-resources.png"
               alt="OpenCause Compute Worker resource controls showing model quality, CPU limit, idle-only mode, battery policy, and startup behavior settings."
-              className="w-full"
+              title="Worker resource controls"
+              caption="Resource controls for model quality, CPU limits, idle behavior, and battery policy."
             />
             <figcaption className="border-t border-line px-4 py-3 text-xs text-slate-400">
               Resource controls for model quality, CPU limits, idle behavior, and battery policy.

@@ -1,3 +1,5 @@
+import { ScreenshotLightbox } from './screenshot-lightbox';
+
 export default function HomePage() {
   return (
     <section className="space-y-10">
@@ -24,10 +26,11 @@ export default function HomePage() {
             </div>
           </div>
           <div className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-ink/85 shadow-xl shadow-cyan-950/20">
-            <img
+            <ScreenshotLightbox
               src="/screenshots/worker-dashboard.png"
               alt="OpenCause Compute Worker dashboard showing local worker status, contribution totals, pause controls, and recent activity."
-              className="w-full"
+              title="Worker dashboard"
+              caption="Dashboard view from the early-access Windows worker."
             />
             <div className="border-t border-line p-4 text-sm text-slate-300">
               <p className="font-semibold text-cyan-100">Transparent local worker</p>
