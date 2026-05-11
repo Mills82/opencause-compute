@@ -394,9 +394,10 @@
           panel.classList.toggle('hidden', setupComplete && !panelTabs.includes(activeTab));
         });
         document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
-        const statusText = latestState?.settings?.localPaused ? 'Paused' : latestState?.runtime?.running ? 'Running' : latestState?.preflight?.eligible ? 'Ready' : 'Waiting';
+        const hasActiveClaim = activeClaimActivity(latestState?.activity);
+        const statusText = latestState?.settings?.localPaused ? 'Paused' : hasActiveClaim ? 'Contributing' : latestState?.runtime?.running ? 'Running' : latestState?.preflight?.eligible ? 'Ready' : 'Waiting';
         dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
-        if (dashboardStatusPill) { dashboardStatusPill.textContent = statusText; dashboardStatusPill.className = `pill ${statusText === 'Running' || statusText === 'Ready' ? 'ready' : statusText === 'Paused' ? 'warning' : 'blocked'}`; }
+        if (dashboardStatusPill) { dashboardStatusPill.textContent = statusText; dashboardStatusPill.className = `pill ${statusText === 'Running' || statusText === 'Ready' || statusText === 'Contributing' ? 'ready' : statusText === 'Paused' ? 'warning' : 'blocked'}`; }
         if (modelStepTitle) modelStepTitle.textContent = setupComplete ? 'Local model' : '2. Download a model';
         if (settingsStepTitle) settingsStepTitle.textContent = setupComplete ? 'Resource settings' : '4. Resource settings';
         if (startButton) {
@@ -413,8 +414,8 @@
         if (dashboardSuccessRate) dashboardSuccessRate.textContent = stats?.successRatePercent === null || stats?.successRatePercent === undefined ? '—' : `${stats.successRatePercent}%`;
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
-        dashboardEligible.textContent = resources ? (resources.eligible ? 'Eligible now' : 'Blocked') : '—';
-        if (dashboardHint) dashboardHint.textContent = resources && !resources.eligible ? `${humanizeReason(resources.reason)} Adjust Models & resources if needed.` : '';
+        dashboardEligible.textContent = hasActiveClaim ? 'Active claim' : resources ? (resources.eligible ? 'Eligible now' : 'Waiting') : '—';
+        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? 'Resource limits are checked before claiming new packets; the current local model run can finish even if CPU is high.' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
 
@@ -426,13 +427,22 @@
         return String(reason || '').replaceAll('_', ' ');
       }
 
-      function renderPreflight(preflight) {
+      function activeClaimActivity(activity) {
+        return activity?.state === 'running_model' || activity?.state === 'submitted';
+      }
+
+      function renderPreflight(preflight, activity) {
         if (!preflightSummary) return;
-        const severity = preflight?.eligible ? 'ready' : 'warning';
-        preflightSummary.className = `activity-card ${severity}`;
         const checks = preflight?.checks || {};
-        const reason = humanizeReason(preflight?.reason || 'Checking machine readiness.');
-        preflightSummary.innerHTML = `<strong class="${severity}">${preflight?.eligible ? 'Ready to contribute' : 'Not contributing yet'}</strong><p class="small">${reason}</p><span class="pill">Ollama ${checks.ollama ? 'ready' : 'needed'}</span><span class="pill">Model ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources ${checks.resources ? 'ready' : 'waiting'}</span>${checks.paused ? '<span class="pill">Paused</span>' : ''}`;
+        const hasActiveClaim = activeClaimActivity(activity);
+        const severity = preflight?.eligible || hasActiveClaim ? 'ready' : 'warning';
+        preflightSummary.className = `activity-card ${severity}`;
+        const resourceLabel = hasActiveClaim ? 'active claim' : checks.resources ? 'ready' : 'waiting';
+        const headline = hasActiveClaim ? 'Contributing now' : preflight?.eligible ? 'Ready to contribute' : 'Not contributing yet';
+        const reason = hasActiveClaim
+          ? 'A packet is already claimed and running. CPU thresholds are only checked before starting new packets, so local model CPU use will not interrupt this packet.'
+          : humanizeReason(preflight?.reason || 'Checking machine readiness.');
+        preflightSummary.innerHTML = `<strong class="${severity}">${headline}</strong><p class="small">${reason}</p><span class="pill">Ollama ${checks.ollama ? 'ready' : 'needed'}</span><span class="pill">Model ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources ${resourceLabel}</span>${checks.paused ? '<span class="pill">Paused</span>' : ''}`;
       }
 
       function renderTimeline(timeline) {
@@ -556,7 +566,7 @@
             : (latestState?.preflight?.reason || latestState?.activity?.detail || '');
           workerMessage.textContent = latestState.settings.localPaused ? 'Paused locally. Press Start worker when you want to contribute again.' : (runtime.running ? '' : stoppedDetail);
           workerMessage.classList.toggle('hidden', runtime.running && !latestState.settings.localPaused);
-          renderPreflight(latestState.preflight);
+          renderPreflight(latestState.preflight, latestState.activity);
           renderActivity(latestState.activity, latestState.preflight);
           renderTimeline(latestState.timeline);
           const log = await api.tailLog();

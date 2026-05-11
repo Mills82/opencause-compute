@@ -408,6 +408,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
 
   const latest = [...parsed].reverse().find((entry) => !entry.message.startsWith('worker process exited'));
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
+  const latestSignatureVerified = [...parsed].reverse().find((entry) => entry.message.includes('signature verified'));
   const latestSubmitted = [...parsed].reverse().find((entry) => entry.message.includes('submitted result'));
   const latestFailure = [...parsed].reverse().find((entry) => entry.message.includes('run failed') || entry.message.includes('fatal ') || entry.message.includes('loop error'));
   const latestIdleBlock = [...parsed].reverse().find((entry) => entry.message.includes('idle gate blocked'));
@@ -415,13 +416,18 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
   const latestReleasedReport = [...parsed].reverse().find((entry) => entry.message.includes('reported released claim packet'));
   const packetId = latestClaim?.message.match(/claimed packet\s+([^\s]+)/)?.[1];
 
-  if (latest?.message.includes('signature verified')) {
+  const latestTerminalAt = [latestSubmitted, latestFailure, latestFailedReport, latestReleasedReport]
+    .map((entry) => entry?.at ?? '')
+    .sort()
+    .at(-1) ?? '';
+
+  if (latestSignatureVerified && (latestSignatureVerified.at ?? '') >= latestTerminalAt) {
     return {
       state: 'running_model',
       headline: 'Running local model on a claimed packet',
       detail: packetId ? `Packet ${packetId} is claimed and the local model is generating evidence.` : 'A packet is claimed and the local model is generating evidence.',
       severity: 'ready',
-      at: latest.at,
+      at: latestSignatureVerified.at,
       packetId
     };
   }

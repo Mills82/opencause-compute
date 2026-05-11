@@ -28,6 +28,7 @@ const PACKET_SIGNING_KEY_ID = process.env.PACKET_SIGNING_KEY_ID;
 const APP_DIR = path.resolve(process.env.OPENCAUSE_APP_DIR ?? path.join(os.homedir(), '.opencause-compute'));
 const LOG_PATH = path.join(APP_DIR, 'worker.log');
 const NODE_PATH = path.join(APP_DIR, 'node.json');
+const FAILURE_ATTEMPTS_PATH = path.join(APP_DIR, 'packet-failures.json');
 const WORKER_VERSION = process.env.WORKER_VERSION ?? '0.1.0';
 const PACKET_SCHEMA_VERSION = 'work-packet-v1';
 const RESULT_VALIDATION_VERSION = 'format-validation-v1';
@@ -40,6 +41,7 @@ function assertSafeAppDir(): void {
   }
   assertPathInside(APP_DIR, LOG_PATH);
   assertPathInside(APP_DIR, NODE_PATH);
+  assertPathInside(APP_DIR, FAILURE_ATTEMPTS_PATH);
 }
 
 async function log(message: string): Promise<void> {
@@ -144,6 +146,27 @@ async function loadNodeCredentials(): Promise<NodeCredentials | null> {
     if (parsed.nodeId && parsed.nodeToken) return parsed;
   } catch {}
   return null;
+}
+
+
+async function loadFailureAttempts(): Promise<Map<string, number>> {
+  try {
+    const parsed = JSON.parse(await readFile(FAILURE_ATTEMPTS_PATH, 'utf8')) as Record<string, number>;
+    return new Map(Object.entries(parsed).filter(([, value]) => Number.isFinite(value)).map(([key, value]) => [key, Math.max(0, Number(value))]));
+  } catch {
+    return new Map();
+  }
+}
+
+async function saveFailureAttempts(failureAttempts: Map<string, number>): Promise<void> {
+  await mkdir(APP_DIR, { recursive: true });
+  const entries = [...failureAttempts.entries()].filter(([, value]) => value > 0);
+  await writeFile(FAILURE_ATTEMPTS_PATH, JSON.stringify(Object.fromEntries(entries), null, 2), { encoding: 'utf8', mode: 0o600 });
+  try { await chmod(FAILURE_ATTEMPTS_PATH, 0o600); } catch {}
+}
+
+function shouldFailClaimImmediately(reason: string): boolean {
+  return reason.startsWith('local_llm_timeout') || reason === 'local_llm_invalid_json' || reason === 'local_llm_empty_response';
 }
 
 async function register(server: string, extractorMode: ExtractorMode): Promise<NodeCredentials> {
@@ -396,6 +419,7 @@ async function runOnce(
     const extraction = await extractFromPacket(claimed.packet, extractorMode, mockAllowed, controller.signal);
     await submit(server, credentials, claimed.claimId, claimed.packet.id, extraction.extractorVersion, extraction.result, extraction.provenance);
     failureAttempts.delete(claimed.packet.id);
+    await saveFailureAttempts(failureAttempts);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     if (reason.startsWith('cancelled:')) {
@@ -405,7 +429,8 @@ async function runOnce(
     }
     const attempts = (failureAttempts.get(claimed.packet.id) ?? 0) + 1;
     failureAttempts.set(claimed.packet.id, attempts);
-    if (attempts >= 2) {
+    await saveFailureAttempts(failureAttempts);
+    if (attempts >= 2 || shouldFailClaimImmediately(reason)) {
       try {
         await closeClaim(server, credentials, claimed.claimId, claimed.packet.id, reason, 'failed');
       } catch (failError) {
@@ -416,6 +441,7 @@ async function runOnce(
         }
       }
       failureAttempts.delete(claimed.packet.id);
+      await saveFailureAttempts(failureAttempts);
     }
     throw error;
   } finally {
@@ -433,7 +459,7 @@ async function loop(
 ): Promise<void> {
   await log(`loop started intervalMs=${intervalMs} idleMode=${localIdleConfig.mode} minIdleSeconds=${localIdleConfig.minIdleSeconds} maxCpuPercent=${localIdleConfig.maxCpuPercent}`);
   let lastRunNowToken: number | null = null;
-  const failureAttempts = new Map<string, number>();
+  const failureAttempts = await loadFailureAttempts();
 
   while (true) {
     try {
@@ -528,7 +554,7 @@ async function main() {
   if (command === 'run-once') {
     const credentials = (await loadNodeCredentials()) ?? (arg('--node-id') && arg('--node-token', process.env.NODE_TOKEN) ? { nodeId: arg('--node-id') as string, nodeToken: arg('--node-token', process.env.NODE_TOKEN) as string } : await register(server, extractorMode));
     await heartbeat(server, credentials, extractorMode);
-    await runOnce(server, credentials, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true');
+    await runOnce(server, credentials, idleConfig, extractorMode, mockAllowed, arg('--force-now') === 'true', await loadFailureAttempts());
     return;
   }
 

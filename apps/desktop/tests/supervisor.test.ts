@@ -107,6 +107,11 @@ describe('worker supervisor contract', () => {
     expect(summary).toMatchObject({ state: 'running_model', severity: 'ready', packetId: 'packet-1' });
   });
 
+  it('keeps a claimed packet as active even when later resource checks are waiting', () => {
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:45:00.883Z] signature verified for packet packet-1\n[2026-05-10T01:45:05.883Z] idle gate blocked run reason=high_cpu cpu=92% userIdle=500s\n');
+    expect(summary).toMatchObject({ state: 'running_model', severity: 'ready', packetId: 'packet-1' });
+  });
+
   it('summarizes local model timeout failures clearly', () => {
     const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:50:00.883Z] run failed local_llm_timeout:300000\n');
     expect(summary).toMatchObject({ state: 'failed', severity: 'blocked', error: 'local_llm_timeout:300000' });
