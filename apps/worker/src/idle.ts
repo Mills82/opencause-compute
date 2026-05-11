@@ -43,10 +43,24 @@ function readCpuTimes(): CpuTimes {
 }
 
 export function decideIdleEligibility(metrics: IdleMetrics, config: IdleConfig): IdleDecision {
+  if (config.mode === 'user-and-cpu') {
+    if (metrics.userIdleSeconds === null) {
+      return { eligible: false, reason: 'user_idle_unavailable', metrics };
+    }
+
+    if (metrics.userIdleSeconds < config.minIdleSeconds) {
+      return { eligible: false, reason: 'user_not_idle', metrics };
+    }
+  }
+
   if (metrics.cpuPercent > config.maxCpuPercent) {
     return { eligible: false, reason: 'high_cpu', metrics };
   }
 
+  return { eligible: true, reason: 'ok', metrics };
+}
+
+export function decideContinueEligibility(metrics: IdleMetrics, config: IdleConfig): IdleDecision {
   if (config.mode === 'user-and-cpu') {
     if (metrics.userIdleSeconds === null) {
       return { eligible: false, reason: 'user_idle_unavailable', metrics };
@@ -148,6 +162,11 @@ export async function getUserIdleSeconds(): Promise<number | null> {
 export async function checkHostIdle(config: IdleConfig): Promise<IdleDecision> {
   const [cpuPercent, userIdleSeconds] = await Promise.all([sampleCpuPercent(config.sampleMs), getUserIdleSeconds()]);
   return decideIdleEligibility({ cpuPercent, userIdleSeconds }, config);
+}
+
+export async function checkHostStillIdle(config: IdleConfig): Promise<IdleDecision> {
+  const [cpuPercent, userIdleSeconds] = await Promise.all([sampleCpuPercent(config.sampleMs), getUserIdleSeconds()]);
+  return decideContinueEligibility({ cpuPercent, userIdleSeconds }, config);
 }
 
 export async function getBatteryStatus(): Promise<BatteryStatus> {

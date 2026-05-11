@@ -13,7 +13,7 @@ import {
   type WorkerControlConfig
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
-import { checkBatteryPolicy, checkHostIdle, type IdleConfig, type IdleMode } from './idle.js';
+import { checkBatteryPolicy, checkHostIdle, checkHostStillIdle, type IdleConfig, type IdleMode } from './idle.js';
 import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, verifyLocalLlmAvailable } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
@@ -370,7 +370,7 @@ async function runOnce(
     return;
   }
   if (!bypassIdleGate) {
-    const beforeExtractIdleDecision = await checkHostIdle(idleConfig);
+    const beforeExtractIdleDecision = await checkHostStillIdle(idleConfig);
     if (!beforeExtractIdleDecision.eligible) {
       const userIdle = beforeExtractIdleDecision.metrics.userIdleSeconds === null ? 'n/a' : `${beforeExtractIdleDecision.metrics.userIdleSeconds}s`;
       const reason = `idle gate blocked extraction reason=${beforeExtractIdleDecision.reason} cpu=${beforeExtractIdleDecision.metrics.cpuPercent}% userIdle=${userIdle}`;
@@ -387,7 +387,7 @@ async function runOnce(
       const battery = await checkBatteryPolicy(runOnBatteryAllowed());
       if (battery) controller.abort(new Error('cancelled:on_battery'));
       if (!bypassIdleGate) {
-        const idle = await checkHostIdle(idleConfig);
+        const idle = await checkHostStillIdle(idleConfig);
         if (!idle.eligible) controller.abort(new Error(`cancelled:${idle.reason}`));
       }
     } catch {}
