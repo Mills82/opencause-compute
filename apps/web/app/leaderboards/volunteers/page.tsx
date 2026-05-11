@@ -20,10 +20,13 @@ export default async function VolunteerLeaderboardPage() {
 
       <div className="mobile-card-list table-scroll rounded-xl border border-line bg-panel">
         {entries.length ? (
+          <>
+            {entries.length === 1 ? <p className="border-b border-line/70 p-4 text-sm text-slate-300"><span className="font-semibold text-white">First public contributor:</span> early beta recognition will expand as more volunteers opt into public profiles.</p> : null}
           <table className="w-full text-left text-sm">
             <thead className="border-b border-line text-slate-300"><tr><th className="p-3">Rank</th><th className="p-3">Volunteer</th><th className="p-3">Team</th><th className="p-3">Score</th><th className="p-3">Consensus-passed</th><th className="p-3">Structure-validated</th><th className="p-3">Active days</th></tr></thead>
             <tbody>{entries.map((entry) => <tr key={`${entry.rank}-${entry.displayName}`} className="border-b border-line/60"><td className="p-3" data-label="Rank">#{entry.rank}</td><td className="p-3" data-label="Volunteer">{entry.slug ? <a className="text-accent" href={`/volunteers/${entry.slug}`}>{entry.displayName}</a> : entry.displayName}</td><td className="p-3" data-label="Team">{entry.team ? <a className="text-accent" href={`/teams/${entry.team.slug}`}>{entry.team.name}</a> : '—'}</td><td className="p-3" data-label="Score">{entry.contributionScore.toLocaleString()}</td><td className="p-3" data-label="Consensus-passed">{entry.consensusPassedContributions.toLocaleString()}</td><td className="p-3" data-label="Structure-validated">{entry.formatValidatedSubmissions.toLocaleString()}</td><td className="p-3" data-label="Active days">{entry.activeDays.toLocaleString()}</td></tr>)}</tbody>
           </table>
+          </>
         ) : <p className="p-5 text-sm text-slate-300">Volunteer rankings will appear after volunteers opt into public recognition and complete eligible contributions.</p>}
       </div>
     </section>

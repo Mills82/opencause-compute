@@ -42,6 +42,13 @@ export default function DownloadPage() {
                 {releaseNotesUrl ? <a className="rounded border border-line px-3 py-2 hover:border-accent hover:no-underline" href={releaseNotesUrl}>Release notes</a> : null}
                 <a className="rounded border border-line px-3 py-2 hover:border-accent hover:no-underline" href="/responsible-disclosure">Report a security issue</a>
               </div>
+              {checksumUrl ? (
+                <details className="rounded border border-line/70 bg-ink p-4">
+                  <summary className="cursor-pointer font-semibold text-white">How to verify the Windows download</summary>
+                  <p className="mt-3 leading-6">After downloading the installer, open PowerShell in the download folder and compare the hash with the published SHA256 checksums.</p>
+                  <pre className="mt-3 overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200">Get-FileHash .\\OpenCause-Compute-Worker-Setup*.exe -Algorithm SHA256</pre>
+                </details>
+              ) : null}
             </div>
           ) : (
             <div className="mt-3 rounded border border-line bg-ink p-4 text-sm text-slate-300">

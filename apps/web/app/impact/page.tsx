@@ -76,20 +76,14 @@ export default async function ImpactPage() {
 
           <div className="space-y-5 p-5 sm:p-6">
             <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Research sections completed</p>
-                  {progress.estimatedTotalPackets ? (
-                    <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                      {progress.consensusCompletedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedTotalPackets.toLocaleString()}
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-4xl font-semibold tracking-tight text-white">{progress.consensusCompletedPackets.toLocaleString()} completed</p>
-                  )}
+                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Early beta activity</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{progress.formatValidatedPackets.toLocaleString()} validated submissions</p>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">The first volunteer runs are building the validated submission baseline. Consensus completion starts after independent workers produce matching submissions for the same research sections.</p>
                 </div>
-                <p className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">{formatPercent(progress.percentComplete)}</p>
+                <p className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white">Limited beta</p>
               </div>
-              {progress.estimatedTotalPackets ? <ProgressBar value={progress.percentComplete} /> : null}
             </div>
 
             {progress.estimatedTotalPackets ? (
@@ -103,8 +97,8 @@ export default async function ImpactPage() {
                   <p className="mt-2 text-2xl font-semibold text-white">~{progress.estimatedTotalPackets.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm text-slate-400">Validation work completed</p>
-                  <p className="mt-2 text-2xl font-semibold text-white">{progress.formatValidatedPackets.toLocaleString()} <span className="text-slate-500">/</span> ~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()}</p>
+                  <p className="text-sm text-slate-400">Current validated submissions</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{progress.formatValidatedPackets.toLocaleString()}</p>
                 </div>
               </div>
             ) : null}
@@ -112,12 +106,11 @@ export default async function ImpactPage() {
             {progress.estimatedTotalPackets ? (
               <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <p className="font-semibold text-white">Overall validation progress</p>
-                  <p className="font-semibold text-slate-200">{formatPercent(progress.percentValidationWorkComplete)}</p>
+                  <p className="font-semibold text-white">Long-term corpus scale</p>
+                  <p className="font-semibold text-slate-200">~{progress.estimatedConsensusSubmissionTarget?.toLocaleString()} validation submissions at full scale</p>
                 </div>
-                <ProgressBar value={progress.percentValidationWorkComplete} />
                 <p className="mt-3 text-xs leading-5 text-slate-400">
-                  Estimates are based on the current open-access cancer literature corpus and will become more precise as the project processes more full-text documents.
+                  These large estimates describe the size of the open-access cancer literature corpus, not the near-term beta target. They will become more precise as the project processes more full-text documents.
                 </p>
               </div>
             ) : (

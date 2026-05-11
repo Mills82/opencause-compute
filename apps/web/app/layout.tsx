@@ -96,17 +96,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <div className="min-h-screen bg-ink text-white">
           <header className="sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur supports-[backdrop-filter]:bg-panel/70">
-            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:px-6 md:justify-between">
+            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8 md:justify-between">
               <a className="flex min-w-0 shrink-0 items-center gap-3" href="/" aria-label="OpenCause Compute home">
                 <img src="/opencause-compute-logo.svg" alt="OpenCause Compute" className="h-10 w-auto max-w-[190px] sm:h-12 sm:max-w-[260px]" />
               </a>
               <SiteNav />
             </div>
           </header>
-          <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-8">{children}</main>
+          <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 sm:py-8 lg:px-8">{children}</main>
           <footer className="border-t border-line/70">
-            <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 text-sm text-slate-300 sm:px-6 md:flex-row md:items-center md:justify-between">
-              <p>© {new Date().getFullYear()} AppAssist. Candidate research evidence, not medical advice.</p>
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 text-sm text-slate-300 sm:px-6 lg:px-8 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p>© {new Date().getFullYear()} AppAssist. OpenCause Compute is in limited beta.</p>
+                <p>Candidate research evidence, not medical advice. Contact <a className="text-accent" href="mailto:alan@appassist.ai">alan@appassist.ai</a>.</p>
+              </div>
               <nav className="flex flex-wrap gap-x-4 gap-y-2" aria-label="Footer navigation">
                 {footerLinks.map(([label, href]) => (
                   <a key={href} className="hover:text-accent" href={href}>

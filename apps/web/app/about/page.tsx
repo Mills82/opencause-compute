@@ -58,9 +58,10 @@ export default function AboutPage() {
       <div className="rounded-2xl border border-line bg-panel p-6 text-sm leading-6 text-slate-300">
         <h2 className="text-xl font-semibold text-white">Contact and accountability</h2>
         <p className="mt-2">
-          OpenCause Compute is operated by AppAssist. For questions, security reports, or volunteer support, contact <a className="text-accent" href="mailto:alan@appassist.ai">alan@appassist.ai</a>.
+          OpenCause Compute is operated by AppAssist, a small AI-assisted software studio building practical tools and research-support infrastructure. For questions, security reports, or volunteer support, contact <a className="text-accent" href="mailto:alan@appassist.ai">alan@appassist.ai</a>.
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <a className="rounded border border-line px-4 py-2 text-center hover:border-accent hover:no-underline" href="https://github.com/Mills82/opencause-compute">Source code</a>
           <a className="rounded border border-line px-4 py-2 text-center hover:border-accent hover:no-underline" href="/privacy">Privacy</a>
           <a className="rounded border border-line px-4 py-2 text-center hover:border-accent hover:no-underline" href="/security">Security</a>
           <a className="rounded border border-line px-4 py-2 text-center hover:border-accent hover:no-underline" href="/science-disclaimer">Science disclaimer</a>

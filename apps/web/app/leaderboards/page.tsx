@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import { loadDb } from '../../lib/db';
-import { buildTeamLeaderboard, buildVolunteerLeaderboard } from '../../lib/gamification/public';
+import { buildImpactSummary, buildTeamLeaderboard, buildVolunteerLeaderboard } from '../../lib/gamification/public';
 
 export default async function LeaderboardsPage() {
   const db = await loadDb();
+  const impact = buildImpactSummary(db);
   const volunteers = buildVolunteerLeaderboard(db).slice(0, 3);
   const teams = buildTeamLeaderboard(db).slice(0, 3);
   return (
@@ -17,6 +18,12 @@ export default async function LeaderboardsPage() {
             Scores recognize useful evidence work that passes validation and consensus checks. Runtime is capped so recognition favors quality and reliability, not simply leaving a machine on.
           </p>
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <article className="rounded-xl border border-line bg-panel p-5"><p className="text-3xl font-semibold text-white">{impact.publicVolunteers.toLocaleString()}</p><p className="mt-2 text-sm text-slate-300">Public volunteers</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5"><p className="text-3xl font-semibold text-white">{impact.formatValidatedSubmissions.toLocaleString()}</p><p className="mt-2 text-sm text-slate-300">Structure-validated submissions</p></article>
+        <article className="rounded-xl border border-line bg-panel p-5"><p className="text-3xl font-semibold text-white">{impact.teams.toLocaleString()}</p><p className="mt-2 text-sm text-slate-300">Public teams</p></article>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -41,7 +48,7 @@ export default async function LeaderboardsPage() {
         </article>
         <article className="rounded-xl border border-line bg-panel p-5">
           <h2 className="text-xl font-semibold">Top teams</h2>
-          {teams.length ? <ol className="mt-4 space-y-3 text-sm text-slate-300">{teams.map((entry) => <li key={entry.rank} className="flex justify-between gap-4"><span>#{entry.rank} {entry.name}</span><span>{entry.contributionScore.toLocaleString()}</span></li>)}</ol> : <p className="mt-2 text-sm text-slate-300">Team rankings will appear after public teams complete eligible contributions.</p>}
+          {teams.length ? <ol className="mt-4 space-y-3 text-sm text-slate-300">{teams.map((entry) => <li key={entry.rank} className="flex justify-between gap-4"><span>#{entry.rank} {entry.name}</span><span>{entry.contributionScore.toLocaleString()}</span></li>)}</ol> : <p className="mt-2 text-sm text-slate-300">Teams are coming soon. This section will open once public teams begin completing eligible contributions.</p>}
         </article>
       </div>
 
