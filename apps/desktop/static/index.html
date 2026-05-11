@@ -47,16 +47,25 @@
       .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
       .tab { border-color: #334466; background: #11182a; }
       .tab.active { background: #7dd3fc; border-color: #7dd3fc; color: #07111f; font-weight: 700; }
-      .stat-card { background: #0d1425; border: 1px solid #25314d; border-radius: 12px; padding: 14px; }
-      .stat-card strong { display:block; font-size: 22px; margin-bottom: 4px; }
+      .stat-card { background: #0d1425; border: 1px solid #25314d; border-radius: 12px; padding: 12px; }
+      .stat-card strong { display:block; font-size: 20px; margin-bottom: 3px; }
       .hero-dashboard { background: linear-gradient(135deg, #14213d, #101827); border-color: #38527c; }
+      .dashboard-compact { display:grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .8fr); gap:12px; align-items:stretch; margin-top:10px; }
+      .now-card { margin:0; min-height:132px; }
+      .readiness-card { margin:0; }
+      .dashboard-stats { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+      .dashboard-stats .stat-card { min-height:74px; }
+      .dashboard-secondary { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+      .dashboard-secondary .stat-card strong { font-size:18px; }
+      .timeline-preview { margin-top:10px; }
+      .timeline-preview summary { cursor:pointer; color:#cbd5e1; }
       .log-card { background:#080d18; border:1px solid #25314d; border-radius:12px; padding:12px; max-height:260px; overflow:auto; white-space:pre-wrap; }
       .activity-card { border-radius: 12px; padding: 14px; background: #0d1425; border: 1px solid #25314d; margin: 12px 0; }
       .activity-card.ready { border-color: #2f8f56; }
       .activity-card.warning { border-color: #8a6d1d; }
       .activity-card.blocked { border-color: #8f3a35; }
       .activity-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-      @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
+      @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } .dashboard-compact, .dashboard-secondary { grid-template-columns: 1fr; } }
       @media (max-width: 950px) { .layout.dashboard-mode #profile-step, .layout.dashboard-mode #settings-step { grid-column: 1 / -1; } }
     </style>
   </head>
@@ -217,28 +226,34 @@
                 <button id="run-now">Run once now</button>
               </div>
             </div>
-            <div id="preflight-summary" class="activity-card warning">
-              <strong>Checking machine readiness…</strong>
-              <p class="small">Verifying model, resource, and pause settings.</p>
+            <div class="dashboard-compact">
+              <div>
+                <div id="activity-summary" class="activity-card warning now-card">
+                  <strong>Checking current work…</strong>
+                  <p class="small">Reading the latest worker activity.</p>
+                </div>
+                <div id="activity-actions" class="activity-actions hidden"></div>
+              </div>
+              <div class="dashboard-stats">
+                <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Worker</p></div>
+                <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resources</p></div>
+                <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Done this run</p></div>
+                <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Model</p></div>
+              </div>
             </div>
-            <div id="activity-summary" class="activity-card warning">
-              <strong>Checking current contribution…</strong>
-              <p class="small">Reading the latest worker activity.</p>
+            <div id="preflight-summary" class="activity-card warning readiness-card">
+              <strong>Checking readiness…</strong>
+              <p class="small">Checking model, pause, and resource settings.</p>
             </div>
-            <div id="activity-actions" class="activity-actions hidden"></div>
-            <div class="grid">
-              <div class="stat-card"><strong id="dashboard-runtime">—</strong><p class="small">Current session</p></div>
-              <div class="stat-card"><strong id="dashboard-model">—</strong><p class="small">Selected local model</p></div>
-              <div class="stat-card"><strong id="dashboard-work">—</strong><p class="small">Completed this run</p></div>
-              <div class="stat-card"><strong id="dashboard-eligible">—</strong><p class="small">Resource eligibility</p></div>
-              <div class="stat-card"><strong id="dashboard-success-rate">—</strong><p class="small">Completion success rate</p></div>
-              <div class="stat-card"><strong id="dashboard-average-seconds">—</strong><p class="small">Avg seconds / submitted packet</p></div>
+            <p id="dashboard-hint" class="small">OpenCause starts new packets only when your settings allow it.</p>
+            <div class="dashboard-secondary">
+              <div class="stat-card"><strong id="dashboard-success-rate">—</strong><p class="small">Success rate</p></div>
+              <div class="stat-card"><strong id="dashboard-average-seconds">—</strong><p class="small">Avg. packet time</p></div>
+              <details class="stat-card timeline-preview">
+                <summary>Recent activity</summary>
+                <div id="activity-timeline" class="log-card" style="margin-top:10px;">No activity yet.</div>
+              </details>
             </div>
-            <p id="dashboard-hint" class="small">OpenCause will run when your resource settings allow it. Advanced details are available if something looks wrong.</p>
-            <details style="margin-top:14px;">
-              <summary>Latest activity timeline</summary>
-              <div id="activity-timeline" class="log-card" style="margin-top:10px;">No structured events yet.</div>
-            </details>
 
           </section>
 
@@ -396,7 +411,7 @@
         document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === activeTab));
         const hasActiveClaim = activeClaimActivity(latestState?.activity);
         const statusText = latestState?.settings?.localPaused ? 'Paused' : hasActiveClaim ? 'Contributing' : latestState?.runtime?.running ? 'Running' : latestState?.preflight?.eligible ? 'Ready' : 'Waiting';
-        dashboardRuntime.textContent = latestState?.runtime?.running ? 'Active now' : 'Not running';
+        dashboardRuntime.textContent = latestState?.runtime?.running ? 'Running' : 'Stopped';
         if (dashboardStatusPill) { dashboardStatusPill.textContent = statusText; dashboardStatusPill.className = `pill ${statusText === 'Running' || statusText === 'Ready' || statusText === 'Contributing' ? 'ready' : statusText === 'Paused' ? 'warning' : 'blocked'}`; }
         if (modelStepTitle) modelStepTitle.textContent = setupComplete ? 'Local model' : '2. Download a model';
         if (settingsStepTitle) settingsStepTitle.textContent = setupComplete ? 'Resource settings' : '4. Resource settings';
@@ -414,8 +429,8 @@
         if (dashboardSuccessRate) dashboardSuccessRate.textContent = stats?.successRatePercent === null || stats?.successRatePercent === undefined ? '—' : `${stats.successRatePercent}%`;
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
-        dashboardEligible.textContent = hasActiveClaim ? 'Active claim' : resources ? (resources.eligible ? 'Eligible now' : 'Waiting') : '—';
-        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? 'Resource limits are checked before claiming new packets; the current local model run can finish even if CPU is high.' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
+        dashboardEligible.textContent = hasActiveClaim ? 'Finishing packet' : resources ? (resources.eligible ? 'Ready' : 'Waiting') : '—';
+        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? 'Resource limits apply before the next packet starts; this one can finish.' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
 
@@ -437,10 +452,10 @@
         const hasActiveClaim = activeClaimActivity(activity);
         const severity = preflight?.eligible || hasActiveClaim ? 'ready' : 'warning';
         preflightSummary.className = `activity-card ${severity}`;
-        const resourceLabel = hasActiveClaim ? 'active claim' : checks.resources ? 'ready' : 'waiting';
-        const headline = hasActiveClaim ? 'Contributing now' : preflight?.eligible ? 'Ready to contribute' : 'Not contributing yet';
+        const resourceLabel = hasActiveClaim ? 'next packet waits' : checks.resources ? 'ready' : 'waiting';
+        const headline = hasActiveClaim ? 'Next packet checks are paused' : preflight?.eligible ? 'Ready for new packets' : 'Waiting before starting new work';
         const reason = hasActiveClaim
-          ? 'A packet is already claimed and running. CPU thresholds are only checked before starting new packets, so local model CPU use will not interrupt this packet.'
+          ? 'Ollama is already working. CPU limits will be checked again before the next packet starts.'
           : humanizeReason(preflight?.reason || 'Checking machine readiness.');
         preflightSummary.innerHTML = `<strong class="${severity}">${headline}</strong><p class="small">${reason}</p><span class="pill">Ollama ${checks.ollama ? 'ready' : 'needed'}</span><span class="pill">Model ${checks.modelInstalled ? 'installed' : 'needed'}</span><span class="pill">Resources ${resourceLabel}</span>${checks.paused ? '<span class="pill">Paused</span>' : ''}`;
       }
