@@ -56,7 +56,8 @@
       .current-note { margin-top:10px; padding-top:10px; border-top:1px solid #25314d; }
       .dashboard-stats { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
       .dashboard-stats .stat-card { min-height:74px; }
-      .dashboard-secondary { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+      .dashboard-secondary { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+      .dashboard-secondary .stat-card { min-height:74px; }
       .dashboard-secondary .stat-card strong { font-size:18px; }
       .timeline-preview { margin-top:10px; }
       .timeline-preview summary { cursor:pointer; color:#cbd5e1; }
@@ -246,11 +247,11 @@
             <div class="dashboard-secondary">
               <div class="stat-card"><strong id="dashboard-success-rate">—</strong><p class="small">Success rate</p></div>
               <div class="stat-card"><strong id="dashboard-average-seconds">—</strong><p class="small">Avg. packet time</p></div>
-              <details class="stat-card timeline-preview">
-                <summary>Recent activity</summary>
-                <div id="activity-timeline" class="log-card" style="margin-top:10px;">No activity yet.</div>
-              </details>
             </div>
+            <details class="stat-card timeline-preview">
+              <summary>Recent activity</summary>
+              <div id="activity-timeline" class="log-card" style="margin-top:10px;">No activity yet.</div>
+            </details>
 
           </section>
 
@@ -426,7 +427,7 @@
         if (dashboardAverageSeconds) dashboardAverageSeconds.textContent = stats?.averageSecondsPerSubmittedPacket ? `${stats.averageSecondsPerSubmittedPacket}s` : '—';
         const resources = latestState?.resources;
         dashboardEligible.textContent = hasActiveClaim ? 'Finishing packet' : resources ? (resources.eligible ? 'Ready' : 'Waiting') : '—';
-        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? 'Resource limits apply before the next packet starts; this one can finish.' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
+        if (dashboardHint) dashboardHint.textContent = hasActiveClaim ? '' : resources && !resources.eligible ? `${humanizeReason(resources.reason)} New packets will wait until this clears.` : '';
         if (dashboardHint) dashboardHint.classList.toggle('hidden', !dashboardHint.textContent);
       }
 

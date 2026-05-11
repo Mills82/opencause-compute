@@ -53,7 +53,7 @@ export type WorkerRuntimeStatus = {
   stats: WorkerSessionStats;
 };
 
-export type WorkerTimelineEvent = { at?: string; kind: string; label: string; detail: string; severity: 'ready' | 'warning' | 'blocked' };
+export type WorkerTimelineEvent = { at?: string; kind: string; label: string; detail: string; severity: 'ready' | 'warning' | 'blocked'; packetId?: string };
 
 export type WorkerActivitySummary = {
   state: 'running_model' | 'waiting_idle' | 'no_work' | 'submitted' | 'failed' | 'heartbeat' | 'idle' | 'unknown';
@@ -329,11 +329,11 @@ export class WorkerSupervisor {
   }
 
   async activitySummary(): Promise<WorkerActivitySummary> {
-    return summarizeWorkerLog(await this.tailLog());
+    return summarizeWorkerLog(await this.tailLog(), this.runStartedAt);
   }
 
   async activityTimeline(): Promise<WorkerTimelineEvent[]> {
-    return buildActivityTimeline(await this.tailLog(32_768));
+    return buildActivityTimeline(await this.tailLog(32_768), this.runStartedAt);
   }
 
   async registrationDebugLog(maxBytes = 16_384): Promise<string> {
@@ -366,15 +366,21 @@ function humanReason(reason: string): string {
   return reason.replace(/_/g, ' ');
 }
 
-export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
+function isAtOrAfter(value: string | undefined, sinceIso?: string): boolean {
+  if (!sinceIso || !value) return true;
+  return new Date(value).getTime() >= new Date(sinceIso).getTime();
+}
+
+export function buildActivityTimeline(content: string, sinceIso?: string): WorkerTimelineEvent[] {
   const lines = content.split(/\r?\n/).filter(Boolean);
   const events = lines.map<WorkerTimelineEvent | null>((line) => {
     const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
     const at = match?.[1];
+    if (!isAtOrAfter(at, sinceIso)) return null;
     const message = match?.[2] ?? line;
-    if (message.includes('claimed packet')) { const id = message.match(/claimed packet\s+([^\s]+)/)?.[1]; return { at, kind: 'claiming_work', label: 'Claimed work', detail: id ? `Packet ${id.slice(0, 8)} claimed.` : 'Packet claimed.', severity: 'ready' }; }
+    if (message.includes('claimed packet')) { const id = message.match(/claimed packet\s+([^\s]+)/)?.[1]; return { at, kind: 'claiming_work', label: 'Claimed work', detail: id ? `Packet ${id.slice(0, 8)} claimed.` : 'Packet claimed.', severity: 'ready', packetId: id }; }
     if (message.includes('signature verified')) return { at, kind: 'verifying_signature', label: 'Verified packet signature', detail: 'The packet passed authenticity checks.', severity: 'ready' };
-    if (message.includes('local llm progress')) return { at, kind: 'running_model', label: 'Ollama is generating', detail: message.replace(/^local llm progress packet\s+[^\s]+\s+/, ''), severity: 'ready' };
+    if (message.includes('local llm progress')) { const id = message.match(/local llm progress packet\s+([^\s]+)/)?.[1]; return { at, kind: 'running_model', label: 'Ollama is generating', detail: message.replace(/^local llm progress packet\s+[^\s]+\s+/, ''), severity: 'ready', packetId: id }; }
     if (message.includes('submitted result')) return { at, kind: 'submitting_result', label: 'Submitted result', detail: 'The local result was sent to the coordinator.', severity: 'ready' };
     if (message.includes('reported released claim')) return { at, kind: 'claim_released', label: 'Released claim', detail: message, severity: 'warning' };
     if (message.includes('generation cancelled')) return { at, kind: 'claim_released', label: 'Released because resource policy changed', detail: message, severity: 'warning' };
@@ -393,6 +399,7 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
   for (const event of events.reverse()) {
     const prev = deduped[deduped.length - 1];
     if (prev && prev.kind === event.kind && prev.detail === event.detail) continue;
+    if (event.kind === 'running_model' && deduped.some((existing) => existing.kind === 'running_model' && existing.packetId === event.packetId)) continue;
     deduped.push(event);
     if (deduped.length >= 6) break;
   }
@@ -400,12 +407,12 @@ export function buildActivityTimeline(content: string): WorkerTimelineEvent[] {
 }
 
 
-export function summarizeWorkerLog(content: string): WorkerActivitySummary {
+export function summarizeWorkerLog(content: string, sinceIso?: string): WorkerActivitySummary {
   const lines = content.split(/\r?\n/).filter(Boolean);
   const parsed = lines.map((line) => {
     const match = line.match(/^\[([^\]]+)\]\s+(?:\[[^\]]+\]\s+)?(.+)$/);
     return { at: match?.[1], message: match?.[2] ?? line };
-  });
+  }).filter((entry) => isAtOrAfter(entry.at, sinceIso));
 
   const latest = [...parsed].reverse().find((entry) => !entry.message.startsWith('worker process exited'));
   const latestClaim = [...parsed].reverse().find((entry) => entry.message.includes('claimed packet'));
