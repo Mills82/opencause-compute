@@ -169,7 +169,7 @@ export class WorkerSupervisor {
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'high' ? 24576 : qualityMode === 'budget' ? 12288 : 16384));
     env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (3000));
-    env.LOCAL_LLM_TIMEOUT_MS = '180000';
+    env.LOCAL_LLM_TIMEOUT_MS = '300000';
     env.LOCAL_LLM_TEMPERATURE = '0';
     env.LOCAL_LLM_TOP_P = '0.9';
     env.LOCAL_LLM_QUALITY_TIER = qualityMode === 'ultra' ? 'ultra' : qualityMode === 'high' ? 'high' : 'balanced';
@@ -190,7 +190,12 @@ export class WorkerSupervisor {
     this.child.stdout.on('data', (chunk) => {
       const text = chunk.toString().trimEnd();
       if (text.includes('submitted result')) this.packetsCompletedThisRun += (text.match(/submitted result/g) ?? []).length;
-      void this.appendWorkerLog(text);
+      // The worker process writes its own timestamped lines to worker.log. The
+      // desktop supervisor also receives those lines on stdout, so appending
+      // them again here duplicates timeline entries. Only append stdout that is
+      // not already a worker-formatted log line.
+      const unloggedLines = text.split(/\r?\n/).filter((line: string) => line && !/^\[\d{4}-\d{2}-\d{2}T/.test(line));
+      if (unloggedLines.length) void this.appendWorkerLog(unloggedLines.join('\n'));
     });
     this.child.stderr.on('data', (chunk) => { void this.appendWorkerLog(`stderr ${chunk.toString().trimEnd()}`); });
     this.child.on('error', (error) => { this.lastError = error.message; void this.appendWorkerLog(`spawn error ${error.message}`); });
@@ -445,7 +450,7 @@ export function summarizeWorkerLog(content: string): WorkerActivitySummary {
       state: 'failed',
       headline: error === 'node_offline' ? 'Reconnecting to coordinator' : error.startsWith('local_llm_timeout') ? 'Local model timed out before submitting' : 'Worker hit an error before submitting',
       detail: error.startsWith('local_llm_timeout')
-        ? 'The coordinator has work and the worker can claim it, but the local model timed out. Try the default small model, lower quality mode, or run one packet now after closing heavy apps.'
+        ? 'The coordinator has work and the worker can claim it, but the local model timed out after the current model timeout. Try the default small model, lower quality mode, or run one packet now after closing heavy apps.'
         : humanReason(error),
       severity: error === 'node_offline' ? 'warning' : 'blocked',
       at: latestFailure.at,

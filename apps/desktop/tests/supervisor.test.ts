@@ -108,8 +108,8 @@ describe('worker supervisor contract', () => {
   });
 
   it('summarizes local model timeout failures clearly', () => {
-    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:48:00.883Z] run failed local_llm_timeout:180000\n');
-    expect(summary).toMatchObject({ state: 'failed', severity: 'blocked', error: 'local_llm_timeout:180000' });
+    const summary = summarizeWorkerLog('[2026-05-10T01:45:00.882Z] claimed packet packet-1\n[2026-05-10T01:50:00.883Z] run failed local_llm_timeout:300000\n');
+    expect(summary).toMatchObject({ state: 'failed', severity: 'blocked', error: 'local_llm_timeout:300000' });
     expect(summary.headline).toContain('timed out');
   });
 
