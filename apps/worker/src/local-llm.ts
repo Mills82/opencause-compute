@@ -106,6 +106,8 @@ export function extractionPromptV2(sourceText: string): string {
     '- Prefer cancer-relevant claims involving cancer type, biomarkers, variants, pathways, drugs/interventions, outcomes, clinical/preclinical context, or statistical evidence.',
     '- Do not infer beyond the source. Return zero claims if there are no grounded cancer-relevant claims.',
     '- If claims is empty, include noClaimReason.',
+    '- Keep output compact: one short summary sentence, short optional evidenceContext only when needed, and no repeated source passages.',
+    '- Prefer omitting optional fields over adding verbose, uncertain, or duplicative text.',
     '- Output JSON only. No markdown or commentary.',
     'Source text follows:',
     sourceText
