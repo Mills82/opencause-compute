@@ -99,8 +99,10 @@ export function extractionPromptV2(sourceText: string): string {
     '- Return 0 to 8 claims. Fewer high-quality grounded claims are better than filling the list.',
     '- The full JSON response must fit within the response token budget; if needed, return fewer claims rather than producing incomplete JSON.',
     '- Do not create duplicate or near-duplicate claims. Use each exactEvidenceSentence at most once; choose the single best claimType for that sentence.',
+    '- Only extract specific, named relationships directly supported by one sentence. Do not expand broad network/table/supplementary-list summaries into many claims.',
+    '- If a sentence only says many drugs, genes, plants, compounds, or candidates were found without naming a specific relationship, return zero claims or one low-priority aggregate claim at most.',
     '- exactEvidenceSentence must be copied exactly from source text. If no exact sentence supports a claim, omit the claim.',
-    '- evidenceContext, if present, must also be copied exactly from nearby source text.',
+    '- Omit evidenceContext; exactEvidenceSentence should be sufficient.',
     '- Preserve exact mentions separately from normalized guesses. Normalized guesses are not authoritative.',
     '- Label evidenceOrigin carefully: this study result, cited prior work, background, methods-only, speculation, review summary, or unclear.',
     '- Methods-only mentions may be labeled methods_only, but do not turn them into scientific findings.',
@@ -108,8 +110,9 @@ export function extractionPromptV2(sourceText: string): string {
     '- Prefer cancer-relevant claims involving cancer type, biomarkers, variants, pathways, drugs/interventions, outcomes, clinical/preclinical context, or statistical evidence.',
     '- Do not infer beyond the source. Return zero claims if there are no grounded cancer-relevant claims.',
     '- If claims is empty, include noClaimReason.',
-    '- Keep output compact: one short summary sentence, short optional evidenceContext only when needed, and no repeated source passages.',
-    '- Prefer omitting optional fields over adding verbose, uncertain, or duplicative text.',
+    '- Keep output compact: one short summary sentence, no evidenceContext, and no repeated source passages.',
+    '- Prefer omitting optional fields over adding verbose, uncertain, duplicative, or low-value text.',
+    '- Output minified JSON with no extra whitespace.',
     '- Output JSON only. No markdown or commentary.',
     'Source text follows:',
     sourceText
@@ -165,7 +168,7 @@ function reviewPriorityForClaim(claim: ExtractedClaim): 'high' | 'medium' | 'low
 export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = ''): ResultPayloadV2 {
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = claimsSourceRaw.slice(0, 5);
+  const claimsSource = claimsSourceRaw.slice(0, 3);
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
   const seenEvidenceSentences = new Set<string>();
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
@@ -213,7 +216,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     normalized.reviewPriority = optionalEnum(claim.reviewPriority, ['high','medium','low'] as const, reviewPriorityForClaim(normalized));
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
-  if (claimsSourceRaw.length > 5) warnings.push('local_model_returned_too_many_claims_truncated_to_5');
+  if (claimsSourceRaw.length > 3) warnings.push('local_model_returned_too_many_claims_truncated_to_3');
   if (!claims.length) warnings.push('local_model_returned_no_claims');
   const noClaimReason = claims.length ? undefined : optionalEnum(source.noClaimReason, ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const, 'extraction_uncertain');
   return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims, noClaimReason, summary: requiredString(source.summary, claims.length ? `Extracted ${claims.length} candidate claim${claims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
