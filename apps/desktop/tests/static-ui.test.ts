@@ -96,7 +96,7 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('High — more context and longer output');
     expect(html).toContain('Ultra — largest context');
     expect(html).toContain('Context window');
-    expect(html).toContain('Max answer length');
+    expect(html).toContain('Max response tokens');
     expect(html).toContain('resourcePresets');
     expect(html).toContain("qualityMode.value = 'custom'");
   });

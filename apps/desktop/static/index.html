@@ -191,10 +191,10 @@
                 </select>
               </label>
               <label>
-                Max answer length
+                Max response tokens
                 <select id="num-predict">
-                  <option value="3000">3000 — recommended</option>
-                  <option value="4500">4500 — longer</option>
+                  <option value="4000">4000 — budget</option>
+                  <option value="5000">5000 — recommended</option>
                   <option value="6000">6000 — maximum</option>
                 </select>
               </label>
@@ -342,10 +342,10 @@
       let activeTab = 'overview';
       let settingsDirty = false;
       const resourcePresets = {
-        budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 3000 },
-        balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 3000 },
-        high: { maxCpuPercent: 75, minIdleSeconds: 90, schedule: 'idle-only', runOnBattery: false, numCtx: 24576, numPredict: 3000 },
-        ultra: { maxCpuPercent: 85, minIdleSeconds: 60, schedule: 'idle-only', runOnBattery: false, numCtx: 32768, numPredict: 3000 }
+        budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 4000 },
+        balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 5000 },
+        high: { maxCpuPercent: 75, minIdleSeconds: 90, schedule: 'idle-only', runOnBattery: false, numCtx: 24576, numPredict: 6000 },
+        ultra: { maxCpuPercent: 85, minIdleSeconds: 60, schedule: 'idle-only', runOnBattery: false, numCtx: 32768, numPredict: 6000 }
       };
 
       function editableFocused() {
@@ -597,7 +597,7 @@
             battery.checked = latestState.settings.resourceControls.runOnBattery;
             qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
             numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
-            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 3000);
+            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 5000);
           }
           modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.recommendedNumPredict} answer length, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
           output.textContent = JSON.stringify(latestState, null, 2);

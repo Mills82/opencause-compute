@@ -168,7 +168,7 @@ export class WorkerSupervisor {
     void this.appendWorkerLog(publicKeyPath ? `packet signing public key loaded keyId=${env.PACKET_SIGNING_KEY_ID ?? 'unknown'}` : 'packet signing public key missing');
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'high' ? 24576 : qualityMode === 'budget' ? 12288 : 16384));
-    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? (3000));
+    env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? 5000);
     env.LOCAL_LLM_TIMEOUT_MS = '300000';
     env.LOCAL_LLM_TEMPERATURE = '0';
     env.LOCAL_LLM_TOP_P = '0.9';

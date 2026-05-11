@@ -145,15 +145,15 @@ export function recommendedModelConfig(settings: DesktopSettings) {
   const model = settings.modelRuntime.model;
   const qualityMode = settings.modelRuntime.qualityMode;
   const base = qualityMode === 'ultra'
-    ? { numCtx: 32768, numPredict: 3000, tier: 'ultra' as const }
+    ? { numCtx: 32768, numPredict: 5000, tier: 'ultra' as const }
     : qualityMode === 'high'
-      ? { numCtx: 24576, numPredict: 3000, tier: 'high' as const }
+      ? { numCtx: 24576, numPredict: 5000, tier: 'high' as const }
       : qualityMode === 'budget'
-        ? { numCtx: 16384, numPredict: 3000, tier: 'balanced' as const }
-        : { numCtx: 24576, numPredict: 3000, tier: 'high' as const };
+        ? { numCtx: 16384, numPredict: 5000, tier: 'balanced' as const }
+        : { numCtx: 24576, numPredict: 5000, tier: 'high' as const };
   const constrained = totalMemoryGb < 12 || cpuCores < 6;
   const highEnd = totalMemoryGb >= 48 && cpuCores >= 12;
-  const recommended = constrained ? { numCtx: 16384, numPredict: 3000, tier: 'balanced' as const } : highEnd ? { numCtx: 32768, numPredict: 3000, tier: 'ultra' as const } : base;
+  const recommended = constrained ? { numCtx: 16384, numPredict: 5000, tier: 'balanced' as const } : highEnd ? { numCtx: 32768, numPredict: 5000, tier: 'ultra' as const } : base;
   return {
     model,
     qualityMode,

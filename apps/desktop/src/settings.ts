@@ -51,7 +51,7 @@ export const defaultDesktopSettings: DesktopSettings = {
     model: DEFAULT_LOCAL_MODEL,
     qualityMode: 'balanced',
     numCtx: 16384,
-    numPredict: 1200,
+    numPredict: 5000,
     approvedModels: APPROVED_LOCAL_MODELS
   }
 };

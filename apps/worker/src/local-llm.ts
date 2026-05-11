@@ -58,7 +58,7 @@ export function readLocalLlmConfig(): LocalLlmConfig {
       temperature: envNumber('LOCAL_LLM_TEMPERATURE', 0),
       top_p: envNumber('LOCAL_LLM_TOP_P', 0.9),
       num_ctx: envNumber('LOCAL_LLM_NUM_CTX', 16384),
-      num_predict: envNumber('LOCAL_LLM_NUM_PREDICT', 3000)
+      num_predict: envNumber('LOCAL_LLM_NUM_PREDICT', 5000)
     },
     qualityTier: process.env.LOCAL_LLM_QUALITY_TIER as LocalLlmConfig['qualityTier'] || 'high'
   };
