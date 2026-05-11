@@ -34,6 +34,10 @@ export function signWorkPacketPayload(payload: unknown): string {
   return signPayloadHmac(normalizedPayload, hmacSecret());
 }
 
+export function assertSignedWorkPacketPayload(payload: unknown, signature: string): void {
+  if (!verifyWorkPacketSignature(payload, signature)) throw new Error('invalid_packet_signature_generated');
+}
+
 export function verifyWorkPacketSignature(payload: unknown, signature: string): boolean {
   const publicKey = signingPublicKey();
   if (publicKey) {

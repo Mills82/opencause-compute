@@ -12,6 +12,7 @@ import {
 } from '../lib/coordinator';
 import type { DatabaseState } from '@opencause/shared';
 import { runMockExtractorV1 } from '@opencause/shared';
+import { signWorkPacketPayload } from '../lib/signing';
 
 function emptyDb(): DatabaseState {
   return {
@@ -37,10 +38,46 @@ function emptyDb(): DatabaseState {
 }
 
 function forceLegacyLocalPackets(db: DatabaseState): void {
-  for (const packet of db.workPackets) packet.extractor = 'local-llm-v1';
+  for (const packet of db.workPackets) {
+    packet.extractor = 'local-llm-v1';
+    const payload = {
+      id: packet.id,
+      projectId: packet.projectId,
+      title: packet.title,
+      sourceText: packet.sourceText,
+      sourceCitation: packet.sourceCitation,
+      sourceUrl: packet.sourceUrl,
+      sourcePublishedAt: packet.sourcePublishedAt,
+      sectionTitle: packet.sectionTitle,
+      sectionType: packet.sectionType,
+      paragraphIndex: packet.paragraphIndex,
+      inputHash: packet.inputHash,
+      extractor: packet.extractor,
+      createdAt: packet.createdAt
+    };
+    packet.signature = signWorkPacketPayload(payload);
+  }
 }
 
 describe('claim/submit flow', () => {
+
+  it('quarantines invalid packet signatures instead of serving them', () => {
+    const db = emptyDb();
+    seedDemoData(db);
+    forceLegacyLocalPackets(db);
+    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    const firstQueued = db.workPackets.find((packet) => packet.status === 'queued');
+    expect(firstQueued).toBeTruthy();
+    if (!firstQueued) throw new Error('Expected packet');
+    firstQueued.signature = signWorkPacketPayload({ bad: 'payload' });
+
+    const claim = claimWork(db, node.id);
+
+    expect(db.workPackets.find((packet) => packet.id === firstQueued.id)?.status).toBe('invalid_signature');
+    expect(claim?.packet.id).not.toBe(firstQueued.id);
+    expect(db.auditEvents.some((event) => event.action === 'work.packet.invalid_signature_quarantined')).toBe(true);
+  });
+
   it('claims packet and submits validated result', () => {
     const db = emptyDb();
     seedDemoData(db);

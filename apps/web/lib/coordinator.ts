@@ -16,7 +16,7 @@ import {
   type DatabaseState,
   type WorkerControlConfig
 } from '@opencause/shared';
-import { signWorkPacketPayload } from './signing';
+import { assertSignedWorkPacketPayload, signWorkPacketPayload, verifyWorkPacketSignature } from './signing';
 import { createNodeToken, hashNodeToken } from './node-auth';
 import { isHostedMode } from './runtime-config';
 import { recordAuditEvent } from './audit';
@@ -294,6 +294,13 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
   if (!packet) {
     return null;
   }
+  const packetPayload = buildPacketPayload(packet);
+  if (!verifyWorkPacketSignature(packetPayload, packet.signature)) {
+    packet.status = 'invalid_signature';
+    packet.updatedAt = now.toISOString();
+    recordAuditEvent(db, { actorType: 'system', action: 'work.packet.invalid_signature_quarantined', targetType: 'work_packet', targetId: packet.id, metadata: { reason: 'claim_preflight_signature_verification_failed' } });
+    return claimWork(db, nodeId);
+  }
 
   const claimId = randomUUID();
   db.claims.push({
@@ -319,7 +326,7 @@ export function claimWork(db: DatabaseState, nodeId: string): { claimId: string;
 
   return {
     claimId,
-    packet: buildPacketPayload(packet),
+    packet: packetPayload,
     signature: packet.signature
   };
 }
@@ -544,7 +551,7 @@ export function seedDemoData(db: DatabaseState): { project: Project; packetsCrea
 
     const workPacket: WorkPacket = {
       ...packetPayload,
-      signature: signWorkPacketPayload(packetPayload),
+      signature: (() => { const signature = signWorkPacketPayload(packetPayload); assertSignedWorkPacketPayload(packetPayload, signature); return signature; })(),
       status: 'queued',
       updatedAt: now
     };
@@ -608,7 +615,7 @@ export function createWorkPacketsFromSources(
 
     const packet: WorkPacket = {
       ...packetPayload,
-      signature: signWorkPacketPayload(packetPayload),
+      signature: (() => { const signature = signWorkPacketPayload(packetPayload); assertSignedWorkPacketPayload(packetPayload, signature); return signature; })(),
       status: 'queued',
       updatedAt: now
     };

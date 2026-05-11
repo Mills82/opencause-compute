@@ -14,6 +14,7 @@ import {
 } from '@opencause/shared';
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
+import { verifyWorkPacketSignature } from './signing';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const LEASE_MINUTES = 10;
@@ -200,6 +201,13 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
       await client.query('COMMIT');
       return null;
     }
+    const packetPayload = packetPayloadFromRow(packet);
+    if (!verifyWorkPacketSignature(packetPayload, packet.signature)) {
+      await client.query("UPDATE work_packets SET status = 'invalid_signature', updated_at = NOW() WHERE id = $1", [packet.id]);
+      await recordAuditEvent(client, { actorType: 'system', action: 'work.packet.invalid_signature_quarantined', targetType: 'work_packet', targetId: packet.id, metadata: { reason: 'claim_preflight_signature_verification_failed' } });
+      await client.query('COMMIT');
+      return claimWorkRelational(nodeId, token);
+    }
 
     const claimId = randomUUID();
     await client.query(
@@ -210,7 +218,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
     await client.query("UPDATE work_packets SET status = 'claimed', updated_at = NOW() WHERE id = $1", [packet.id]);
     await recordAuditEvent(client, { actorType: 'node', actorId: nodeId, action: 'work.claim.created', targetType: 'work_packet', targetId: packet.id, metadata: { claimId } });
     await client.query('COMMIT');
-    return { claimId, packet: packetPayloadFromRow(packet), signature: packet.signature };
+    return { claimId, packet: packetPayload, signature: packet.signature };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

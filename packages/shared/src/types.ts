@@ -126,7 +126,7 @@ export const workPacketPayloadSchema = z.object({
 
 export const workPacketSchema = workPacketPayloadSchema.extend({
   signature: z.string(),
-  status: z.enum(['queued', 'claimed', 'completed', 'failed']),
+  status: z.enum(['queued', 'claimed', 'completed', 'failed', 'invalid_signature']),
   updatedAt: z.string()
 });
 
