@@ -23,12 +23,15 @@ export default function HomePage() {
               </a>
             </div>
           </div>
-          <div className="rounded-2xl border border-cyan-300/20 bg-ink/85 p-5 shadow-xl shadow-cyan-950/20">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100">How it works</p>
-            <div className="mt-5 space-y-4 text-sm text-slate-300">
-              <div><p className="font-medium text-accent">1. Open literature packets</p><p>Public research sections are packaged with source citations and signed before assignment.</p></div>
-              <div><p className="font-medium text-accent">2. Local volunteer processing</p><p>The desktop worker runs on a computer you control, with visible activity and adjustable resource limits.</p></div>
-              <div><p className="font-medium text-accent">3. Validation and review</p><p>Submissions remain candidate evidence until structure checks, independent agreement, and/or human review advance them.</p></div>
+          <div className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-ink/85 shadow-xl shadow-cyan-950/20">
+            <img
+              src="/screenshots/worker-dashboard.png"
+              alt="OpenCause Compute Worker dashboard showing local worker status, contribution totals, pause controls, and recent activity."
+              className="w-full"
+            />
+            <div className="border-t border-line p-4 text-sm text-slate-300">
+              <p className="font-semibold text-cyan-100">Transparent local worker</p>
+              <p className="mt-1">Volunteers can see status, pause work, check model readiness, and review recent packet activity from the desktop app.</p>
             </div>
           </div>
         </div>

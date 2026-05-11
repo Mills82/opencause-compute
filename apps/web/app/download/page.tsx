@@ -93,6 +93,28 @@ export default function DownloadPage() {
         </article>
       </div>
 
+      <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div className="space-y-3 text-sm leading-6 text-slate-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Worker preview</p>
+            <h2 className="text-2xl font-semibold text-white">See what the desktop worker is doing.</h2>
+            <p>
+              The Windows worker keeps status, contribution totals, pause controls, local model state, and recent activity visible so volunteers can confirm when their computer is contributing.
+            </p>
+          </div>
+          <figure className="overflow-hidden rounded-xl border border-cyan-300/20 bg-ink shadow-xl shadow-black/30">
+            <img
+              src="/screenshots/worker-dashboard.png"
+              alt="OpenCause Compute Worker dashboard showing ready status, worker controls, local model status, contribution totals, and recent activity."
+              className="w-full"
+            />
+            <figcaption className="border-t border-line px-4 py-3 text-xs text-slate-400">
+              Dashboard view from the early-access Windows worker.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
       <div className="grid gap-4 md:grid-cols-3">
         <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
           <h2 className="text-lg font-semibold text-white">What the worker can access</h2>
@@ -107,6 +129,28 @@ export default function DownloadPage() {
           <p className="mt-2">The desktop app lets you pause work, run only while idle, limit CPU use, avoid battery work, inspect activity, and remove local worker data when needed.</p>
         </article>
       </div>
+
+      <section className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
+        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <figure className="overflow-hidden rounded-xl border border-cyan-300/20 bg-ink shadow-xl shadow-black/30">
+            <img
+              src="/screenshots/worker-resources.png"
+              alt="OpenCause Compute Worker resource controls showing model quality, CPU limit, idle-only mode, battery policy, and startup behavior settings."
+              className="w-full"
+            />
+            <figcaption className="border-t border-line px-4 py-3 text-xs text-slate-400">
+              Resource controls for model quality, CPU limits, idle behavior, and battery policy.
+            </figcaption>
+          </figure>
+          <div className="space-y-3 text-sm leading-6 text-slate-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Volunteer controlled</p>
+            <h2 className="text-2xl font-semibold text-white">Tune contribution around your computer.</h2>
+            <p>
+              Volunteers can choose conservative resource limits, keep work idle-only, avoid running on battery, and inspect exactly which coordinator endpoint the worker uses.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <article className="rounded-xl border border-line bg-panel p-5 text-sm leading-6 text-slate-300">
         <h2 className="text-xl font-medium text-white">Why local AI?</h2>
