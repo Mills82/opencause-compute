@@ -21,7 +21,7 @@ const DIRECTIONS = ['increased','decreased','associated','no_association','mixed
 const REVIEW_PRIORITIES = ['high','medium','low'] as const;
 const NO_CLAIM_REASONS = ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const;
 const PLACEHOLDER_STRINGS = new Set(['n/a', 'na', 'none', 'null', 'unknown', 'not mentioned', 'not applicable', 'not provided']);
-const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
+const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|hggs?|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
 const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|proton\s+therapy|radiation\s+dose|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
 const CANDIDATE_SENTENCE_TERMS = new RegExp(`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
 
@@ -158,6 +158,8 @@ export function candidateSentencePromptV2(candidateSentences: string[]): string 
     '- Prefer zero claims only when all candidate sentences are methods-only, bibliometric-only, vague, duplicated, or require inference.',
     '- Do not extract study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, search methods, citation clusters, or general study characteristics unless tied to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, resistance, or another outcome.',
     '- Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" for cited or review-style claims unless the sentence reports this study\'s own result.',
+    '- Use evidenceOrigin="this_study_result" only for the authors\' own reported results. Use "cited_prior_work", "background", or "review_summary" for prior studies, general knowledge, or review synthesis.',
+    '- For a direct exact-sentence claim, confidence should usually be 0.5 to 0.9. Use confidence below 0.5 only if the sentence is ambiguous.',
     '- Do not write a claim-like summary while returning claims: [].',
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
     'Candidate sentences:',
@@ -170,7 +172,7 @@ export function selectCandidateEvidenceSentences(sourceText: string, limit = 5):
     .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+(?=[A-Z0-9“"(])/)
     .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length >= 40 && sentence.length <= 700 && CANDIDATE_SENTENCE_TERMS.test(sentence));
+    .filter((sentence) => sentence.length >= 40 && sentence.length <= 700 && CANDIDATE_SENTENCE_TERMS.test(sentence) && CANCER_TERMS.test(sentence));
   const scored = sentences.map((sentence, index) => {
     let score = 0;
     if (CANCER_TERMS.test(sentence)) score += 3;
@@ -268,15 +270,25 @@ function hasNullishOrPlaceholder(value: unknown): boolean {
   return false;
 }
 
+function isBadEvidenceSentence(sentence: string): boolean {
+  const normalized = sentence.replace(/\s+/g, ' ').trim();
+  if (normalized.length < 40) return true;
+  if (!/[A-Za-z]{4,}/.test(normalized)) return true;
+  if (/^[A-Z]{2,}\s*\[[^\]]*\]$/.test(normalized)) return true;
+  if (/^\W*[A-Z0-9]{1,6}\W*$/.test(normalized)) return true;
+  if (!CANCER_TERMS.test(normalized)) return true;
+  return false;
+}
+
 function optionalNumber(value: unknown): number | undefined {
   const numeric = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? Math.floor(numeric) : undefined;
 }
 
 function reviewPriorityForClaim(claim: ExtractedClaim): 'high' | 'medium' | 'low' {
+  if (claim.evidenceOrigin !== 'this_study_result') return 'low';
   const hasCoreEntities = Boolean(claim.cancerType && (claim.biomarkerMention || claim.drugOrInterventionMention) && (claim.outcomeMention || claim.outcomeMeasureMention));
-  if (claim.evidenceOrigin === 'this_study_result' && (claim.evidenceType === 'clinical' || claim.studyContext === 'human_cohort' || claim.studyContext === 'clinical_trial') && hasCoreEntities && (claim.polarity === 'affirmed' || claim.polarity === 'negated')) return 'high';
-  if (claim.evidenceOrigin === 'methods_only' || claim.evidenceOrigin === 'background') return 'low';
+  if ((claim.evidenceType === 'clinical' || claim.studyContext === 'human_cohort' || claim.studyContext === 'clinical_trial') && hasCoreEntities && (claim.polarity === 'affirmed' || claim.polarity === 'negated')) return 'high';
   return 'medium';
 }
 
@@ -290,6 +302,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
     if (hasNullishOrPlaceholder(claim)) return null;
     const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
+    if (isBadEvidenceSentence(exactEvidenceSentence)) return null;
     if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return null;
     const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
     if (seenEvidenceSentences.has(evidenceKey)) return null;
@@ -322,7 +335,8 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
       exactEvidenceSentence,
       confidence: confidenceValue
     };
-    normalized.reviewPriority = optionalEnum(claim.reviewPriority, REVIEW_PRIORITIES, reviewPriorityForClaim(normalized));
+    const suggestedPriority = optionalEnum(claim.reviewPriority, REVIEW_PRIORITIES, reviewPriorityForClaim(normalized));
+    normalized.reviewPriority = normalized.evidenceOrigin === 'this_study_result' ? suggestedPriority : 'low';
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
   if (claimsSourceRaw.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');

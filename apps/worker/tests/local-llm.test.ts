@@ -135,7 +135,7 @@ describe('local llm helpers', () => {
     ].join(' ');
     const selected = selectCandidateEvidenceSentences(source, 2);
     expect(selected).toContain('Our study demonstrates that SBRT is safe and effective for selected patients with stage III LN-positive NSCLC.');
-    expect(selected.some((sentence) => sentence.includes('survival outcomes comparable'))).toBe(true);
+    expect(selected.some((sentence) => sentence.includes('dose regimen'))).toBe(false);
   });
 
   it('builds a compact sentence-level claims prompt', () => {
@@ -144,6 +144,16 @@ describe('local llm helpers', () => {
     expect(prompt).toContain('Each claim must use one complete candidate sentence copied exactly');
     expect(prompt).toContain('surgical delay of four weeks');
     expect(prompt).not.toContain('Source text follows');
+  });
+
+  it('sentence selector requires cancer relevance in the candidate sentence', () => {
+    const source = [
+      'SKIL emerged as the most significant contributor to DFU pathogenesis, showing consistent upregulation across multiple datasets and strong correlation with disease progression.',
+      'HGGs are characterized by rapid growth, frequent recurrence, and poor prognosis, underscoring the clinical value of aggressive, individualized treatment.'
+    ].join(' ');
+    const selected = selectCandidateEvidenceSentences(source, 5);
+    expect(selected.some((sentence) => sentence.includes('DFU pathogenesis'))).toBe(false);
+    expect(selected.some((sentence) => sentence.includes('HGGs are characterized'))).toBe(true);
   });
 
   it('triages obvious non-cancer packets locally without extraction', () => {
@@ -266,6 +276,17 @@ describe('local llm helpers', () => {
     const sentence = 'EGFR mutation was associated with improved response to osimertinib in lung cancer.';
     const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { claimType: 'made_up' })], noClaimReason: 'extraction_uncertain', summary: 'bad', warnings: [] }, sentence);
     expect(normalized.claims).toHaveLength(0);
+  });
+
+  it('drops claims with citation-fragment evidence', () => {
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim('CC [ , ]')], noClaimReason: 'extraction_uncertain', summary: 'bad', warnings: [] }, 'CC [ , ]');
+    expect(normalized.claims).toHaveLength(0);
+  });
+
+  it('downgrades non-this-study review priority to low', () => {
+    const sentence = 'HGGs are characterized by rapid growth, frequent recurrence, and poor prognosis, underscoring the clinical value of aggressive, individualized treatment.';
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { evidenceOrigin: 'cited_prior_work', reviewPriority: 'high' })], summary: 'ok', warnings: [] }, sentence);
+    expect(normalized.claims[0].reviewPriority).toBe('low');
   });
 
   it('drops claims with missing confidence', () => {
