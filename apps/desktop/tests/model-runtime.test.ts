@@ -4,7 +4,7 @@ import { pullOllamaModel } from '../src/model-runtime';
 
 describe('desktop model runtime', () => {
   it('defaults to approved public model', () => {
-    expect(DEFAULT_LOCAL_MODEL).toBe('llama3.2:3b');
+    expect(DEFAULT_LOCAL_MODEL).toBe('llama3.1:8b');
   });
 
   it('rejects unapproved model pulls', async () => {
