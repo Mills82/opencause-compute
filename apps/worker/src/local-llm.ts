@@ -21,8 +21,8 @@ const DIRECTIONS = ['increased','decreased','associated','no_association','mixed
 const REVIEW_PRIORITIES = ['high','medium','low'] as const;
 const NO_CLAIM_REASONS = ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const;
 const PLACEHOLDER_STRINGS = new Set(['n/a', 'na', 'none', 'null', 'unknown', 'not mentioned', 'not applicable', 'not provided']);
-const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
-const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|toxicit|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
+const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
+const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|proton\s+therapy|radiation\s+dose|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
 
 export type LocalLlmConfig = {
   endpoint: string;
@@ -120,6 +120,9 @@ export function extractionPromptV2(sourceText: string): string {
     '- Only extract cancer-related claims supported by one exact source sentence.',
     '- Copy exactEvidenceSentence exactly from the source text.',
     '- Prefer zero claims over weak, vague, duplicated, or inferred claims.',
+    '- Background or review-style claims may be extracted only when one exact sentence clearly states a specific cancer-related association, diagnosis, prognosis, risk, treatment, biology, toxicity, local control, survival, recurrence, progression, resistance, response, or outcome claim. Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" unless the sentence reports this study\'s own result.',
+    '- Do not treat bibliometric counts, keyword frequencies, author/country/journal rankings, literature-search methods, citation cluster descriptions, study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, or general study characteristics as biomedical cancer claims unless the exact sentence ties them to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, or another outcome.',
+    '- If the summary would state a specific cancer-related claim, include that claim in claims using one exact supporting sentence. If no claim is included, keep the summary neutral and explain that no grounded claim was extracted.',
     '- Do not extract methods-only mentions as findings.',
     '- Do not expand broad lists of genes, drugs, compounds, pathways, or candidates into many claims.',
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',

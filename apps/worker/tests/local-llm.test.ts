@@ -71,9 +71,42 @@ describe('local llm helpers', () => {
     const prompt = extractionPromptV2('source text');
     expect(prompt).toContain('"schemaVersion":"claims-v2-lite"');
     expect(prompt).toContain('Return 0 to 2 claims');
+    expect(prompt).toContain('Background or review-style claims may be extracted only when one exact sentence clearly states');
+    expect(prompt).toContain('Do not treat bibliometric counts, keyword frequencies');
+    expect(prompt).toContain('treatment regimens, dose ranges, follow-up duration');
+    expect(prompt).toContain('If the summary would state a specific cancer-related claim, include that claim in claims');
     expect(prompt).not.toContain('biomarkerNormalizedGuess');
     expect(prompt).not.toContain('charStart');
     expect(prompt).not.toContain('evidenceContext');
+  });
+
+  it('documents prompt guardrail: background/review clear cancer claims should be low-priority extractable', () => {
+    const prompt = extractionPromptV2('Prior reviews found that cisplatin exposure increases sensorineural hearing loss risk in pediatric brain tumor survivors.');
+    expect(prompt).toContain('Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low"');
+    expect(prompt).toContain('toxicity, local control, survival, recurrence, progression, resistance, response, or outcome claim');
+  });
+
+  it('documents prompt guardrail: bibliometric clusters are not biomedical cancer claims', () => {
+    const prompt = extractionPromptV2('Cluster 2 included 122 papers and focused on nanocarriers in nasopharyngeal carcinoma.');
+    expect(prompt).toContain('bibliometric counts, keyword frequencies, author/country/journal rankings');
+    expect(prompt).toContain('citation cluster descriptions');
+  });
+
+  it('documents prompt guardrail: dose ranges and follow-up duration are not treatment response claims without outcomes', () => {
+    const prompt = extractionPromptV2('The dose regimen ranged from 50.4 to 66.6 Gy and follow-up exceeded 3 years.');
+    expect(prompt).toContain('treatment regimens, dose ranges, follow-up duration');
+    expect(prompt).toContain('unless the exact sentence ties them to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, or another outcome');
+  });
+
+  it('documents prompt guardrail: methods and eligibility criteria should not be extracted as findings', () => {
+    const prompt = extractionPromptV2('Patients with complete response after neoadjuvant therapy were eligible.');
+    expect(prompt).toContain('study objectives, eligibility criteria');
+    expect(prompt).toContain('Do not extract methods-only mentions as findings');
+  });
+
+  it('documents prompt guardrail: empty-claim summaries should stay neutral', () => {
+    const prompt = extractionPromptV2('source text');
+    expect(prompt).toContain('If no claim is included, keep the summary neutral and explain that no grounded claim was extracted');
   });
 
   it('triages obvious non-cancer packets locally without extraction', () => {
@@ -97,6 +130,16 @@ describe('local llm helpers', () => {
 
   it('fails open for cancer-related methods packets with claim-opportunity terms', () => {
     const triage = triagePacketLocally('Patients with lung cancer received treatment and overall survival outcomes were collected.', 'Methods and materials');
+    expect(triage.decision).toBe('extract_now');
+  });
+
+  it('fails open for CNS tumor radiotherapy outcome language', () => {
+    const triage = triagePacketLocally('Radiologic local control was reported in patients with intracranial meningioma after proton therapy.', 'Discussion');
+    expect(triage.decision).toBe('extract_now');
+  });
+
+  it('fails open for brain tumor radiation toxicity language', () => {
+    const triage = triagePacketLocally('Higher radiation dose was associated with toxicity and recurrence in pediatric brain tumor survivors.', 'Results');
     expect(triage.decision).toBe('extract_now');
   });
 
