@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOCAL_MODEL, approvedModel, assertApprovedModel } from './model-manifest';
 
 describe('model manifest', () => {
-  it('uses llama3.2:3b as public default', () => {
-    expect(DEFAULT_LOCAL_MODEL).toBe('llama3.2:3b');
+  it('uses llama3.1:8b as public default', () => {
+    expect(DEFAULT_LOCAL_MODEL).toBe('llama3.1:8b');
     expect(approvedModel(DEFAULT_LOCAL_MODEL)?.publicDefault).toBe(true);
   });
 
-  it('allows stronger 8b model without advanced flags', () => {
-    expect(assertApprovedModel('llama3.1:8b').tier).toBe('stronger');
+  it('does not approve the lower-quality 3b model', () => {
+    expect(approvedModel('llama3.2:3b')).toBeUndefined();
+    expect(() => assertApprovedModel('llama3.2:3b')).toThrow('model_not_approved:llama3.2:3b');
+  });
+
+  it('allows default 8b model without advanced flags', () => {
+    expect(assertApprovedModel('llama3.1:8b').tier).toBe('default');
   });
 
   it('requires opt-in for large and experimental models', () => {

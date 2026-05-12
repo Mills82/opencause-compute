@@ -14,26 +14,15 @@ export type ApprovedModel = {
 
 export const APPROVED_LOCAL_MODELS: ApprovedModel[] = [
   {
-    id: 'llama3.2:3b',
-    provider: 'ollama',
-    tier: 'default',
-    label: 'Llama 3.2 3B',
-    recommended: true,
-    publicDefault: true,
-    estimatedDownload: 'small',
-    memoryGuidance: 'Best first choice for typical consumer laptops and desktops.',
-    notes: 'Default public volunteer model. Lower resource use and faster setup.'
-  },
-  {
     id: 'llama3.1:8b',
     provider: 'ollama',
-    tier: 'stronger',
+    tier: 'default',
     label: 'Llama 3.1 8B',
     recommended: true,
-    publicDefault: false,
+    publicDefault: true,
     estimatedDownload: 'medium',
-    memoryGuidance: 'Better for stronger machines; may be slower or heavier on laptops.',
-    notes: 'Good optional upgrade once the default model works.'
+    memoryGuidance: 'Recommended minimum local model for claim extraction. Requires more memory than 3B but produces more useful packet work.',
+    notes: 'Default public volunteer model. Smaller 3B models are not approved for extraction quality.'
   },
   {
     id: 'llama3.3:70b',
@@ -70,7 +59,7 @@ export const APPROVED_LOCAL_MODELS: ApprovedModel[] = [
   }
 ];
 
-export const DEFAULT_LOCAL_MODEL = 'llama3.2:3b';
+export const DEFAULT_LOCAL_MODEL = 'llama3.1:8b';
 
 export function approvedModel(model: string): ApprovedModel | undefined {
   return APPROVED_LOCAL_MODELS.find((candidate) => candidate.id === model);

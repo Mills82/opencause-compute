@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { DEFAULT_LOCAL_MODEL, APPROVED_LOCAL_MODELS } from '@opencause/shared';
+import { DEFAULT_LOCAL_MODEL, APPROVED_LOCAL_MODELS, approvedModel } from '@opencause/shared';
 
 export type DesktopSettings = {
   coordinatorUrl: string;
@@ -73,11 +73,17 @@ export async function loadDesktopSettings(appDir: string): Promise<DesktopSettin
   const raw = await readFile(file, 'utf8').catch(() => null);
   if (!raw) return { ...defaultDesktopSettings };
   const parsed = JSON.parse(raw) as Partial<DesktopSettings>;
+  const parsedModel = parsed.modelRuntime?.model;
   return {
     ...defaultDesktopSettings,
     ...parsed,
     resourceControls: { ...defaultDesktopSettings.resourceControls, ...parsed.resourceControls },
-    modelRuntime: { ...defaultDesktopSettings.modelRuntime, ...parsed.modelRuntime }
+    modelRuntime: {
+      ...defaultDesktopSettings.modelRuntime,
+      ...parsed.modelRuntime,
+      model: parsedModel && approvedModel(parsedModel) ? parsedModel : DEFAULT_LOCAL_MODEL,
+      approvedModels: APPROVED_LOCAL_MODELS
+    }
   };
 }
 
