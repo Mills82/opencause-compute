@@ -119,6 +119,7 @@ export function extractionPromptV2(sourceText: string): string {
     '- Return 0 to 2 claims.',
     '- Only extract cancer-related claims supported by one exact source sentence.',
     '- Copy exactEvidenceSentence exactly from the source text.',
+    '- exactEvidenceSentence should be a complete source sentence that can stand alone. Do not use sentence fragments such as "strongly correlated with poor prognosis" unless the full source sentence is copied.',
     '- Prefer zero claims over weak, vague, duplicated, or inferred claims.',
     '- Background or review-style claims may be extracted only when one exact sentence clearly states a specific cancer-related association, diagnosis, prognosis, risk, treatment, biology, toxicity, local control, survival, recurrence, progression, resistance, response, or outcome claim. Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" unless the sentence reports this study\'s own result.',
     '- Do not treat bibliometric counts, keyword frequencies, author/country/journal rankings, literature-search methods, citation cluster descriptions, study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, or general study characteristics as biomedical cancer claims unless the exact sentence ties them to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, or another outcome.',
@@ -128,6 +129,9 @@ export function extractionPromptV2(sourceText: string): string {
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
     '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
     '- summary must be one short sentence. warnings must be an array of short strings or [].',
+    'Tiny example:',
+    'Source sentence: In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.',
+    'This should produce one low-priority treatment_response claim with evidenceOrigin="cited_prior_work" and exactEvidenceSentence copied exactly.',
     '- Output JSON only. No markdown or commentary.',
     'Source text follows:',
     sourceText

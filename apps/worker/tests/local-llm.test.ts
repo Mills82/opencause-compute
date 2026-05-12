@@ -75,6 +75,9 @@ describe('local llm helpers', () => {
     expect(prompt).toContain('Do not treat bibliometric counts, keyword frequencies');
     expect(prompt).toContain('treatment regimens, dose ranges, follow-up duration');
     expect(prompt).toContain('If the summary would state a specific cancer-related claim, include that claim in claims');
+    expect(prompt).toContain('exactEvidenceSentence should be a complete source sentence that can stand alone');
+    expect(prompt).toContain('JAVELIN Renal 101');
+    expect(prompt).toContain('one low-priority treatment_response claim with evidenceOrigin="cited_prior_work"');
     expect(prompt).not.toContain('biomarkerNormalizedGuess');
     expect(prompt).not.toContain('charStart');
     expect(prompt).not.toContain('evidenceContext');
@@ -107,6 +110,18 @@ describe('local llm helpers', () => {
   it('documents prompt guardrail: empty-claim summaries should stay neutral', () => {
     const prompt = extractionPromptV2('source text');
     expect(prompt).toContain('If no claim is included, keep the summary neutral and explain that no grounded claim was extracted');
+  });
+
+  it('documents prompt guardrail: evidence sentences should not be fragments', () => {
+    const prompt = extractionPromptV2('NUPR1 strongly correlated with poor prognosis in TNBC.');
+    expect(prompt).toContain('Do not use sentence fragments such as "strongly correlated with poor prognosis"');
+    expect(prompt).toContain('unless the full source sentence is copied');
+  });
+
+  it('documents prompt example: JAVELIN background response claim should be extractable', () => {
+    const prompt = extractionPromptV2('In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.');
+    expect(prompt).toContain('axitinib plus avelumab was associated with a significant improvement');
+    expect(prompt).toContain('exactEvidenceSentence copied exactly');
   });
 
   it('triages obvious non-cancer packets locally without extraction', () => {
