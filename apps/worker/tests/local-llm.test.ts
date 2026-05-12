@@ -71,13 +71,15 @@ describe('local llm helpers', () => {
     const prompt = extractionPromptV2('source text');
     expect(prompt).toContain('"schemaVersion":"claims-v2-lite"');
     expect(prompt).toContain('Return 0 to 2 claims');
-    expect(prompt).toContain('Background or review-style claims may be extracted only when one exact sentence clearly states');
+    expect(prompt).toContain('Extract a claim when one exact sentence directly states a cancer-related finding or cited finding');
+    expect(prompt).toContain('If one exact sentence directly states a cancer-related treatment response');
+    expect(prompt).toContain('Background or review-style claims may be extracted when one exact sentence clearly states');
     expect(prompt).toContain('Do not treat bibliometric counts, keyword frequencies');
     expect(prompt).toContain('treatment regimens, dose ranges, follow-up duration');
+    expect(prompt).toContain('Do not write a claim-like summary while returning claims: []');
     expect(prompt).toContain('If the summary would state a specific cancer-related claim, include that claim in claims');
     expect(prompt).toContain('exactEvidenceSentence should be a complete source sentence that can stand alone');
-    expect(prompt).toContain('JAVELIN Renal 101');
-    expect(prompt).toContain('one low-priority treatment_response claim with evidenceOrigin="cited_prior_work"');
+    expect(prompt).not.toContain('JAVELIN Renal 101');
     expect(prompt).not.toContain('biomarkerNormalizedGuess');
     expect(prompt).not.toContain('charStart');
     expect(prompt).not.toContain('evidenceContext');
@@ -118,10 +120,10 @@ describe('local llm helpers', () => {
     expect(prompt).toContain('unless the full source sentence is copied');
   });
 
-  it('documents prompt example: JAVELIN background response claim should be extractable', () => {
+  it('documents prompt rule: direct cancer findings should be extracted', () => {
     const prompt = extractionPromptV2('In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.');
-    expect(prompt).toContain('axitinib plus avelumab was associated with a significant improvement');
-    expect(prompt).toContain('exactEvidenceSentence copied exactly');
+    expect(prompt).toContain('Extract a claim when one exact sentence directly states a cancer-related finding or cited finding');
+    expect(prompt).toContain('return one claim');
   });
 
   it('triages obvious non-cancer packets locally without extraction', () => {
