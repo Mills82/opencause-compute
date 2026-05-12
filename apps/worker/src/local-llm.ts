@@ -162,8 +162,8 @@ export function candidateSentencePromptV2(candidateSentences: string[]): string 
     '- For a direct exact-sentence claim, confidence should usually be 0.5 to 0.9. Use confidence below 0.5 only if the sentence is ambiguous.',
     '- Do not write a claim-like summary while returning claims: [].',
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
-    'Candidate sentences:',
-    ...candidateSentences.map((sentence, index) => `${index + 1}. ${sentence}`)
+    'Candidate sentences are listed below. exactEvidenceSentence must equal one candidate sentence exactly; do not include numbering, bullets, quotes, or extra text.',
+    ...candidateSentences.map((sentence) => `<sentence>${sentence}</sentence>`)
   ].join('\n');
 }
 
@@ -296,7 +296,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const schemaVersion = source.schemaVersion;
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' ? claimsSourceRaw.slice(0, 2) : [];
+  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' ? claimsSourceRaw : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
   const seenEvidenceSentences = new Set<string>();
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
@@ -339,10 +339,11 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     normalized.reviewPriority = normalized.evidenceOrigin === 'this_study_result' ? suggestedPriority : 'low';
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
-  if (claimsSourceRaw.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
-  if (!claims.length) warnings.push('local_model_returned_no_claims');
-  const noClaimReason = claims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
-  return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims, noClaimReason, summary: requiredString(source.summary, claims.length ? `Extracted ${claims.length} candidate claim${claims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
+  const cappedClaims = claims.slice(0, 2);
+  if (claimsSourceRaw.length > 2 || claims.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
+  if (!cappedClaims.length) warnings.push('local_model_returned_no_claims');
+  const noClaimReason = cappedClaims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
+  return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: cappedClaims, noClaimReason, summary: requiredString(source.summary, cappedClaims.length ? `Extracted ${cappedClaims.length} candidate claim${cappedClaims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
 }
 
 export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): ResultPayload {

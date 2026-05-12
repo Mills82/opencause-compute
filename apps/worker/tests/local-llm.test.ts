@@ -142,6 +142,8 @@ describe('local llm helpers', () => {
     const prompt = candidateSentencePromptV2(['A systematic review showed that a surgical delay of four weeks can adversely affect survival in patients with lung cancer.']);
     expect(prompt).toContain('You classify candidate cancer-literature evidence sentences.');
     expect(prompt).toContain('Each claim must use one complete candidate sentence copied exactly');
+    expect(prompt).toContain('exactEvidenceSentence must equal one candidate sentence exactly');
+    expect(prompt).toContain('<sentence>A systematic review showed');
     expect(prompt).toContain('surgical delay of four weeks');
     expect(prompt).not.toContain('Source text follows');
   });
@@ -232,6 +234,24 @@ describe('local llm helpers', () => {
     expect(normalized.claims).toHaveLength(2);
     expect(new Set(normalized.claims.map((claim) => claim.exactEvidenceSentence)).size).toBe(2);
     expect(normalized.claims.every((claim) => claim.evidenceContext === undefined)).toBe(true);
+    expect(normalized.warnings).toContain('local_model_returned_too_many_claims_truncated_to_2');
+  });
+
+  it('keeps later valid claims when the local model returns too many invalid leading claims', () => {
+    const validSentence = 'HGGs are characterized by rapid growth, frequent recurrence, and poor prognosis, underscoring the clinical value of aggressive, individualized treatment.';
+    const normalized = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite',
+      claims: [
+        liteClaim('not present'),
+        liteClaim('CC [ , ]'),
+        liteClaim(validSentence, { claimType: 'prognosis', evidenceOrigin: 'background', reviewPriority: 'high' })
+      ],
+      summary: 'ok',
+      warnings: []
+    }, validSentence);
+    expect(normalized.claims).toHaveLength(1);
+    expect(normalized.claims[0].exactEvidenceSentence).toBe(validSentence);
+    expect(normalized.claims[0].reviewPriority).toBe('low');
     expect(normalized.warnings).toContain('local_model_returned_too_many_claims_truncated_to_2');
   });
 
