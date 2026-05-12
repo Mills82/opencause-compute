@@ -23,6 +23,7 @@ const NO_CLAIM_REASONS = ['no_cancer_claim','methods_only','background_only','in
 const PLACEHOLDER_STRINGS = new Set(['n/a', 'na', 'none', 'null', 'unknown', 'not mentioned', 'not applicable', 'not provided']);
 const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
 const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|proton\s+therapy|radiation\s+dose|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
+const CANDIDATE_SENTENCE_TERMS = new RegExp(`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
 
 export type LocalLlmConfig = {
   endpoint: string;
@@ -134,6 +135,51 @@ export function extractionPromptV2(sourceText: string): string {
     'Source text follows:',
     sourceText
   ].join('\n');
+}
+
+export function candidateSentencePromptV2(candidateSentences: string[]): string {
+  return [
+    'You classify candidate cancer-literature evidence sentences.',
+    'Return ONLY valid JSON. No markdown. No commentary.',
+    'JSON shape: {"schemaVersion":"claims-v2-lite","claims":[],"noClaimReason":"","summary":"","warnings":[]}',
+    'Each claim: {"claimType":"","evidenceOrigin":"","evidenceType":"","studyContext":"","polarity":"","direction":"","cancerType":"","biomarkerMention":"","drugOrInterventionMention":"","outcomeMention":"","statisticalEvidenceMention":"","sampleSizeMention":"","exactEvidenceSentence":"","reviewPriority":"","confidence":0}',
+    'Allowed values:',
+    'claimType = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, studied_with, unclear',
+    'evidenceOrigin = this_study_result, cited_prior_work, background, methods_only, hypothesis_or_speculation, review_summary, unclear',
+    'evidenceType = clinical, preclinical, computational, review, case_report, unclear',
+    'studyContext = human_cohort, clinical_trial, cell_line, animal, organoid, mixed, unclear',
+    'polarity = affirmed, negated, speculative, uncertain',
+    'direction = increased, decreased, associated, no_association, mixed, unclear',
+    'reviewPriority = high, medium, low',
+    'Rules:',
+    '- Return 0 to 2 claims total.',
+    '- Each claim must use one complete candidate sentence copied exactly as exactEvidenceSentence.',
+    '- Extract a claim when the candidate sentence directly states a cancer-related finding or cited finding.',
+    '- Prefer zero claims only when all candidate sentences are methods-only, bibliometric-only, vague, duplicated, or require inference.',
+    '- Do not extract study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, search methods, citation clusters, or general study characteristics unless tied to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, resistance, or another outcome.',
+    '- Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" for cited or review-style claims unless the sentence reports this study\'s own result.',
+    '- Do not write a claim-like summary while returning claims: [].',
+    '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
+    'Candidate sentences:',
+    ...candidateSentences.map((sentence, index) => `${index + 1}. ${sentence}`)
+  ].join('\n');
+}
+
+export function selectCandidateEvidenceSentences(sourceText: string, limit = 5): string[] {
+  const sentences = sourceText
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9“"(])/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length >= 40 && sentence.length <= 700 && CANDIDATE_SENTENCE_TERMS.test(sentence));
+  const scored = sentences.map((sentence, index) => {
+    let score = 0;
+    if (CANCER_TERMS.test(sentence)) score += 3;
+    if (CLAIM_OPPORTUNITY_TERMS.test(sentence)) score += 3;
+    if (/\b(p\s*[<=>]|P\s*[<=>]|AUC|ORR|PFS|OS|IC50|hazard ratio|HR|%|months?|survival|toxicit|local control|recurrence|progression|response|resistance)\b/i.test(sentence)) score += 2;
+    if (/\b(methods?|included|eligible|criteria|search|database|Table|Figure|Supplementary|cluster|citation|keyword|author|country|journal)\b/i.test(sentence)) score -= 2;
+    return { sentence, index, score };
+  });
+  return scored.sort((a, b) => b.score - a.score || a.index - b.index).slice(0, limit).map((entry) => entry.sentence);
 }
 
 export type PacketTriageInput = {
@@ -389,5 +435,9 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
 }
 
 export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayloadV2> {
-  return normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, extractionPromptV2(sourceText), config, signal, onProgress), sourceText);
+  const candidateSentences = selectCandidateEvidenceSentences(sourceText);
+  const prompt = candidateSentences.length ? candidateSentencePromptV2(candidateSentences) : extractionPromptV2(sourceText);
+  const normalized = normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, prompt, config, signal, onProgress), sourceText);
+  normalized.warnings.push(candidateSentences.length ? `candidate_sentence_mode:${candidateSentences.length}` : 'candidate_sentence_mode:none_fallback_full_packet');
+  return resultPayloadV2Schema.parse(normalized);
 }

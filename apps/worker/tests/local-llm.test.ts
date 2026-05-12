@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyClaimsV2FromTriage, extractJsonBlock, extractionPromptV2, normalizeLocalLlmPayload, normalizeLocalLlmV2Payload, parseLocalLlmJson, triagePacketLocally } from '../src/local-llm';
+import { candidateSentencePromptV2, emptyClaimsV2FromTriage, extractJsonBlock, extractionPromptV2, normalizeLocalLlmPayload, normalizeLocalLlmV2Payload, parseLocalLlmJson, selectCandidateEvidenceSentences, triagePacketLocally } from '../src/local-llm';
 
 function liteClaim(sentence: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -124,6 +124,26 @@ describe('local llm helpers', () => {
     const prompt = extractionPromptV2('In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.');
     expect(prompt).toContain('Extract a claim when one exact sentence directly states a cancer-related finding or cited finding');
     expect(prompt).toContain('return one claim');
+  });
+
+  it('selects direct cancer outcome sentences for sentence-level classification', () => {
+    const source = [
+      'Patients were included if records were complete.',
+      'The dose regimen ranged from 50.4 to 66.6 Gy for Grade I.',
+      'Our study demonstrates that SBRT is safe and effective for selected patients with stage III LN-positive NSCLC.',
+      'Omitting metastatic LN irradiation yields survival outcomes comparable with nodal irradiation, with reduced acute esophagitis.'
+    ].join(' ');
+    const selected = selectCandidateEvidenceSentences(source, 2);
+    expect(selected).toContain('Our study demonstrates that SBRT is safe and effective for selected patients with stage III LN-positive NSCLC.');
+    expect(selected.some((sentence) => sentence.includes('survival outcomes comparable'))).toBe(true);
+  });
+
+  it('builds a compact sentence-level claims prompt', () => {
+    const prompt = candidateSentencePromptV2(['A systematic review showed that a surgical delay of four weeks can adversely affect survival in patients with lung cancer.']);
+    expect(prompt).toContain('You classify candidate cancer-literature evidence sentences.');
+    expect(prompt).toContain('Each claim must use one complete candidate sentence copied exactly');
+    expect(prompt).toContain('surgical delay of four weeks');
+    expect(prompt).not.toContain('Source text follows');
   });
 
   it('triages obvious non-cancer packets locally without extraction', () => {
