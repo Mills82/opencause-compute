@@ -29,6 +29,7 @@ export type DesktopSettings = {
     numPredict?: number;
     approvedModels: typeof APPROVED_LOCAL_MODELS;
     candidateModels: typeof CANDIDATE_LOCAL_MODELS;
+    readiness?: Record<string, { status: 'passed' | 'slow' | 'failed'; testedAt: string; elapsedMs: number }>;
   };
 };
 
@@ -54,7 +55,8 @@ export const defaultDesktopSettings: DesktopSettings = {
     numCtx: 16384,
     numPredict: 5000,
     approvedModels: APPROVED_LOCAL_MODELS,
-    candidateModels: CANDIDATE_LOCAL_MODELS
+    candidateModels: CANDIDATE_LOCAL_MODELS,
+    readiness: {}
   }
 };
 
@@ -85,7 +87,8 @@ export async function loadDesktopSettings(appDir: string): Promise<DesktopSettin
       ...parsed.modelRuntime,
       model: parsedModel && locallyTestableModel(parsedModel) ? parsedModel : DEFAULT_LOCAL_MODEL,
       approvedModels: APPROVED_LOCAL_MODELS,
-      candidateModels: CANDIDATE_LOCAL_MODELS
+      candidateModels: CANDIDATE_LOCAL_MODELS,
+      readiness: parsed.modelRuntime?.readiness ?? {}
     }
   };
 }

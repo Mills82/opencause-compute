@@ -113,7 +113,8 @@ function validateSettingsUpdate(update: unknown): Partial<DesktopSettings> {
       model,
       qualityMode: optionalEnum(update.modelRuntime.qualityMode, 'qualityMode', ['budget', 'balanced', 'high', 'ultra', 'custom']),
       numCtx: optionalNumber(update.modelRuntime.numCtx, 'numCtx', 1024, 131_072),
-      numPredict: optionalNumber(update.modelRuntime.numPredict, 'numPredict', 128, 16_384)
+      numPredict: optionalNumber(update.modelRuntime.numPredict, 'numPredict', 128, 16_384),
+      readiness: update.modelRuntime.readiness
     }) as Partial<DesktopSettings['modelRuntime']> as DesktopSettings['modelRuntime'];
   }
   return next;
