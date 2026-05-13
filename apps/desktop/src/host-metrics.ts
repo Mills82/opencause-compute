@@ -162,6 +162,6 @@ export function recommendedModelConfig(settings: DesktopSettings) {
     recommendedNumCtx: recommended.numCtx,
     recommendedNumPredict: recommended.numPredict,
     recommendedTier: recommended.tier,
-    note: constrained ? '8k context is the minimum recommended for biomedical papers on this machine.' : highEnd ? '32k ultra context should be reasonable for this higher-end machine.' : '16k high-quality context looks reasonable for this machine.'
+    note: highEnd ? 'This machine may be able to test advanced models such as qwen3.6:27b or gemma4:26b; run readiness before using them. qwen3:14b remains the validated default.' : constrained ? 'qwen3:14b is still the recommended default; if readiness is too slow or fails, manually select gemma4:e4b as the lower-resource option.' : 'qwen3:14b is the recommended default for this machine. Use readiness testing before choosing advanced or lower-resource alternatives.'
   };
 }

@@ -18,6 +18,10 @@
       "to": "worker/package.json"
     },
     {
+      "from": "../worker/scripts/local-model-bakeoff.mjs",
+      "to": "worker/scripts/local-model-bakeoff.mjs"
+    },
+    {
       "from": "../../packages/shared/dist",
       "to": "worker/node_modules/@opencause/shared/dist"
     },

@@ -23,6 +23,7 @@ export type WorkerSupervisorConfig = {
   modelRuntime?: {
     qualityMode?: 'budget' | 'balanced' | 'high' | 'ultra' | 'custom';
     numCtx?: number;
+    model?: string;
     numPredict?: number;
   };
 };
@@ -167,6 +168,10 @@ export class WorkerSupervisor {
     if (keyIdPath) env.PACKET_SIGNING_KEY_ID = readFileSync(keyIdPath, 'utf8').trim();
     void this.appendWorkerLog(publicKeyPath ? `packet signing public key loaded keyId=${env.PACKET_SIGNING_KEY_ID ?? 'unknown'}` : 'packet signing public key missing');
     const qualityMode = this.config.modelRuntime?.qualityMode ?? 'balanced';
+    if (this.config.modelRuntime?.model) {
+      env.LOCAL_LLM_MODEL = this.config.modelRuntime.model;
+      if (!['qwen3:14b'].includes(this.config.modelRuntime.model)) env.OPENCAUSE_ALLOW_CANDIDATE_LOCAL_MODEL = 'true';
+    }
     env.LOCAL_LLM_NUM_CTX = String(this.config.modelRuntime?.numCtx ?? (qualityMode === 'ultra' ? 32768 : qualityMode === 'high' ? 24576 : qualityMode === 'budget' ? 12288 : 16384));
     env.LOCAL_LLM_NUM_PREDICT = String(this.config.modelRuntime?.numPredict ?? 5000);
     env.LOCAL_LLM_TIMEOUT_MS = '300000';

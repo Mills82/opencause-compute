@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LOCAL_MODEL, approvedModel, assertApprovedModel } from './model-manifest';
+import { CANDIDATE_LOCAL_MODELS, DEFAULT_LOCAL_MODEL, approvedModel, assertApprovedModel, candidateModel } from './model-manifest';
 
 describe('model manifest', () => {
-  it('uses llama3.1:8b as public default', () => {
-    expect(DEFAULT_LOCAL_MODEL).toBe('llama3.1:8b');
+  it('uses qwen3:14b as public default', () => {
+    expect(DEFAULT_LOCAL_MODEL).toBe('qwen3:14b');
     expect(approvedModel(DEFAULT_LOCAL_MODEL)?.publicDefault).toBe(true);
   });
 
@@ -12,14 +12,26 @@ describe('model manifest', () => {
     expect(() => assertApprovedModel('llama3.2:3b')).toThrow('model_not_approved:llama3.2:3b');
   });
 
-  it('allows default 8b model without advanced flags', () => {
-    expect(assertApprovedModel('llama3.1:8b').tier).toBe('default');
+  it('lists local-test candidates without approving them', () => {
+    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('medgemma1.5:4b');
+    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('qwen3:4b');
+    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('gemma3:4b-it-qat');
+    const candidateIds = CANDIDATE_LOCAL_MODELS.map((model) => model.id);
+    expect(candidateIds).not.toContain('gemma3:12b-it-qat');
+    expect(candidateIds).not.toContain('gpt-oss:20b');
+    expect(candidateIds).toContain('gemma4:26b');
+    expect(candidateIds).toContain('qwen3.6:27b');
+    expect(approvedModel('medgemma1.5:4b')).toBeUndefined();
+    expect(candidateModel('medgemma1.5:4b')).toBeUndefined();
+    expect(() => assertApprovedModel('medgemma1.5:4b')).toThrow('model_not_approved:medgemma1.5:4b');
   });
 
-  it('requires opt-in for large and experimental models', () => {
-    expect(() => assertApprovedModel('llama3.3:70b')).toThrow('large_model_requires_opt_in');
-    expect(() => assertApprovedModel('llama4:scout')).toThrow('experimental_model_requires_opt_in');
-    expect(assertApprovedModel('llama3.3:70b', { allowLarge: true }).tier).toBe('large');
-    expect(assertApprovedModel('llama4:scout', { allowExperimental: true }).tier).toBe('experimental');
+  it('allows default model without advanced flags', () => {
+    expect(assertApprovedModel('qwen3:14b').tier).toBe('default');
+  });
+
+  it('keeps removed legacy large and experimental models unapproved', () => {
+    expect(() => assertApprovedModel('llama3.3:70b')).toThrow('model_not_approved:llama3.3:70b');
+    expect(() => assertApprovedModel('llama4:scout')).toThrow('model_not_approved:llama4:scout');
   });
 });

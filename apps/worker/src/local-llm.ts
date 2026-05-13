@@ -10,7 +10,7 @@ const ALLOWED_RELATIONSHIPS = new Set([
 ]);
 
 export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
-export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite-prompt-2026-05-11';
+export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite-prompt-2026-05-12c';
 
 const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','studied_with','unclear'] as const;
 const EVIDENCE_ORIGINS = ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const;
@@ -21,9 +21,13 @@ const DIRECTIONS = ['increased','decreased','associated','no_association','mixed
 const REVIEW_PRIORITIES = ['high','medium','low'] as const;
 const NO_CLAIM_REASONS = ['no_cancer_claim','methods_only','background_only','insufficient_context','extraction_uncertain','other'] as const;
 const PLACEHOLDER_STRINGS = new Set(['n/a', 'na', 'none', 'null', 'unknown', 'not mentioned', 'not applicable', 'not provided']);
-const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|hggs?|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf)\b/i;
-const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|proton\s+therapy|radiation\s+dose|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|pfs|os)\b/i;
-const CANDIDATE_SENTENCE_TERMS = new RegExp(`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
+const CANCER_TERMS = /\b(cancer|tumou?r|neoplasm|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|gbm|hggs?|meningioma|brain\s+tumou?r|cns\s+tumou?r|myeloma|metasta|malignan|tnbc|luad|stad|oscc|hcc|nsclc|sclc|egfr|alk|brca|pd-?l1|her2|kras|braf|renal\s+cell|renal\s+carcinoma|kidney\s+cancer|renal\s+cancer|\brcc\b|urothelial|colorectal|crc|pancreatic|ovarian|prostate|endometrial|cervical|esophageal|oesophageal|head\s+and\s+neck)\b/i;
+const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|proton\s+therapy|radiation\s+dose|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|objective response|response rate|pfs|os|orr|adverse events?|disease control|hazard ratio|clinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4))\b/i;
+const STRONG_ONCOLOGY_OUTCOME_TERMS = /\b(ORR|objective response rate|overall response rate|response rate|PFS|progression-free survival|OS|overall survival|median survival|survival rates?|hazard ratio|\bHR\b|disease control|complete response|partial response|grade\s+[34]|adverse events?|toxicit|clinical trial|Phase\s+(?:I|II|III|IV|1|2|3|4)|sunitinib|axitinib|avelumab|pembrolizumab|nivolumab|ipilimumab|atezolizumab|durvalumab|trastuzumab|bevacizumab|osimertinib|erlotinib|gefitinib|cetuximab|rituximab|olaparib|imatinib)\b/i;
+
+const NON_RESULT_SENTENCE_TERMS = /\b((?:aim|objective|purpose)\s+of\s+(?:this\s+)?study\s+was|(?:objective|purpose)\s+was|designed\s+to\s+evaluate|we\s+hypothesized|hypothesized\s+that|may\s+predict|warrants?\s+further\s+investigation|future\s+(?:studies|research)|eligible\s+patients|patients\s+(?:with|who|that)\b.*\b(?:were\s+included|were\s+eligible|were\s+enrolled|were\s+selected)|inclusion\s+criteria|exclusion\s+criteria|baseline\b|at\s+baseline|median\s+age|follow-up\s+duration|median\s+follow-up|was\s+estimated\s+using|were\s+estimated\s+using|kaplan[- ]meier|log-rank|cox\s+(?:proportional\s+hazards\s+)?model|we\s+searched\s+(?:pubmed|embase|web\s+of\s+science)|database\s+search)\b/i;
+const RESULT_ASSERTION_TERMS = /\b(was|were)\s+(?:significantly\s+)?(?:associated\s+with|higher|lower|more\s+frequent|less\s+frequent|improved|reduced|increased|decreased)|\b(?:improved|reduced|increased|decreased|occurred\s+in|resulted\s+in|demonstrated|showed|achieved|identified|revealed|distinguished)\b|\b(?:ORR|objective response rate|response rate|PFS|progression-free survival|OS|overall survival|median overall survival|hazard ratio|\bHR\b|AUC)\s+(?:was|of|=)|\b(?:P\s*[<=>]|p\s*[<=>])\b/i;
+const CANDIDATE_SENTENCE_TERMS = new RegExp(String.raw`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
 
 export type LocalLlmConfig = {
   endpoint: string;
@@ -61,7 +65,8 @@ function defaultQualityTier(options: OllamaGenerationOptions): 'low' | 'balanced
 export function readLocalLlmConfig(): LocalLlmConfig {
   assertApprovedModel(DEFAULT_MODEL, {
     allowLarge: process.env.ALLOW_LARGE_LOCAL_MODEL === 'true',
-    allowExperimental: process.env.ALLOW_EXPERIMENTAL_LOCAL_MODEL === 'true'
+    allowExperimental: process.env.ALLOW_EXPERIMENTAL_LOCAL_MODEL === 'true',
+    allowCandidate: process.env.OPENCAUSE_ALLOW_CANDIDATE_LOCAL_MODEL === 'true'
   });
   return {
     endpoint: DEFAULT_ENDPOINT,
@@ -137,7 +142,12 @@ export function extractionPromptV2(sourceText: string): string {
   ].join('\n');
 }
 
-export function candidateSentencePromptV2(candidateSentences: string[]): string {
+export function candidateSentencePromptV2(candidateSentences: string[], context: PacketContext = {}): string {
+  const contextLines = [
+    context.title ? `Title: ${context.title}` : undefined,
+    context.sectionTitle ? `Section: ${context.sectionTitle}` : undefined,
+    context.sourceCitation ? `Citation: ${context.sourceCitation}` : undefined
+  ].filter(Boolean);
   return [
     'You classify candidate cancer-literature evidence sentences.',
     'Return ONLY valid JSON. No markdown. No commentary.',
@@ -154,31 +164,51 @@ export function candidateSentencePromptV2(candidateSentences: string[]): string 
     'Rules:',
     '- Return 0 to 2 claims total.',
     '- Each claim must use one complete candidate sentence copied exactly as exactEvidenceSentence.',
-    '- Extract a claim when the candidate sentence directly states a cancer-related finding or cited finding.',
-    '- Prefer zero claims only when all candidate sentences are methods-only, bibliometric-only, vague, duplicated, or require inference.',
+    '- Extract a claim when the candidate sentence directly states a cancer-related finding, outcome, or cited finding. Do not require the sentence to name a biomarker. Clinical outcome sentences are valid claims.',
+    '- Clinical outcomes are strong claim signals: ORR, objective response rate, response rate, PFS, progression-free survival, OS, overall survival, median survival, survival rate, hazard ratio, remission, recurrence, local control, toxicity, adverse events, grade 3/4 events, complete response, partial response, disease control, and progression.',
+    '- If a sentence reports numeric clinical outcomes such as percentages, months, HR, ORR, PFS, OS, survival rates, response rates, or adverse-event rates in cancer patients, return one claim unless it is clearly only eligibility/methods/dosing.',
+    '- Phrases such as "our study", "we found", "we observed", "in this cohort", "among patients in our study", "patients in C1 of our study", or direct result reporting usually mean evidenceOrigin="this_study_result".',
+    '- Phrases naming another trial/study or prior report, such as "In the Phase III ... study", "previous studies", "prior reports", or a cited named trial, usually mean evidenceOrigin="cited_prior_work" or "background".',
+    '- Map ORR/objective response/response-rate and toxicity/adverse-event result sentences to claimType="treatment_response". Map PFS/OS/survival/prognosis sentences to claimType="prognosis" unless response is the main endpoint. Use outcomeMention for ORR/PFS/OS/toxicity text and statisticalEvidenceMention for percentages, months, HR, p-values, or rates.',
+    '- If a candidate sentence states an association, response, resistance, survival, prognosis, progression, diagnosis, biomarker, tumor-growth, proliferation, apoptosis, invasion, migration, or metastasis finding in the cancer context, return a claim.',
+    '- Prefer zero claims only when all candidate sentences are methods-only, dataset-description-only, bibliometric-only, generic disease background, vague, duplicated, or require inference. Do not return zero claims for a sentence that explicitly reports ORR, PFS, OS, survival, toxicity, response, or biomarker association outcomes.',
     '- Do not extract study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, search methods, citation clusters, or general study characteristics unless tied to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, resistance, or another outcome.',
     '- Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" for cited or review-style claims unless the sentence reports this study\'s own result.',
     '- Use evidenceOrigin="this_study_result" only for the authors\' own reported results. Use "cited_prior_work", "background", or "review_summary" for prior studies, general knowledge, or review synthesis.',
-    '- For a direct exact-sentence claim, confidence should usually be 0.5 to 0.9. Use confidence below 0.5 only if the sentence is ambiguous.',
+    '- For a direct exact-sentence claim, confidence should usually be 0.6 to 0.9. Use confidence below 0.5 only if the sentence is ambiguous. A sentence with exact ORR/PFS/OS/toxicity numbers should usually be at least 0.7 confidence.',
     '- Do not write a claim-like summary while returning claims: [].',
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
+    '- Use the context below to resolve abbreviations such as GBM, TNBC, LUAD, STAD, and GC and to fill cancerType when obvious. exactEvidenceSentence must still be copied from a candidate sentence.',
+    '- Avoid generic disease-definition claims such as \"glioblastoma is aggressive\" unless the sentence also gives a specific biomarker, treatment, resistance, survival, diagnostic, risk, or outcome relation.',
+    ...(contextLines.length ? ['Context:', ...contextLines] : []),
+    'Examples of valid extraction decisions:',
+    'Sentence: The 53% ORR, median PFS of 22.1 months and 1- and 2-year OS rates of 78% and 69% respectively amongst patients in C1 of our study are comparable with prior reports.',
+    'Decision: return one this_study_result clinical claim; claimType treatment_response or prognosis; exactEvidenceSentence equals the sentence.',
+    'Sentence: In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.',
+    'Decision: return one cited_prior_work/background clinical claim; claimType treatment_response or prognosis; exactEvidenceSentence equals the sentence.',
+    'Sentence: The dose regimen ranged from 50.4 to 66.6 Gy for Grade I, while 54–70.2 Gy for Grade II/III.',
+    'Decision: return zero claims because this is dose-only without an outcome.',
     'Candidate sentences are listed below. exactEvidenceSentence must equal one candidate sentence exactly; do not include numbering, bullets, quotes, or extra text.',
     ...candidateSentences.map((sentence) => `<sentence>${sentence}</sentence>`)
   ].join('\n');
 }
 
-export function selectCandidateEvidenceSentences(sourceText: string, limit = 5): string[] {
+export type PacketContext = { title?: string; sectionTitle?: string; sourceCitation?: string; sourceUrl?: string; sourcePublishedAt?: string };
+
+export function selectCandidateEvidenceSentences(sourceText: string, limit = 8, contextText = ''): string[] {
   const sentences = sourceText
     .replace(/\s+/g, ' ')
     .split(/(?<=[.!?])\s+(?=[A-Z0-9“"(])/)
     .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length >= 40 && sentence.length <= 700 && CANDIDATE_SENTENCE_TERMS.test(sentence) && CANCER_TERMS.test(sentence));
+    .filter((sentence) => sentence.length >= 40 && sentence.length <= 700 && CANDIDATE_SENTENCE_TERMS.test(sentence) && (CANCER_TERMS.test(sentence) || CANCER_TERMS.test(contextText)));
   const scored = sentences.map((sentence, index) => {
     let score = 0;
     if (CANCER_TERMS.test(sentence)) score += 3;
+    else if (CANCER_TERMS.test(contextText)) score += 1;
     if (CLAIM_OPPORTUNITY_TERMS.test(sentence)) score += 3;
     if (/\b(p\s*[<=>]|P\s*[<=>]|AUC|ORR|PFS|OS|IC50|hazard ratio|HR|%|months?|survival|toxicit|local control|recurrence|progression|response|resistance)\b/i.test(sentence)) score += 2;
-    if (/\b(methods?|included|eligible|criteria|search|database|Table|Figure|Supplementary|cluster|citation|keyword|author|country|journal)\b/i.test(sentence)) score -= 2;
+    if (/\b(methods?|included|eligible|criteria|search|database|dataset|GEO|Table|Figure|Supplementary|cluster|citation|keyword|author|country|journal)\b/i.test(sentence)) score -= 2;
+    if (/\b(significant|significantly|associated|correlated|predict|improved|worse|poor|reduced|inhibited|promoted|increased|decreased)\b/i.test(sentence)) score += 1;
     return { sentence, index, score };
   });
   return scored.sort((a, b) => b.score - a.score || a.index - b.index).slice(0, limit).map((entry) => entry.sentence);
@@ -262,21 +292,62 @@ function strictEnum<T extends string>(value: unknown, allowed: readonly T[]): T 
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? value as T : undefined;
 }
 
-function hasNullishOrPlaceholder(value: unknown): boolean {
-  if (value === null) return true;
-  if (typeof value === 'string') return PLACEHOLDER_STRINGS.has(value.trim().toLowerCase());
-  if (Array.isArray(value)) return value.some(hasNullishOrPlaceholder);
-  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>).some(hasNullishOrPlaceholder);
-  return false;
+
+function evidenceCancerSupport(sentence: string, contextText = ''): { valid: boolean; warning?: string } {
+  const normalized = sentence.replace(/\s+/g, ' ').trim();
+  if (CANCER_TERMS.test(normalized) || CANCER_TERMS.test(contextText)) return { valid: true };
+  if (STRONG_ONCOLOGY_OUTCOME_TERMS.test(normalized) && (CLAIM_OPPORTUNITY_TERMS.test(normalized) || CLAIM_OPPORTUNITY_TERMS.test(contextText))) {
+    return { valid: true, warning: 'weak_cancer_lexicon_match_strong_oncology_outcome' };
+  }
+  return { valid: false };
 }
 
-function isBadEvidenceSentence(sentence: string): boolean {
+function isBadEvidenceSentence(sentence: string, contextText = ''): boolean {
   const normalized = sentence.replace(/\s+/g, ' ').trim();
   if (normalized.length < 40) return true;
   if (!/[A-Za-z]{4,}/.test(normalized)) return true;
   if (/^[A-Z]{2,}\s*\[[^\]]*\]$/.test(normalized)) return true;
   if (/^\W*[A-Z0-9]{1,6}\W*$/.test(normalized)) return true;
-  if (!CANCER_TERMS.test(normalized)) return true;
+  if (!evidenceCancerSupport(normalized, contextText).valid) return true;
+  return false;
+}
+
+
+function inferCancerTypeFromText(text: string): string | undefined {
+  const normalized = text.toLowerCase();
+  const patterns: Array<[RegExp, string]> = [
+    [/\b(glioblastoma|gbm)\b/, 'glioblastoma'],
+    [/\btriple[-‐ ]negative breast cancer|\btnbc\b/, 'triple-negative breast cancer'],
+    [/\bbreast cancer\b/, 'breast cancer'],
+    [/\bgastric cancer\b|\bstomach cancer\b|\bstad\b/, 'gastric cancer'],
+    [/\blung adenocarcinoma\b|\bluad\b/, 'lung adenocarcinoma'],
+    [/\bnon-small cell lung cancer\b|\bnsclc\b/, 'non-small cell lung cancer'],
+    [/\blung cancer\b/, 'lung cancer'],
+    [/\boral squamous cell carcinoma\b|\boscc\b/, 'oral squamous cell carcinoma'],
+    [/\bhepatocellular carcinoma\b|\bhcc\b/, 'hepatocellular carcinoma'],
+    [/\bmelanoma\b/, 'melanoma'],
+    [/\bleukemia\b|\bleukaemia\b/, 'leukemia'],
+    [/\blymphoma\b/, 'lymphoma']
+  ];
+  return patterns.find(([pattern]) => pattern.test(normalized))?.[1];
+}
+
+
+function isNonResultClaimSentence(sentence: string, claim: Record<string, unknown>): boolean {
+  const normalized = sentence.replace(/\s+/g, ' ').trim();
+  const evidenceOrigin = typeof claim.evidenceOrigin === 'string' ? claim.evidenceOrigin : '';
+  if (evidenceOrigin === 'methods_only' || evidenceOrigin === 'hypothesis_or_speculation') return true;
+  if (!NON_RESULT_SENTENCE_TERMS.test(normalized)) return false;
+  return !RESULT_ASSERTION_TERMS.test(normalized);
+}
+
+function isLowValueClaimSentence(sentence: string, claim: Record<string, unknown>): boolean {
+  const normalized = sentence.replace(/\s+/g, ' ').trim();
+  const lower = normalized.toLowerCase();
+  const hasSpecificEntity = Boolean(optionalString(claim.biomarkerMention) || optionalString(claim.drugOrInterventionMention) || optionalString(claim.outcomeMention) || optionalString(claim.statisticalEvidenceMention));
+  if (/\b(is|are|remains|represents)\b.*\b(common|aggressive|poor prognosis|heterogeneity|invasiveness|mortality|morbidity)\b/i.test(normalized) && !hasSpecificEntity) return true;
+  if (/\b(dataset|database|GEO|TCGA|obtained from|consists of|comprises|encompasses|included|samples?)\b/i.test(normalized) && !/\b(significant|significantly|associated|correlated|survival|response|resistance|progression|prognos|risk|diagnos|inhibited|reduced|promoted|increased|decreased)\b/i.test(normalized)) return true;
+  if (/^figure\s+s?\d+/i.test(lower) && !/\b(significant|significantly|inhibited|reduced|promoted|increased|decreased|associated|survival|response|resistance)\b/i.test(lower)) return true;
   return false;
 }
 
@@ -292,20 +363,26 @@ function reviewPriorityForClaim(claim: ExtractedClaim): 'high' | 'medium' | 'low
   return 'medium';
 }
 
-export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = ''): ResultPayloadV2 {
+export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '', context: PacketContext = {}): ResultPayloadV2 {
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const schemaVersion = source.schemaVersion;
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
   const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' ? claimsSourceRaw : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
   const seenEvidenceSentences = new Set<string>();
+  const rejectionCounts = new Map<string, number>();
+  const reject = (reason: string): null => { rejectionCounts.set(reason, (rejectionCounts.get(reason) ?? 0) + 1); return null; };
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
-    if (hasNullishOrPlaceholder(claim)) return null;
     const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
-    if (isBadEvidenceSentence(exactEvidenceSentence)) return null;
-    if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return null;
+    const claimContextText = [context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join('\n');
+    const cancerSupport = evidenceCancerSupport(exactEvidenceSentence, claimContextText);
+    if (isBadEvidenceSentence(exactEvidenceSentence, claimContextText)) return reject('bad_evidence_sentence');
+    if (cancerSupport.warning) warnings.push(`claim_flagged:${cancerSupport.warning}`);
+    if (isNonResultClaimSentence(exactEvidenceSentence, claim)) return reject('non_result_sentence');
+    if (isLowValueClaimSentence(exactEvidenceSentence, claim)) return reject('low_value_sentence');
+    if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return reject('evidence_not_in_source');
     const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (seenEvidenceSentences.has(evidenceKey)) return null;
+    if (seenEvidenceSentences.has(evidenceKey)) return reject('duplicate_evidence_sentence');
     seenEvidenceSentences.add(evidenceKey);
     const claimType = strictEnum(claim.claimType, CLAIM_TYPES);
     const evidenceOrigin = strictEnum(claim.evidenceOrigin, EVIDENCE_ORIGINS);
@@ -314,7 +391,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     const polarity = strictEnum(claim.polarity, POLARITIES);
     const direction = strictEnum(claim.direction, DIRECTIONS);
     const confidenceValue = strictConfidence(claim.confidence);
-    if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return null;
+    if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return reject('invalid_required_field');
     const charStart = sourceText ? sourceText.indexOf(exactEvidenceSentence) : -1;
     const charEnd = charStart >= 0 ? charStart + exactEvidenceSentence.length : undefined;
     const normalized: ExtractedClaim = {
@@ -324,7 +401,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
       studyContext,
       polarity,
       direction,
-      cancerType: optionalString(claim.cancerType),
+      cancerType: optionalString(claim.cancerType) ?? inferCancerTypeFromText([exactEvidenceSentence, context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join(' \n')),
       biomarkerMention: optionalString(claim.biomarkerMention),
       drugOrInterventionMention: optionalString(claim.drugOrInterventionMention),
       outcomeMention: optionalString(claim.outcomeMention),
@@ -340,6 +417,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '')
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
   const cappedClaims = claims.slice(0, 2);
+  for (const [reason, count] of rejectionCounts) warnings.push(`claim_rejected:${reason}:${count}`);
   if (claimsSourceRaw.length > 2 || claims.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
   if (!cappedClaims.length) warnings.push('local_model_returned_no_claims');
   const noClaimReason = cappedClaims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
@@ -449,10 +527,11 @@ export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmC
   return normalizeLocalLlmPayload(await generateWithPrompt(sourceText, extractionPrompt(sourceText), config, signal, onProgress), sourceText);
 }
 
-export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayloadV2> {
-  const candidateSentences = selectCandidateEvidenceSentences(sourceText);
-  const prompt = candidateSentences.length ? candidateSentencePromptV2(candidateSentences) : extractionPromptV2(sourceText);
-  const normalized = normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, prompt, config, signal, onProgress), sourceText);
+export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void, context: PacketContext = {}): Promise<ResultPayloadV2> {
+  const contextText = [context.title, context.sectionTitle, context.sourceCitation, context.sourceUrl, context.sourcePublishedAt].filter(Boolean).join('\n');
+  const candidateSentences = selectCandidateEvidenceSentences(sourceText, 8, contextText);
+  const prompt = candidateSentences.length ? candidateSentencePromptV2(candidateSentences, context) : extractionPromptV2([contextText, sourceText].filter(Boolean).join('\n\n'));
+  const normalized = normalizeLocalLlmV2Payload(await generateWithPrompt(sourceText, prompt, config, signal, onProgress), sourceText, context);
   normalized.warnings.push(candidateSentences.length ? `candidate_sentence_mode:${candidateSentences.length}` : 'candidate_sentence_mode:none_fallback_full_packet');
   return resultPayloadV2Schema.parse(normalized);
 }

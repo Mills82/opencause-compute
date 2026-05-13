@@ -1,10 +1,12 @@
 import { app, BrowserWindow, Menu, Tray, ipcMain, shell, nativeImage, dialog, type BrowserWindow as BrowserWindowType, type MenuItemConstructorOptions, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildDesktopViewModel } from './view-model.js';
 import { loadDesktopSettings, redactedSettings, updateDesktopSettings, type DesktopSettings } from './settings.js';
 import { WorkerSupervisor } from './supervisor.js';
-import { modelDownloadStatus, modelRuntimeStatus, pullOllamaModel, startOllamaModelDownload } from './model-runtime.js';
+import { modelDownloadStatus, modelRuntimeStatus, pullOllamaModel, removeOllamaModel, startOllamaModelDownload, testOllamaModelReadiness } from './model-runtime.js';
 import { recommendedModelConfig, resourceStatus } from './host-metrics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +23,15 @@ function resolveStaticIndex(): string {
   return path.join(__dirname, 'static', 'index.html');
 }
 
+function resolveBakeoffScript(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'worker', 'scripts', 'local-model-bakeoff.mjs');
+  }
+  return path.resolve(__dirname, '../../worker/scripts/local-model-bakeoff.mjs');
+}
+
 const workerEntry = resolveWorkerEntry();
+const bakeoffScript = resolveBakeoffScript();
 let cachedSupervisor: WorkerSupervisor | null = null;
 let cachedSupervisorKey = '';
 let mainWindow: BrowserWindowType | null = null;
@@ -123,6 +133,19 @@ function validateModelName(value: unknown): string {
   return model;
 }
 
+function validateModelNames(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new Error('models_required');
+  const models = value.map((entry) => validateModelName(entry));
+  if (!models.length || models.length > 12) throw new Error('models_required');
+  return [...new Set(models)];
+}
+
+function validateBakeoffOptions(value: unknown): { models: string[]; useSchemaFormat: boolean } {
+  if (Array.isArray(value)) return { models: validateModelNames(value), useSchemaFormat: true };
+  assertPlainObject(value);
+  return { models: validateModelNames(value.models), useSchemaFormat: value.useSchemaFormat !== false };
+}
+
 function validateDownloadId(value: unknown): string {
   if (typeof value !== 'string' || !/^[A-Za-z0-9._:-]{4,160}$/.test(value)) throw new Error('download_id_required');
   return value;
@@ -158,6 +181,65 @@ function validateUninstallConfirmation(value: unknown): { confirmed: true } {
   assertPlainObject(value);
   if (value.confirmed !== true) throw new Error('confirmation_required');
   return { confirmed: true };
+}
+
+async function runLocalBakeoff(models: string[], useSchemaFormat = true) {
+  const outputDir = path.join(appDir, 'eval-results');
+  await mkdir(outputDir, { recursive: true });
+  const startedAt = new Date().toISOString();
+  const timeoutMs = useSchemaFormat ? 35 * 60_000 : 12 * 60_000;
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    OPENCAUSE_EVAL_MODELS: models.join(','),
+    OPENCAUSE_EVAL_OUTPUT_DIR: outputDir,
+    OPENCAUSE_USE_SCHEMA_FORMAT: useSchemaFormat ? 'true' : 'false',
+    OPENCAUSE_MODEL_TIER: 'desktop',
+    OLLAMA_ENDPOINT: process.env.OLLAMA_ENDPOINT ?? process.env.LOCAL_LLM_ENDPOINT ?? 'http://127.0.0.1:11434'
+  };
+  return new Promise<{ code: number | null; outputDir: string; stdout: string; stderr: string; models: string[]; useSchemaFormat: boolean; failurePath?: string; timedOut?: boolean }>((resolve) => {
+    const child = spawn(process.execPath, [bakeoffScript], { env, cwd: path.dirname(bakeoffScript), windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const writeFailure = async (code: number | null, timedOut = false, errorMessage?: string) => {
+      const failurePath = path.join(outputDir, `local-model-bakeoff-failed-${models.join('_').replace(/[^a-z0-9_.-]+/gi, '-')}-${Date.now()}.json`);
+      const payload = {
+        createdAt: new Date().toISOString(),
+        startedAt,
+        code,
+        timedOut,
+        errorMessage,
+        models,
+        useSchemaFormat,
+        schemaConstrained: useSchemaFormat,
+        timeoutMs,
+        bakeoffScript,
+        executable: process.execPath,
+        stdout,
+        stderr
+      };
+      await writeFile(failurePath, `${JSON.stringify(payload, null, 2)}\n`);
+      return failurePath;
+    };
+    const finish = async (code: number | null, timedOut = false, errorMessage?: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      let failurePath: string | undefined;
+      if (timedOut || code !== 0 || errorMessage) failurePath = await writeFailure(code, timedOut, errorMessage);
+      resolve({ code, outputDir, stdout, stderr, models, useSchemaFormat, failurePath, timedOut });
+    };
+    const timer = setTimeout(() => {
+      stderr += `\nBakeoff timed out after ${timeoutMs}ms`;
+      child.kill('SIGKILL');
+      void finish(124, true, `bakeoff_timeout_${timeoutMs}ms`);
+    }, timeoutMs);
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (error) => void finish(1, false, error.message));
+    child.on('close', (code) => void finish(code));
+  });
 }
 
 function isLoginStartupLaunch(): boolean {
@@ -409,9 +491,22 @@ ipcMain.handle('desktop:start-model-download', async (event, model: unknown) => 
   assertTrustedIpc(event);
   return startOllamaModelDownload(validateModelName(model), true);
 });
+ipcMain.handle('desktop:remove-model', async (event, model: unknown) => {
+  assertTrustedIpc(event);
+  return removeOllamaModel(validateModelName(model));
+});
+ipcMain.handle('desktop:test-model-readiness', async (event, model: unknown) => {
+  assertTrustedIpc(event);
+  return testOllamaModelReadiness(validateModelName(model));
+});
 ipcMain.handle('desktop:model-download-status', async (event, id: unknown) => {
   assertTrustedIpc(event);
   return modelDownloadStatus(validateDownloadId(id));
+});
+ipcMain.handle('desktop:run-local-bakeoff', async (event, options: unknown) => {
+  assertTrustedIpc(event);
+  const parsed = validateBakeoffOptions(options);
+  return runLocalBakeoff(parsed.models, parsed.useSchemaFormat);
 });
 ipcMain.handle('desktop:check-for-updates', async (event) => {
   assertTrustedIpc(event);

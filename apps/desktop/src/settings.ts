@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { DEFAULT_LOCAL_MODEL, APPROVED_LOCAL_MODELS, approvedModel } from '@opencause/shared';
+import { DEFAULT_LOCAL_MODEL, APPROVED_LOCAL_MODELS, CANDIDATE_LOCAL_MODELS, locallyTestableModel } from '@opencause/shared';
 
 export type DesktopSettings = {
   coordinatorUrl: string;
@@ -28,6 +28,7 @@ export type DesktopSettings = {
     numCtx?: number;
     numPredict?: number;
     approvedModels: typeof APPROVED_LOCAL_MODELS;
+    candidateModels: typeof CANDIDATE_LOCAL_MODELS;
   };
 };
 
@@ -52,7 +53,8 @@ export const defaultDesktopSettings: DesktopSettings = {
     qualityMode: 'balanced',
     numCtx: 16384,
     numPredict: 5000,
-    approvedModels: APPROVED_LOCAL_MODELS
+    approvedModels: APPROVED_LOCAL_MODELS,
+    candidateModels: CANDIDATE_LOCAL_MODELS
   }
 };
 
@@ -81,8 +83,9 @@ export async function loadDesktopSettings(appDir: string): Promise<DesktopSettin
     modelRuntime: {
       ...defaultDesktopSettings.modelRuntime,
       ...parsed.modelRuntime,
-      model: parsedModel && approvedModel(parsedModel) ? parsedModel : DEFAULT_LOCAL_MODEL,
-      approvedModels: APPROVED_LOCAL_MODELS
+      model: parsedModel && locallyTestableModel(parsedModel) ? parsedModel : DEFAULT_LOCAL_MODEL,
+      approvedModels: APPROVED_LOCAL_MODELS,
+      candidateModels: CANDIDATE_LOCAL_MODELS
     }
   };
 }

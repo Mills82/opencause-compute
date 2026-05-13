@@ -7,12 +7,15 @@ describe('desktop static first-run UI', () => {
   it('presents first-run runtime and model setup without prototype wording', () => {
     expect(html).toContain('First-run setup');
     expect(html).toContain('Download selected model');
-    expect(html).toContain('Approved local model');
+    expect(html).toContain('Test selected model');
+    expect(html).toContain('Local Ollama model');
+    expect(html).toContain('Alternative and advanced models');
     expect(html).not.toContain('prototype button');
   });
 
   it('warns before downloading large or experimental models', () => {
     expect(html).toContain('Download advanced model');
+    expect(html).toContain('Download candidate model');
     expect(html).toContain('It may require a powerful PC, lots of memory, and a long download. Continue?');
     expect(html).toContain('Model download canceled.');
     expect(html.indexOf('Model download canceled.')).toBeLessThan(html.indexOf('Starting model download'));
@@ -47,6 +50,22 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Show setup checklist and technical details');
     expect(html).toContain('Show diagnostics');
     expect(html).toContain('download-status');
+    expect(html).toContain('Pick models to download and benchmark');
+    expect(html).toContain('Select laptop-safe');
+    expect(html).toContain('Select installed');
+    expect(html).toContain('Download selected bakeoff models');
+    expect(html).toContain('Run selected bakeoff');
+    expect(html).toContain('Run selected schema-off diagnostic');
+    expect(html).toContain('gemma3:12b');
+    expect(html).toContain('gemma4:e4b');
+    expect(html).toContain('qwen3.6:27b');
+    expect(html).toContain('gemma4:26b');
+    expect(html).not.toContain('gpt-oss:20b');
+    expect(html).not.toContain('gemma3:12b-it-qat');
+    expect(html).not.toContain('gemma4:31b');
+    expect(html).toContain('Uninstall model');
+    expect(html).toContain('removeModel');
+    expect(html).toContain('runLocalBakeoff');
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');
     expect(html).toContain('This model is not downloaded yet. Download it before applying it to the worker.');

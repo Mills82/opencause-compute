@@ -15,5 +15,8 @@ contextBridge.exposeInMainWorld('opencauseDesktop', {
   modelDownloadStatus: (id: string) => ipcRenderer.invoke('desktop:model-download-status', id),
   checkForUpdates: () => ipcRenderer.invoke('desktop:check-for-updates'),
   openExternal: (url: string) => ipcRenderer.invoke('desktop:open-external', url),
-  pullModel: (model: string) => ipcRenderer.invoke('desktop:pull-model', model)
+  pullModel: (model: string) => ipcRenderer.invoke('desktop:pull-model', model),
+  runLocalBakeoff: (models: string[], options?: { useSchemaFormat?: boolean }) => ipcRenderer.invoke('desktop:run-local-bakeoff', { models, useSchemaFormat: options?.useSchemaFormat !== false }),
+  removeModel: (model: string) => ipcRenderer.invoke('desktop:remove-model', model),
+  testModelReadiness: (model: string) => ipcRenderer.invoke('desktop:test-model-readiness', model)
 });

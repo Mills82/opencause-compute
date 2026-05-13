@@ -139,13 +139,25 @@ describe('local llm helpers', () => {
   });
 
   it('builds a compact sentence-level claims prompt', () => {
-    const prompt = candidateSentencePromptV2(['A systematic review showed that a surgical delay of four weeks can adversely affect survival in patients with lung cancer.']);
+    const prompt = candidateSentencePromptV2(['A systematic review showed that a surgical delay of four weeks can adversely affect survival in patients with lung cancer.'], { title: 'Review of lung cancer surgery timing' });
     expect(prompt).toContain('You classify candidate cancer-literature evidence sentences.');
     expect(prompt).toContain('Each claim must use one complete candidate sentence copied exactly');
     expect(prompt).toContain('exactEvidenceSentence must equal one candidate sentence exactly');
+    expect(prompt).toContain('Context:');
+    expect(prompt).toContain('Title: Review of lung cancer surgery timing');
+    expect(prompt).toContain('Use the context below to resolve abbreviations');
     expect(prompt).toContain('<sentence>A systematic review showed');
     expect(prompt).toContain('surgical delay of four weeks');
     expect(prompt).not.toContain('Source text follows');
+  });
+
+  it('uses packet context to select abbreviation-only cancer candidate sentences', () => {
+    const source = [
+      'HNRNPA2B1 knockdown significantly repressed proliferation and metastasis and promoted apoptosis.',
+      'Cells were seeded into six-well plates for transfection.'
+    ].join(' ');
+    const selected = selectCandidateEvidenceSentences(source, 8, 'Triple-negative breast cancer TNBC results');
+    expect(selected).toContain('HNRNPA2B1 knockdown significantly repressed proliferation and metastasis and promoted apoptosis.');
   });
 
   it('sentence selector requires cancer relevance in the candidate sentence', () => {
@@ -221,6 +233,31 @@ describe('local llm helpers', () => {
     expect(normalized.claims[0].charEnd).toBe(source.indexOf(sentence) + sentence.length);
   });
 
+  it('fills obvious cancer type from packet context when the evidence sentence uses only abbreviations', () => {
+    const sentence = 'HNRNPA2B1 knockdown significantly repressed proliferation and metastasis and promoted apoptosis.';
+    const normalized = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite',
+      claims: [liteClaim(sentence, { cancerType: undefined, biomarkerMention: 'HNRNPA2B1', drugOrInterventionMention: 'HNRNPA2B1 knockdown', outcomeMention: 'proliferation, metastasis, apoptosis' })],
+      summary: 'ok',
+      warnings: []
+    }, sentence, { title: 'HNRNPA2B1 knockdown in TNBC cells' });
+    expect(normalized.claims).toHaveLength(1);
+    expect(normalized.claims[0].cancerType).toBe('triple-negative breast cancer');
+  });
+
+  it('drops generic disease-definition claims without specific entities', () => {
+    const sentence = 'Glioblastoma is the most common and aggressive primary malignant brain tumor with poor prognosis.';
+    const normalized = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite',
+      claims: [liteClaim(sentence, { claimType: 'prognosis', cancerType: 'glioblastoma', biomarkerMention: undefined, drugOrInterventionMention: undefined, outcomeMention: undefined })],
+      noClaimReason: 'background_only',
+      summary: 'none',
+      warnings: []
+    }, sentence);
+    expect(normalized.claims).toHaveLength(0);
+    expect(normalized.noClaimReason).toBe('background_only');
+  });
+
 
   it('deduplicates repeated claims by exact evidence sentence and caps claims-v2 output at two', () => {
     const sentence = 'EGFR mutation was associated with improved response to osimertinib in lung cancer.';
@@ -285,22 +322,47 @@ describe('local llm helpers', () => {
     expect(normalized.noClaimReason).toBe('extraction_uncertain');
   });
 
-  it('drops claims containing null values or placeholder strings', () => {
+  it('sanitizes null or placeholder optional fields instead of dropping otherwise valid claims', () => {
     const sentence = 'EGFR mutation was associated with improved response to osimertinib in lung cancer.';
-    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { cancerType: null }), liteClaim(`${sentence} 2`, { cancerType: 'unknown' })], noClaimReason: 'extraction_uncertain', summary: 'bad', warnings: [] }, `${sentence} ${sentence} 2`);
-    expect(normalized.claims).toHaveLength(0);
-    expect(normalized.noClaimReason).toBe('extraction_uncertain');
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { cancerType: null, drugOrInterventionMention: 'unknown' })], noClaimReason: 'extraction_uncertain', summary: 'ok', warnings: [] }, sentence);
+    expect(normalized.claims).toHaveLength(1);
+    expect(normalized.claims[0].cancerType).toBe('lung cancer');
+    expect(normalized.claims[0].drugOrInterventionMention).toBeUndefined();
   });
 
   it('drops claims with invalid enum values', () => {
     const sentence = 'EGFR mutation was associated with improved response to osimertinib in lung cancer.';
     const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { claimType: 'made_up' })], noClaimReason: 'extraction_uncertain', summary: 'bad', warnings: [] }, sentence);
     expect(normalized.claims).toHaveLength(0);
+    expect(normalized.warnings).toContain('claim_rejected:invalid_required_field:1');
   });
 
   it('drops claims with citation-fragment evidence', () => {
     const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim('CC [ , ]')], noClaimReason: 'extraction_uncertain', summary: 'bad', warnings: [] }, 'CC [ , ]');
     expect(normalized.claims).toHaveLength(0);
+    expect(normalized.warnings).toContain('claim_rejected:bad_evidence_sentence:1');
+  });
+
+  it('keeps strong clinical outcome evidence without an explicit cancer word but flags it for review', () => {
+    const sentence = 'The 53% ORR, median PFS of 22.1 months and 1- and 2-year OS rates of 78% and 69% respectively amongst patients in C1 of our study are comparable with prior reports.';
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { cancerType: undefined, biomarkerMention: undefined, drugOrInterventionMention: undefined, outcomeMention: 'ORR, PFS, OS', statisticalEvidenceMention: '53%; 22.1 months; 78%; 69%', evidenceOrigin: 'this_study_result' })], summary: 'ok', warnings: [] }, sentence);
+    expect(normalized.claims).toHaveLength(1);
+    expect(normalized.claims[0].exactEvidenceSentence).toBe(sentence);
+    expect(normalized.warnings).toContain('claim_flagged:weak_cancer_lexicon_match_strong_oncology_outcome');
+  });
+
+
+  it('rejects generic non-result claims even when the model emits a claim', () => {
+    const sentence = 'The aim of this study was to evaluate the prognostic value of circulating tumor DNA in metastatic breast cancer.';
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { claimType: 'prognosis', evidenceOrigin: 'this_study_result', outcomeMention: 'prognostic value' })], summary: 'bad', warnings: [] }, sentence);
+    expect(normalized.claims).toHaveLength(0);
+    expect(normalized.warnings).toContain('claim_rejected:non_result_sentence:1');
+  });
+
+  it('keeps statistical model findings when they assert an actual result', () => {
+    const sentence = 'In multivariable Cox analysis, high ctDNA levels independently predicted shorter progression-free survival in metastatic breast cancer.';
+    const normalized = normalizeLocalLlmV2Payload({ schemaVersion: 'claims-v2-lite', claims: [liteClaim(sentence, { claimType: 'prognosis', biomarkerMention: 'ctDNA', outcomeMention: 'progression-free survival', evidenceOrigin: 'this_study_result' })], summary: 'ok', warnings: [] }, sentence);
+    expect(normalized.claims).toHaveLength(1);
   });
 
   it('downgrades non-this-study review priority to low', () => {

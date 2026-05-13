@@ -169,11 +169,17 @@ function shouldFailClaimImmediately(reason: string): boolean {
   return reason.startsWith('local_llm_timeout') || reason === 'local_llm_invalid_json' || reason === 'local_llm_empty_response';
 }
 
+
+function localLlmCapabilities(extractorMode: ExtractorMode): string[] {
+  if (extractorMode !== 'local-llm') return ['mock-extractor-v1'];
+  return ['local-llm-v1', 'local-llm-v2', `model:${localLlmConfig.model}`];
+}
+
 async function register(server: string, extractorMode: ExtractorMode): Promise<NodeCredentials> {
   const nodeName = arg('--node-name', `${os.hostname()}-worker`) as string;
   const platform = `${process.platform}-${process.arch}`;
   const version = WORKER_VERSION;
-  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1', 'local-llm-v2'] : ['mock-extractor-v1'];
+  const capabilities = localLlmCapabilities(extractorMode);
   const enrollmentCode = (arg('--enrollment-code') as string | undefined) || process.env.NODE_ENROLLMENT_CODE;
 
   const response = await post<{ node: { id: string }; nodeToken: string; profileSetupToken?: string }>(server, '/api/nodes/register', {
@@ -194,7 +200,7 @@ async function register(server: string, extractorMode: ExtractorMode): Promise<N
 
 async function heartbeat(server: string, credentials: NodeCredentials, extractorMode: ExtractorMode): Promise<void> {
   const nodeId = credentials.nodeId;
-  await post(server, '/api/nodes/heartbeat', { nodeId, capabilities: extractorMode === 'local-llm' ? ['local-llm-v2', 'local-llm-v1'] : ['mock-extractor-v1'] }, credentials.nodeToken);
+  await post(server, '/api/nodes/heartbeat', { nodeId, capabilities: localLlmCapabilities(extractorMode) }, credentials.nodeToken);
   await log(`heartbeat ${nodeId}`);
 }
 
@@ -308,7 +314,7 @@ async function extractFromPacket(
   signal?: AbortSignal,
   onProgress?: (progress: LocalLlmProgress) => void
 ): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
-  const capabilities = extractorMode === 'local-llm' ? ['local-llm-v1', 'local-llm-v2'] : ['mock-extractor-v1'];
+  const capabilities = localLlmCapabilities(extractorMode);
   if (packet.extractor === 'mock-extractor-v1') {
     if (!mockAllowed || extractorMode !== 'mock') {
       throw new Error('mock_extractor_packet_rejected');
@@ -340,7 +346,12 @@ async function extractFromPacket(
         provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, false)
       };
     }
-    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress);
+    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress, {
+      title: packet.title,
+      sourceCitation: packet.sourceCitation,
+      sourceUrl: packet.sourceUrl,
+      sourcePublishedAt: packet.sourcePublishedAt
+    });
     return {
       extractorVersion: 'Local LLM v2',
       result,

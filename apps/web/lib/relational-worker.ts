@@ -36,6 +36,36 @@ function iso(value: string | Date | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+
+function modelFromCapabilities(capabilities: unknown): string | null {
+  if (!Array.isArray(capabilities)) return null;
+  const found = capabilities.find((capability) => typeof capability === 'string' && capability.startsWith('model:'));
+  return typeof found === 'string' ? found.slice('model:'.length) : null;
+}
+
+function sqlResultModel(): string {
+  return `coalesce(r.provenance->>'modelName', r.provenance->>'model', 'unknown')`;
+}
+
+function sqlModelConsensusWeight(): string {
+  return `CASE coalesce(r.provenance->>'modelName', r.provenance->>'model', '')
+          WHEN 'qwen3:14b' THEN 1.25
+          WHEN 'gpt-oss:20b' THEN 1.20
+          WHEN 'gemma4:26b' THEN 1.18
+          WHEN 'gemma4:31b' THEN 1.18
+          WHEN 'gemma3:12b' THEN 1.05
+          WHEN 'gemma4:e4b' THEN 0.75
+          ELSE CASE COALESCE(r.provenance->>'generationQualityTier', 'balanced')
+            WHEN 'ultra' THEN 1.20
+            WHEN 'high' THEN 1.10
+            WHEN 'balanced' THEN 1.00
+            WHEN 'low' THEN 0.80
+            WHEN 'mock' THEN 0.50
+            ELSE 1.0
+          END
+        END`;
+}
+
 function packetPayloadFromRow(row: any): WorkPacketPayload {
   if (row.signed_payload && typeof row.signed_payload === 'object') {
     return workPacketPayloadSchema.parse(row.signed_payload);
@@ -82,14 +112,7 @@ async function updateConsensusForPacket(client: PoolClient, packetId: string): P
     `SELECT COUNT(*)::int AS count FROM (
       SELECT ${sqlConsensusFactKey()} AS fact_key,
         COUNT(DISTINCT r.node_id)::int AS node_count,
-        SUM(CASE COALESCE(r.provenance->>'generationQualityTier', 'balanced')
-          WHEN 'ultra' THEN 1.33
-          WHEN 'high' THEN 1.23
-          WHEN 'balanced' THEN 1.04
-          WHEN 'low' THEN 0.85
-          WHEN 'mock' THEN 0.75
-          ELSE 1.0
-        END)::float AS agreement_weight
+        SUM(${sqlModelConsensusWeight()} )::float AS agreement_weight
       FROM (
         SELECT result_id, ${sqlConsensusFactKey()} AS fact_key FROM extracted_facts
         UNION ALL
@@ -98,14 +121,7 @@ async function updateConsensusForPacket(client: PoolClient, packetId: string): P
       JOIN extraction_results r ON r.id = f.result_id
       WHERE r.work_packet_id = $1 AND r.format_validated = true
       GROUP BY fact_key
-      HAVING COUNT(DISTINCT r.node_id) >= $2 AND SUM(CASE COALESCE(r.provenance->>'generationQualityTier', 'balanced')
-          WHEN 'ultra' THEN 1.33
-          WHEN 'high' THEN 1.23
-          WHEN 'balanced' THEN 1.04
-          WHEN 'low' THEN 0.85
-          WHEN 'mock' THEN 0.75
-          ELSE 1.0
-        END) >= $3
+      HAVING COUNT(DISTINCT r.node_id) >= $2 AND SUM(${sqlModelConsensusWeight()} ) >= $3
     ) agreed`,
     [packetId, REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT]
   );
@@ -150,6 +166,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
   try {
     await client.query('BEGIN');
     const node = await assertNodeAuthorized(client, nodeId, token);
+    const nodeModel = modelFromCapabilities(node.capabilities);
 
     await client.query("UPDATE work_claims SET status = 'expired', completed_at = NOW() WHERE status = 'claimed' AND lease_expires_at <= NOW()");
     await client.query("UPDATE work_packets SET status = 'queued', updated_at = NOW() WHERE status = 'claimed' AND NOT EXISTS (SELECT 1 FROM work_claims c WHERE c.work_packet_id = work_packets.id AND c.status = 'claimed')");
@@ -191,10 +208,22 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
          AND prior.node_id = $1
          AND prior.status IN ('completed', 'failed')
        )
-       ORDER BY updated_at, created_at
+       ORDER BY
+         CASE
+           WHEN $4::text IS NULL THEN 0
+           WHEN EXISTS (
+             SELECT 1 FROM extraction_results r
+             WHERE r.work_packet_id = work_packets.id
+             AND coalesce(r.provenance->>'modelName', r.provenance->>'model', '') = $4::text
+           ) THEN 1
+           ELSE 0
+         END,
+         CASE WHEN EXISTS (SELECT 1 FROM extraction_results r WHERE r.work_packet_id = work_packets.id) THEN 0 ELSE 1 END,
+         updated_at,
+         created_at
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
-      [nodeId, node.capabilities ?? [], node.hostSnapshot ?? {}]
+      [nodeId, node.capabilities ?? [], node.hostSnapshot ?? {}, nodeModel]
     );
     const packet = packetResult.rows[0];
     if (!packet) {

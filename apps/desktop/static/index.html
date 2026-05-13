@@ -125,11 +125,25 @@
 
           <section id="model-step" data-panel="settings">
             <h2 id="model-step-title">2. Download a model</h2>
-            <label for="model-select">Approved local model</label>
+            <label for="model-select">Local Ollama model</label>
             <select id="model-select"></select>
             <p id="model-guidance" class="small"></p>
             <button id="pull-model" class="primary">Download selected model</button>
+            <button id="test-model-readiness" type="button">Test selected model</button>
+            <div class="card">
+              <h3>Temporary local bakeoff</h3>
+              <p class="small">Pick models to download and benchmark. Qwen3 14B is the recommended quality/default model; Gemma 4 E4B is the lower-tier fallback; advanced models are opt-in for capable PCs and should be validated before becoming defaults.</p>
+              <div id="bakeoff-model-list" class="grid"></div>
+              <div class="dashboard-actions">
+                <button id="select-safe-bakeoff" type="button">Select laptop-safe</button>
+                <button id="select-installed-bakeoff" type="button">Select installed</button>
+                <button id="pull-selected-bakeoff-models" type="button">Download selected bakeoff models</button>
+                <button id="run-selected-bakeoff" type="button">Run selected bakeoff</button>
+                <button id="run-schema-off-bakeoff" type="button">Run selected schema-off diagnostic</button>
+              </div>
+            </div>
             <div id="download-status" class="small"></div>
+            <div id="bakeoff-status" class="small"></div>
           </section>
 
           <section id="registration-step">
@@ -292,6 +306,8 @@
       const ollamaHelp = document.getElementById('ollama-help');
       const ollamaWaiting = document.getElementById('ollama-waiting');
       const downloadStatus = document.getElementById('download-status');
+      const bakeoffStatus = document.getElementById('bakeoff-status');
+      const bakeoffModelList = document.getElementById('bakeoff-model-list');
       const enrollmentCode = document.getElementById('enrollment-code');
       const registrationMessage = document.getElementById('registration-message');
       const profileMessage = document.getElementById('profile-message');
@@ -342,6 +358,14 @@
       let profileSetupUrl = null;
       let activeTab = 'overview';
       let settingsDirty = false;
+      const bakeoffModelChoices = [
+        { id: 'qwen3:14b', label: 'Qwen3 14B', tier: 'quality default', role: 'anchor extractor', preset: 'safe', note: 'Recommended default for newer laptops/desktops; strongest current quality result.' },
+        { id: 'gemma4:e4b', label: 'Gemma 4 E4B', tier: 'lower-tier', role: 'fast fallback / consensus contributor', preset: 'safe', note: 'Use on lower-end machines; lower consensus weight than Qwen.' },
+        { id: 'gemma3:12b', label: 'Gemma 3 12B', tier: 'desktop', role: 'benchmark', preset: 'desktop', note: 'Useful mid-size benchmark if Ollama tag is available locally.' },
+        { id: 'gemma4:26b', label: 'Gemma 4 26B', tier: 'advanced', role: 'high-end experimental consensus model', preset: 'high-end', note: 'Retest on stronger PCs; previous laptop run was slow and had exact-span issues.' },
+        { id: 'qwen3.6:27b', label: 'Qwen3.6 27B', tier: 'advanced', role: 'high-end experimental Qwen model', preset: 'high-end', note: 'Verified Ollama tag qwen3.6:27b; promising because Qwen3 14B is strongest so far.' },
+      ];
+      const safeBakeoffModelIds = bakeoffModelChoices.filter(model => model.preset === 'safe').map(model => model.id);
       const resourcePresets = {
         budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 4000 },
         balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 5000 },
@@ -355,6 +379,12 @@
       }
 
       function modelLabel(model) { return `${model.label} (${model.id})`; }
+
+      function allLocalModelChoices() {
+        const approved = latestState?.modelRuntime?.approvedModels || [];
+        const candidates = latestState?.modelRuntime?.candidateModels || [];
+        return { approved, candidates, all: [...approved, ...candidates] };
+      }
 
       function selectedModelInstalled() {
         return Boolean(latestState?.modelRuntime?.installedModels?.includes(modelSelect.value) || (modelSelect.value === latestState?.modelRuntime?.selectedModel && latestState?.modelRuntime?.selectedModelInstalled));
@@ -508,26 +538,76 @@
         return ['Needs action', 'step-action'];
       }
 
+      function selectedBakeoffModels() {
+        return Array.from(document.querySelectorAll('.bakeoff-model-checkbox:checked')).map(input => input.value);
+      }
+
+      function setBakeoffSelection(ids) {
+        document.querySelectorAll('.bakeoff-model-checkbox').forEach((input) => { input.checked = ids.includes(input.value); });
+      }
+
+      function renderBakeoffChoices() {
+        if (!bakeoffModelList) return;
+        const installed = latestState?.modelRuntime?.installedModels || [];
+        const existingChecked = selectedBakeoffModels();
+        const checked = existingChecked.length ? existingChecked : safeBakeoffModelIds;
+        bakeoffModelList.innerHTML = bakeoffModelChoices.map((model) => {
+          const isInstalled = installed.includes(model.id);
+          const isSafe = model.preset === 'safe';
+          const badgeClass = isSafe || isInstalled ? 'ready' : model.preset === 'high-end' || model.preset === 'very-large' ? 'blocked' : 'warning';
+          return `<label class="stat-card"><input class="bakeoff-model-checkbox" type="checkbox" value="${model.id}" ${checked.includes(model.id) ? 'checked' : ''} /> <strong>${model.label}</strong><span class="pill ${badgeClass}">${model.tier}</span><span class="pill">${isInstalled ? 'installed' : 'not installed'}</span><p class="small"><code>${model.id}</code><br>${model.role}<br>${model.note}</p>${isInstalled ? `<button class="remove-model" type="button" data-model="${model.id}">Uninstall model</button>` : ''}</label>`;
+        }).join('');
+        bakeoffModelList.querySelectorAll('.remove-model').forEach((button) => {
+          button.onclick = async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const model = button.dataset.model;
+            if (!model) return;
+            if (model === modelSelect.value && !confirm(`${model} is currently selected for worker processing. Uninstall it anyway? The app will fall back to the default model next refresh if needed.`)) return;
+            if (!confirm(`Uninstall Ollama model ${model}? This removes the local model files but does not affect OpenCause data.`)) return;
+            try {
+              downloadStatus.textContent = `Uninstalling ${model}...`;
+              const result = await api.removeModel(model);
+              output.textContent = JSON.stringify(result, null, 2);
+              downloadStatus.textContent = result.code === 0 ? `${model} uninstalled.` : `Uninstall exited with code ${result.code}.`;
+              await refresh();
+            } catch (error) {
+              downloadStatus.textContent = `Uninstall failed: ${error?.message ?? error}`;
+            }
+          };
+        });
+      }
+
       function renderModels(modelRuntime) {
+        renderBakeoffChoices();
         const currentChoice = modelSelect.value;
         const preserveUserChoice = Boolean(currentChoice) && settingsDirty && (activeTab === 'settings' || document.activeElement === modelSelect);
         const selected = preserveUserChoice ? currentChoice : modelRuntime.selectedModel;
-        modelSelect.innerHTML = modelRuntime.approvedModels.map(model =>
+        const approvedOptions = (modelRuntime.approvedModels || []).map(model =>
           `<option value="${model.id}" ${model.id === selected ? 'selected' : ''}>${modelLabel(model)}</option>`
         ).join('');
+        const candidateOptions = (modelRuntime.candidateModels || []).map(model =>
+          `<option value="${model.id}" ${model.id === selected ? 'selected' : ''}>${modelLabel(model)} — candidate</option>`
+        ).join('');
+        modelSelect.innerHTML = `<optgroup label="Recommended processing model">${approvedOptions}</optgroup><optgroup label="Alternative and advanced models">${candidateOptions}</optgroup>`;
         renderSelectedModelGuidance();
       }
 
       function renderSelectedModelGuidance() {
         if (!latestState?.modelRuntime) return;
-        const model = latestState.modelRuntime.approvedModels.find(candidate => candidate.id === modelSelect.value);
-        if (!model) { modelGuidance.textContent = 'This model is not approved.'; pullButton.disabled = true; return; }
-        modelGuidance.innerHTML = `${model.memoryGuidance}<br><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
+        const { approved, candidates } = allLocalModelChoices();
+        const model = [...approved, ...candidates].find(candidate => candidate.id === modelSelect.value);
+        const isCandidate = candidates.some(candidate => candidate.id === modelSelect.value);
+        if (!model) { modelGuidance.textContent = 'This model is not approved or listed as a local-test candidate.'; pullButton.disabled = true; return; }
+        const badges = isCandidate
+          ? `<span class="pill warning">alternative / advanced</span><span class="pill">${model.tier}</span><span class="pill">role: ${model.role}</span>`
+          : `<span class="pill ready">recommended default</span><span class="pill">${model.tier}</span><span class="pill">download: ${model.estimatedDownload}</span>`;
+        modelGuidance.innerHTML = `${model.memoryGuidance}<br>${badges}<br><span class="small">${model.notes || ''}</span>`;
         const runtimeAvailable = Boolean(latestState.modelRuntime.available);
         const installed = selectedModelInstalled();
-        const advanced = model.tier === 'large' || model.tier === 'experimental';
+        const advanced = isCandidate || model.tier === 'large' || model.tier === 'experimental';
         pullButton.disabled = !runtimeAvailable || installed;
-        pullButton.textContent = installed ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : advanced ? 'Download advanced model...' : 'Download selected model';
+        pullButton.textContent = installed ? 'Model installed' : !runtimeAvailable ? 'Install Ollama first' : isCandidate ? 'Download candidate model...' : advanced ? 'Download advanced model...' : 'Download selected model';
       }
 
       function startOllamaPolling(message = 'Checking for Ollama installation...') {
@@ -602,7 +682,7 @@
             numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
             numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 5000);
           }
-          modelConfigGuidance.textContent = latestState.modelRecommendation ? `Recommended for this machine: ${latestState.modelRecommendation.recommendedTier} (${latestState.modelRecommendation.recommendedNumCtx} context, ${latestState.modelRecommendation.recommendedNumPredict} answer length, ${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads). ${latestState.modelRecommendation.note}` : '';
+          modelConfigGuidance.textContent = latestState.modelRecommendation ? `Model guidance: ${latestState.modelRecommendation.note} (${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads).` : '';
           output.textContent = JSON.stringify(latestState, null, 2);
           updateProgress();
         } catch (error) {
@@ -716,21 +796,96 @@
           downloadStatus.textContent = 'This model is not downloaded yet. Download it before applying it to the worker.';
         }
       };
+      async function downloadModel(model) {
+        const status = await api.startModelDownload(model);
+        downloadStatus.textContent = `Downloading ${model}...\n${status.lastMessage || ''}`;
+        output.textContent = JSON.stringify(status, null, 2);
+        return watchModelDownload(status.id);
+      }
+
+      async function downloadBakeoffModels(models, label) {
+        if (!latestState?.modelRuntime?.available) { downloadStatus.textContent = 'Install Ollama first, then click Check again before downloading models.'; return; }
+        const missing = models.filter(model => !(latestState?.modelRuntime?.installedModels || []).includes(model));
+        if (!missing.length) { downloadStatus.textContent = `All ${label} bakeoff models are already installed.`; return; }
+        if (!confirm(`Download ${missing.length} ${label} bakeoff models?\n\n${missing.join('\n')}\n\nFull/high-end models can take a long time and may not fit this machine.`)) return;
+        for (const model of missing) {
+          try {
+            await downloadModel(model);
+            await refresh();
+          } catch (error) {
+            downloadStatus.textContent = `Stopped at ${model}: ${error?.message ?? error}`;
+            return;
+          }
+        }
+        downloadStatus.textContent = `${label} bakeoff model download queue finished.`;
+        await refresh();
+      }
+
+      async function runBakeoff(models, label) {
+        const installed = latestState?.modelRuntime?.installedModels || [];
+        const selected = models.filter(model => installed.includes(model));
+        if (!selected.length) { bakeoffStatus.textContent = `No ${label} bakeoff models are installed yet. Download at least one selected candidate model first.`; return; }
+        bakeoffStatus.textContent = `Running ${label} bakeoff for ${selected.join(', ')}... This can take a while.`;
+        try {
+          const useSchemaFormat = label !== 'schema-off diagnostic';
+          const result = await api.runLocalBakeoff(selected, { useSchemaFormat });
+          bakeoffStatus.textContent = result.code === 0 ? `${label} bakeoff finished. Results folder: ${result.outputDir}` : `${label} bakeoff failed with code ${result.code}${result.timedOut ? ' (timed out)' : ''}. ${result.failurePath ? 'Failure file: ' + result.failurePath : 'Results folder: ' + result.outputDir}`;
+          output.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          bakeoffStatus.textContent = `${label} bakeoff failed: ${error?.message ?? error}`;
+          output.textContent = bakeoffStatus.textContent;
+        }
+      }
+
+      document.getElementById('select-safe-bakeoff').onclick = () => setBakeoffSelection(safeBakeoffModelIds);
+      document.getElementById('select-installed-bakeoff').onclick = () => setBakeoffSelection(bakeoffModelChoices.map(model => model.id).filter(model => (latestState?.modelRuntime?.installedModels || []).includes(model)));
+      document.getElementById('pull-selected-bakeoff-models').onclick = () => {
+        const selected = selectedBakeoffModels();
+        if (!selected.length) { downloadStatus.textContent = 'Select at least one bakeoff model first.'; return; }
+        return downloadBakeoffModels(selected, 'selected');
+      };
+      document.getElementById('run-selected-bakeoff').onclick = () => {
+        const selected = selectedBakeoffModels();
+        if (!selected.length) { bakeoffStatus.textContent = 'Select at least one bakeoff model first.'; return; }
+        return runBakeoff(selected, 'selected');
+      };
+      document.getElementById('run-schema-off-bakeoff').onclick = () => {
+        const selected = selectedBakeoffModels();
+        if (!selected.length) { bakeoffStatus.textContent = 'Select at least one bakeoff model first.'; return; }
+        return runBakeoff(selected, 'schema-off diagnostic');
+      };
+
+
+      document.getElementById('test-model-readiness').onclick = async () => {
+        const model = modelSelect.value;
+        if (!selectedDropdownModelInstalled()) { downloadStatus.textContent = 'Download this model before running readiness.'; return; }
+        downloadStatus.textContent = `Testing ${model} readiness...`;
+        try {
+          const result = await api.testModelReadiness(model);
+          const label = result.status === 'passed' ? 'passed' : result.status === 'slow' ? 'passed but slow' : 'failed';
+          downloadStatus.textContent = `Model readiness ${label}: ${result.recommendation}`;
+          output.textContent = JSON.stringify(result, null, 2);
+        } catch (error) {
+          downloadStatus.textContent = `Model readiness failed: ${error?.message ?? error}`;
+          output.textContent = downloadStatus.textContent;
+        }
+      };
+
       pullButton.onclick = async () => {
         const model = modelSelect.value;
         if (!latestState?.modelRuntime?.available) { output.textContent = 'Install Ollama first, then click Check again before downloading a model.'; return; }
         try {
-          const selected = latestState?.modelRuntime?.approvedModels?.find(candidate => candidate.id === model);
-          const advanced = selected && (selected.tier === 'large' || selected.tier === 'experimental');
-          if (advanced && !confirm(`${selected.label} is a ${selected.estimatedDownload} advanced model. It may require a powerful PC, lots of memory, and a long download. Continue?`)) {
+          const choices = allLocalModelChoices();
+          const selected = choices.all.find(candidate => candidate.id === model);
+          const candidate = choices.candidates.some(candidate => candidate.id === model);
+          const advanced = candidate || (selected && (selected.tier === 'large' || selected.tier === 'experimental'));
+          const sizeLabel = selected.estimatedDownload || selected.tier || 'candidate';
+          if (advanced && !confirm(`${selected.label} is a ${sizeLabel} local-test model. It may require a powerful PC, lots of memory, and a long download. Continue?`)) {
             downloadStatus.textContent = 'Model download canceled.';
             return;
           }
           downloadStatus.innerHTML = `<p><strong>Starting model download...</strong></p><p>This can take several minutes. Keep this app open.</p>`;
-          const status = await api.startModelDownload(model);
-          downloadStatus.textContent = `Downloading model...\n${status.lastMessage || ''}`;
-          output.textContent = JSON.stringify(status, null, 2);
-          const finalStatus = await watchModelDownload(status.id);
+          const finalStatus = await downloadModel(model);
           if (finalStatus?.status === 'succeeded') {
             await api.updateSettings({ modelRuntime: { model, qualityMode: qualityMode.value } });
             await refresh();

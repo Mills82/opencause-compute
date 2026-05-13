@@ -33,6 +33,18 @@ describe('desktop settings', () => {
     }
   });
 
+  it('persists local-test candidate models without marking them approved', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'occ-desktop-'));
+    try {
+      await updateDesktopSettings(dir, { modelRuntime: { model: 'gemma4:e4b' } });
+      const settings = await loadDesktopSettings(dir);
+      expect(settings.modelRuntime.model).toBe('gemma4:e4b');
+      expect(settings.modelRuntime.candidateModels.map((model) => model.id)).toContain('gemma4:e4b');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('redacts enrollment code and node token for UI/status display', () => {
     const redacted = redactedSettings({ ...defaultDesktopSettings, enrollmentCode: 'occ_secret', nodeToken: 'token_secret' });
     expect(redacted.enrollmentCode).toBe('[redacted]');

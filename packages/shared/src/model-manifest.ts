@@ -1,4 +1,5 @@
 export type ApprovedModelTier = 'default' | 'stronger' | 'large' | 'experimental';
+export type CandidateModelTier = 'laptop' | 'desktop' | 'high_end';
 
 export type ApprovedModel = {
   id: string;
@@ -12,62 +13,100 @@ export type ApprovedModel = {
   notes: string;
 };
 
+export type CandidateLocalModel = {
+  id: string;
+  provider: 'ollama';
+  tier: CandidateModelTier;
+  label: string;
+  role: 'extractor' | 'adjudicator' | 'fallback' | 'benchmark';
+  verificationStatus: 'verify_locally' | 'tag_uncertain';
+  pullCommand?: string;
+  memoryGuidance: string;
+  notes: string;
+};
+
 export const APPROVED_LOCAL_MODELS: ApprovedModel[] = [
   {
-    id: 'llama3.1:8b',
+    id: 'qwen3:14b',
     provider: 'ollama',
     tier: 'default',
-    label: 'Llama 3.1 8B',
+    label: 'Qwen3 14B',
     recommended: true,
     publicDefault: true,
-    estimatedDownload: 'medium',
-    memoryGuidance: 'Recommended minimum local model for claim extraction. Requires more memory than 3B but produces more useful packet work.',
-    notes: 'Default public volunteer model. Smaller 3B models are not approved for extraction quality.'
-  },
-  {
-    id: 'llama3.3:70b',
-    provider: 'ollama',
-    tier: 'large',
-    label: 'Llama 3.3 70B',
-    recommended: false,
-    publicDefault: false,
-    estimatedDownload: 'very large',
-    memoryGuidance: 'Requires a high-end workstation/server-class setup. Not recommended for normal volunteers.',
-    notes: 'Allow only with explicit advanced-user confirmation.'
-  },
-  {
-    id: 'llama4:scout',
-    provider: 'ollama',
-    tier: 'experimental',
-    label: 'Llama 4 Scout',
-    recommended: false,
-    publicDefault: false,
     estimatedDownload: 'large',
-    memoryGuidance: 'Experimental option; requirements and extraction quality need project validation.',
-    notes: 'Do not make default until extraction quality/resource profile are validated.'
-  },
-  {
-    id: 'llama4:maverick',
-    provider: 'ollama',
-    tier: 'experimental',
-    label: 'Llama 4 Maverick',
-    recommended: false,
-    publicDefault: false,
-    estimatedDownload: 'very large',
-    memoryGuidance: 'Experimental large model option for advanced hardware only.',
-    notes: 'Do not make default; requires explicit advanced-user opt-in and validation.'
+    memoryGuidance: 'Recommended quality/default extractor for newer laptops and desktops. Best precision/recall balance in local bakeoffs so far.',
+    notes: 'Use as the anchor model for normal processing and consensus. Lower-end machines can use Gemma 4 E4B.'
   }
 ];
 
-export const DEFAULT_LOCAL_MODEL = 'llama3.1:8b';
+export const CANDIDATE_LOCAL_MODELS: CandidateLocalModel[] = [
+  {
+    id: 'gemma4:e4b',
+    provider: 'ollama',
+    tier: 'laptop',
+    label: 'Gemma 4 E4B',
+    role: 'fallback',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull gemma4:e4b',
+    memoryGuidance: 'Lower-tier/laptop fallback for machines that cannot comfortably run Qwen3 14B. Fast but lower consensus weight.',
+    notes: 'Useful consensus contributor and lower-end option; should not override Qwen3 14B when they disagree.'
+  },
+  {
+    id: 'gemma3:12b',
+    provider: 'ollama',
+    tier: 'desktop',
+    label: 'Gemma 3 12B',
+    role: 'benchmark',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull gemma3:12b',
+    memoryGuidance: 'Desktop-class benchmark and optional consensus contributor.',
+    notes: 'Secondary comparator behind Qwen3 14B and Gemma 4 E4B.'
+  },
+  {
+    id: 'gemma4:26b',
+    provider: 'ollama',
+    tier: 'high_end',
+    label: 'Gemma 4 26B',
+    role: 'adjudicator',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull gemma4:26b',
+    memoryGuidance: 'Advanced/high-end model for capable PCs. Prior laptop run was slow and had exact-span issues; retest on stronger hardware before using broadly.',
+    notes: 'Advanced consensus candidate, not a default until it beats Qwen3 14B cleanly.'
+  },
+  {
+    id: 'qwen3.6:27b',
+    provider: 'ollama',
+    tier: 'high_end',
+    label: 'Qwen3.6 27B',
+    role: 'adjudicator',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull qwen3.6:27b',
+    memoryGuidance: 'Advanced/high-end Qwen candidate. Promising because Qwen3 14B is the current quality leader; verify runtime, schema behavior, latency, and exact-span fidelity.',
+    notes: 'Ollama library tag found as qwen3.6:27b. Treat as experimental until bakeoff proves it.'
+  },
+];
+
+export const DEFAULT_LOCAL_MODEL = 'qwen3:14b';
 
 export function approvedModel(model: string): ApprovedModel | undefined {
   return APPROVED_LOCAL_MODELS.find((candidate) => candidate.id === model);
 }
 
-export function assertApprovedModel(model: string, options: { allowExperimental?: boolean; allowLarge?: boolean } = {}): ApprovedModel {
+export function candidateModel(model: string): CandidateLocalModel | undefined {
+  return CANDIDATE_LOCAL_MODELS.find((candidate) => candidate.id === model);
+}
+
+export function locallyTestableModel(model: string): ApprovedModel | CandidateLocalModel | undefined {
+  return approvedModel(model) ?? candidateModel(model);
+}
+
+export function assertApprovedModel(model: string, options: { allowExperimental?: boolean; allowLarge?: boolean; allowCandidate?: boolean } = {}): ApprovedModel | CandidateLocalModel {
+  const candidate = candidateModel(model);
   const found = approvedModel(model);
-  if (!found) throw new Error(`model_not_approved:${model}`);
+  if (!found) {
+    if (options.allowCandidate && candidate) return candidate;
+    throw new Error(`model_not_approved:${model}`);
+  }
   if (found.tier === 'large' && !options.allowLarge) throw new Error(`large_model_requires_opt_in:${model}`);
   if (found.tier === 'experimental' && !options.allowExperimental) throw new Error(`experimental_model_requires_opt_in:${model}`);
   return found;
