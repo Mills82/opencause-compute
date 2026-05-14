@@ -30,7 +30,10 @@ export default async function ImpactPage() {
   const db = await loadDb();
   const impact = buildImpactSummary(db);
   const topTeams = buildTeamLeaderboard(db).slice(0, 3);
-  const hasWork = impact.sectionsProcessed > 0 || impact.formatValidatedSubmissions > 0;
+  const validatedSectionsProcessed = impact.formatValidatedSubmissions;
+  const submittedSectionsProcessed = impact.sectionsProcessed;
+  const rejectedSections = Math.max(0, submittedSectionsProcessed - validatedSectionsProcessed);
+  const hasWork = submittedSectionsProcessed > 0 || validatedSectionsProcessed > 0;
   const progress = impact.currentProjectProgress;
   const estimatedTotalPackets = progress.estimatedTotalPackets;
   const validationTarget = progress.estimatedConsensusSubmissionTarget;
@@ -64,12 +67,10 @@ export default async function ImpactPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Literature sections processed" value={impact.sectionsProcessed} emphasis />
-        <Metric label="Structure-validated submissions" value={impact.formatValidatedSubmissions} emphasis />
+        <Metric label="Validated sections processed" value={validatedSectionsProcessed} emphasis />
         <Metric label="Consensus-complete sections" value={impact.consensusPassedContributions} />
+        <Metric label="Active worker nodes" value={impact.activeNodes} />
         <Metric label="Volunteer profiles" value={impact.volunteers} />
-        <Metric label="Active nodes" value={impact.activeNodes} />
-        <Metric label="Public teams" value={impact.teams} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
@@ -89,9 +90,9 @@ export default async function ImpactPage() {
             <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
               <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 via-slate-900/70 to-emerald-300/10 p-5">
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-100">Progress being made</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{progress.formatValidatedPackets.toLocaleString()}</p>
-                <p className="mt-2 text-sm text-slate-300">validated submissions from early beta worker runs.</p>
-                <p className="mt-4 text-sm leading-6 text-slate-300">The project is now proving the worker pipeline: claim packets, run local extraction, submit citation-backed results, and pass structure validation.</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{validatedSectionsProcessed.toLocaleString()}</p>
+                <p className="mt-2 text-sm text-slate-300">validated literature sections processed by early beta workers.</p>
+                <p className="mt-4 text-sm leading-6 text-slate-300">Each one represents a signed literature packet processed by a worker and accepted by OpenCause structure and provenance validation.</p>
               </div>
 
               <div className="rounded-2xl border border-emerald-300/20 bg-gradient-to-br from-emerald-300/10 via-slate-900/70 to-cyan-300/10 p-5">
@@ -117,11 +118,12 @@ export default async function ImpactPage() {
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">Limited beta</span>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-4">
-                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.sectionsProcessed.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Sections processed</p></div>
-                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.formatValidatedSubmissions.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Structure-validated</p></div>
-                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.consensusPassedContributions.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Consensus-complete</p></div>
-                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.activeNodes.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Active nodes</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{submittedSectionsProcessed.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Worker submissions received</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{validatedSectionsProcessed.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Passed structure validation</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{Math.max(0, validatedSectionsProcessed - impact.consensusPassedContributions).toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Awaiting independent consensus</p></div>
+                <div className="rounded-xl border border-line/70 bg-panel/60 p-4"><p className="text-2xl font-semibold text-white">{impact.consensusPassedContributions.toLocaleString()}</p><p className="mt-1 text-xs text-slate-400">Consensus complete</p></div>
               </div>
+              {rejectedSections > 0 ? <p className="mt-3 text-xs leading-5 text-slate-400">{rejectedSections.toLocaleString()} submitted section{rejectedSections === 1 ? '' : 's'} did not pass structure validation and are excluded from the public validated total.</p> : null}
             </div>
 
             {estimatedTotalPackets ? (
@@ -135,7 +137,7 @@ export default async function ImpactPage() {
                   <p className="mt-2 text-2xl font-semibold text-white">~{estimatedTotalPackets.toLocaleString()}</p>
                 </div>
                 <div className="rounded-2xl border border-line/70 bg-ink/80 p-4">
-                  <p className="text-sm text-slate-400">Current share of estimated sections</p>
+                  <p className="text-sm text-slate-400">Validated share of estimated sections</p>
                   <p className="mt-2 text-2xl font-semibold text-white">{formatPercent(progress.percentFormatValidated)}</p>
                 </div>
               </div>
@@ -172,9 +174,9 @@ export default async function ImpactPage() {
           <div className="rounded-3xl border border-line bg-panel p-5 shadow-2xl shadow-black/20">
             <h2 className="text-xl font-semibold">Why the numbers matter</h2>
             <div className="mt-4 space-y-4 text-sm leading-6 text-slate-300">
-              <p><span className="font-semibold text-white">Progress:</span> each validated submission proves another worker can process a signed literature packet and return structured evidence with source text and provenance.</p>
+              <p><span className="font-semibold text-white">Validated sections:</span> worker outputs that passed OpenCause structure, citation, and provenance checks. This is pipeline validation, not scientific acceptance.</p>
               <p><span className="font-semibold text-white">Scale:</span> open cancer literature is vast. Millions of estimated sections mean the project is designed for sustained volunteer participation, not a one-off demo.</p>
-              <p><span className="font-semibold text-white">Consensus:</span> candidate evidence becomes more useful after independent workers agree on overlapping claims and reviewers can inspect the source context.</p>
+              <p><span className="font-semibold text-white">Consensus:</span> candidate evidence becomes more useful after independent workers process overlapping sections and reviewers can inspect the source context.</p>
             </div>
           </div>
 
