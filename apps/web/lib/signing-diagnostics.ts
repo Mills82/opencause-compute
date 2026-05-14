@@ -1,4 +1,4 @@
-import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
 
 export type SigningDiagnostics = {
   signingMode: 'ed25519' | 'hmac-fallback';
@@ -7,11 +7,18 @@ export type SigningDiagnostics = {
   privateKeyParseOk: boolean;
   publicKeyParseOk: boolean;
   keyPairVerifyOk: boolean;
+  keyId?: string;
+  publicKeyFingerprint?: string;
+  derivedPublicKeyFingerprint?: string;
   error?: string;
 };
 
 function normalizePem(value: string): string {
   return value.trim().replace(/^['\"]|['\"]$/g, '').replace(/\\n/g, '\n');
+}
+
+function fingerprint(value: string): string {
+  return createHash('sha256').update(value).digest('hex').slice(0, 16);
 }
 
 export function packetSigningDiagnostics(): SigningDiagnostics {
@@ -23,7 +30,8 @@ export function packetSigningDiagnostics(): SigningDiagnostics {
     publicKeyPresent: Boolean(rawPublic),
     privateKeyParseOk: false,
     publicKeyParseOk: false,
-    keyPairVerifyOk: false
+    keyPairVerifyOk: false,
+    keyId: process.env.PACKET_SIGNING_KEY_ID
   };
   if (!rawPrivate || !rawPublic) return base;
 
@@ -32,6 +40,8 @@ export function packetSigningDiagnostics(): SigningDiagnostics {
     base.privateKeyParseOk = true;
     const publicKey = createPublicKey(normalizePem(rawPublic));
     base.publicKeyParseOk = true;
+    base.publicKeyFingerprint = fingerprint(publicKey.export({ type: 'spki', format: 'pem' }).toString());
+    base.derivedPublicKeyFingerprint = fingerprint(createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString());
     const payload = Buffer.from('opencause-signing-healthcheck');
     const signature = sign(null, payload, privateKey);
     base.keyPairVerifyOk = verify(null, payload, publicKey, signature);

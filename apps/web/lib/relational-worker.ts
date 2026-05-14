@@ -15,6 +15,7 @@ import {
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
 import { verifyWorkPacketSignature } from './signing';
+import { packetSigningDiagnostics } from './signing-diagnostics';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const LEASE_MINUTES = 10;
@@ -232,8 +233,9 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
     }
     const packetPayload = packetPayloadFromRow(packet);
     if (!verifyWorkPacketSignature(packetPayload, packet.signature)) {
+      const signing = packetSigningDiagnostics();
       await client.query("UPDATE work_packets SET status = 'invalid_signature', updated_at = NOW() WHERE id = $1", [packet.id]);
-      await recordAuditEvent(client, { actorType: 'system', action: 'work.packet.invalid_signature_quarantined', targetType: 'work_packet', targetId: packet.id, metadata: { reason: 'claim_preflight_signature_verification_failed' } });
+      await recordAuditEvent(client, { actorType: 'system', action: 'work.packet.invalid_signature_quarantined', targetType: 'work_packet', targetId: packet.id, metadata: { reason: 'claim_preflight_signature_verification_failed', signing: { mode: signing.signingMode, keyId: signing.keyId, publicKeyFingerprint: signing.publicKeyFingerprint, derivedPublicKeyFingerprint: signing.derivedPublicKeyFingerprint, keyPairVerifyOk: signing.keyPairVerifyOk } } });
       await client.query('COMMIT');
       return claimWorkRelational(nodeId, token);
     }

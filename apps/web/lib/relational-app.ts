@@ -5,6 +5,7 @@ import { createNodeToken, hashNodeToken } from './node-auth';
 import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
 import { assertSignedWorkPacketPayload, signWorkPacketPayload } from './signing';
+import { packetSigningDiagnostics } from './signing-diagnostics';
 import { isHostedMode } from './runtime-config';
 import { loadDb } from './db';
 import { recomputeGamification } from './gamification/recompute';
@@ -401,7 +402,8 @@ export async function startIngestionRunRelational(input: StartIngestionRunRelati
     await client.query('BEGIN');
     const run = (await client.query(`INSERT INTO ingestion_runs(id,source_type,mode,status,query,retmax,started_at,completed_at,fetched_count,skipped_count,failed_count,failure_reasons,packets_created,packets_skipped,used_ncbi_email,used_ncbi_api_key)
       VALUES($1,$2,$3,'running',$4,$5,NOW(),NULL,0,0,0,'[]'::jsonb,0,0,$6,$7) RETURNING *`, [randomUUID(), input.sourceType, input.mode, input.query, input.retmax, input.usedNcbiEmail, input.usedNcbiApiKey])).rows[0];
-    await appendAuditEventRelational({ actorType: input.mode === 'cron' ? 'cron' : 'admin', action: 'ingestion.started', targetType: 'ingestion_run', targetId: run.id, metadata: { sourceType: input.sourceType, query: input.query, retmax: input.retmax } }, client);
+    const signing = packetSigningDiagnostics();
+    await appendAuditEventRelational({ actorType: input.mode === 'cron' ? 'cron' : 'admin', action: 'ingestion.started', targetType: 'ingestion_run', targetId: run.id, metadata: { sourceType: input.sourceType, query: input.query, retmax: input.retmax, signing: { mode: signing.signingMode, keyId: signing.keyId, publicKeyFingerprint: signing.publicKeyFingerprint, derivedPublicKeyFingerprint: signing.derivedPublicKeyFingerprint, keyPairVerifyOk: signing.keyPairVerifyOk } } }, client);
     await client.query('COMMIT');
     return ingestionRunFromRow(run);
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
@@ -416,7 +418,8 @@ export async function completeIngestionRunRelational(runId: string, input: Compl
     if (!existing) throw new Error('ingestion_run_not_found');
     const status = input.status ?? (input.failedCount && input.failedCount > 0 ? 'partial_failed' : 'completed');
     const row = (await client.query(`UPDATE ingestion_runs SET status=$2, completed_at=NOW(), fetched_count=$3, skipped_count=$4, failed_count=$5, failure_reasons=$6, packets_created=$7, packets_skipped=$8 WHERE id=$1 RETURNING *`, [runId, status, input.fetchedCount ?? existing.fetched_count, input.skippedCount ?? existing.skipped_count, input.failedCount ?? existing.failed_count, JSON.stringify(input.failureReasons ?? existing.failure_reasons ?? []), input.packetsCreated ?? existing.packets_created, input.packetsSkipped ?? existing.packets_skipped])).rows[0];
-    await appendAuditEventRelational({ actorType: row.mode === 'cron' ? 'cron' : 'admin', action: `ingestion.${row.status}`, targetType: 'ingestion_run', targetId: row.id, metadata: { sourceType: row.source_type, fetchedCount: Number(row.fetched_count), skippedCount: Number(row.skipped_count), failedCount: Number(row.failed_count), packetsCreated: Number(row.packets_created), packetsSkipped: Number(row.packets_skipped) } }, client);
+    const signing = packetSigningDiagnostics();
+    await appendAuditEventRelational({ actorType: row.mode === 'cron' ? 'cron' : 'admin', action: `ingestion.${row.status}`, targetType: 'ingestion_run', targetId: row.id, metadata: { sourceType: row.source_type, fetchedCount: Number(row.fetched_count), skippedCount: Number(row.skipped_count), failedCount: Number(row.failed_count), packetsCreated: Number(row.packets_created), packetsSkipped: Number(row.packets_skipped), signing: { mode: signing.signingMode, keyId: signing.keyId, publicKeyFingerprint: signing.publicKeyFingerprint, derivedPublicKeyFingerprint: signing.derivedPublicKeyFingerprint, keyPairVerifyOk: signing.keyPairVerifyOk } } }, client);
     await client.query('COMMIT');
     return ingestionRunFromRow(row);
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
