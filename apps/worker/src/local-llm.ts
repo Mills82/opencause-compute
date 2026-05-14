@@ -1,6 +1,6 @@
 import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadV2Schema, type ExtractedClaim, type PacketTriage, type ResultPayload, type ResultPayloadV2 } from '@opencause/shared';
 
-export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite.1-prompt-2026-05-14a';
+export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite.2-prompt-2026-05-14a';
 
 const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','toxicity','local_control','studied_with','unclear'] as const;
 const EVIDENCE_ORIGINS = ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const;
@@ -82,25 +82,22 @@ export function generationQualityTier(config: LocalLlmConfig): 'low' | 'balanced
 
 export function extractionPromptV2(sourceText: string): string {
   return [
-    'You extract AI-readable candidate oncology evidence from source text.',
-    'Important: these are NOT accepted scientific conclusions. They are candidate evidence records for later validation.',
+    'You extract candidate oncology evidence from source text for later human/model review.',
+    'These are NOT accepted medical facts. Extract direct candidate evidence statements; later systems will validate them.',
     'Return ONLY valid JSON. No markdown. No commentary.',
-    'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
-    'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
-    'Allowed values:',
-    'claimLabel = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity, local_control, biomarker_association, studied_with, other',
-    'evidenceRole = this_study_result, prior_work, background, review_summary, method_or_design, hypothesis, unclear',
-    'evidenceModality = clinical, preclinical, computational, review, case_report, epidemiology, unclear',
-    'effect = increased, decreased, associated, no_association, mixed, unclear',
-    'Rules:',
-    '- Return 0 to 2 claims.',
-    '- evidenceSentence must be one complete sentence copied exactly from the source text.',
-    '- Extract cancer-related evidence about response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity/adverse events, local control, survival, recurrence, biomarker association, or treatment outcome.',
-    '- Do not extract methods-only text, eligibility criteria, dose schedules, bibliometrics, author/country/journal rankings, search methods, generic background, or broad entity lists unless the exact sentence states an outcome or relationship.',
-    '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
-    '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
-    '- Do not include a summary. warnings must be an array of short strings or [].',
-    '- Output JSON only.',
+    'JSON shape: {"schemaVersion":"claims-v2-lite.2","claims":[],"noClaimReason":"","warnings":[]}',
+    'Each claim: {"evidenceSentence":"","whyRelevant":"","claimKind":"","cancer":"","subject":"","interventionOrExposure":"","outcome":"","effectText":"","evidenceLevel":"","confidence":0}',
+    'Allowed claimKind: treatment, prognosis, biomarker, toxicity, biology, resistance, local_control, risk, diagnosis, other',
+    'Allowed evidenceLevel: human, animal, cell, computational, review, unclear',
+    'Extract when a sentence directly states association with survival, prognosis, response, resistance, toxicity/adverse events, recurrence, local control, tumor growth, biomarker status, or treatment effect.',
+    'Do not require proof that the statement is true. If the source directly states it, extract it as candidate evidence.',
+    'Do not extract pure methods, eligibility, definitions, abbreviations, captions that only list terms, or future-work speculation.',
+    'evidenceSentence must be one complete sentence copied exactly from the source text.',
+    'Return 0 to 3 claims. If none, set noClaimReason.',
+    'Examples:',
+    '{"schemaVersion":"claims-v2-lite.2","claims":[{"evidenceSentence":"Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis.","whyRelevant":"Direct biomarker-prognosis association in melanoma.","claimKind":"prognosis","cancer":"melanoma","subject":"elevated CD73 expression","outcome":"worse prognosis","effectText":"associated with worse prognosis","evidenceLevel":"human","confidence":0.82}],"warnings":[]}',
+    '{"schemaVersion":"claims-v2-lite.2","claims":[{"evidenceSentence":"Neutralization of GDF-15 with the anti-GDF-15 antibody significantly reversed body weight loss in tumour-bearing mice.","whyRelevant":"Direct treatment effect in an animal cancer-cachexia model.","claimKind":"treatment","cancer":"cancer cachexia","interventionOrExposure":"anti-GDF-15 antibody","outcome":"body weight loss","effectText":"significantly reversed","evidenceLevel":"animal","confidence":0.86}],"warnings":[]}',
+    '{"schemaVersion":"claims-v2-lite.2","claims":[{"evidenceSentence":"An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS.","whyRelevant":"Direct clinical prognosis/survival association.","claimKind":"prognosis","cancer":"metastatic melanoma","subject":"severe sunburns during childhood","outcome":"overall survival","effectText":"associated with longer OS","evidenceLevel":"human","confidence":0.78}],"warnings":[]}',
     'Source text follows:',
     sourceText
   ].join('\n');
@@ -113,28 +110,25 @@ export function candidateSentencePromptV2(candidateSentences: string[], context:
     context.sourceCitation ? `Citation: ${context.sourceCitation}` : undefined
   ].filter(Boolean);
   return [
-    'You classify candidate oncology evidence sentences for an AI-readable citation-grounded evidence index.',
-    'Important: these are candidate evidence records, not accepted scientific conclusions.',
+    'You extract candidate oncology evidence from candidate sentences for an AI-readable evidence index.',
+    'These are NOT accepted medical facts. They are candidate evidence records for later validation.',
     'Return ONLY valid JSON. No markdown. No commentary.',
-    'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
-    'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
-    'Allowed values:',
-    'claimLabel = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity, local_control, biomarker_association, studied_with, other',
-    'evidenceRole = this_study_result, prior_work, background, review_summary, method_or_design, hypothesis, unclear',
-    'evidenceModality = clinical, preclinical, computational, review, case_report, epidemiology, unclear',
-    'effect = increased, decreased, associated, no_association, mixed, unclear',
-    'Rules:',
-    '- Return 0 to 2 claims total.',
-    '- Each claim must use one complete candidate sentence copied exactly as evidenceSentence.',
-    '- Clinical outcome signals are strong: ORR, PFS, OS, survival, hazard ratio, recurrence, local control, complete/partial response, disease control, toxicity, adverse events, and grade 3/4 events.',
-    '- Map adverse-event/toxicity result sentences to claimLabel="toxicity". Map local-control result sentences to claimLabel="local_control".',
-    '- Use evidenceRole="this_study_result" only for the authors own results; use prior_work/background/review_summary for cited or review-style statements.',
-    '- Use method_or_design for methods-only sentences and normally return zero claims for them.',
-    '- Omit unknown optional fields. Never use null or placeholder values.',
-    '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
-    '- Do not include a summary.',
+    'JSON shape: {"schemaVersion":"claims-v2-lite.2","claims":[],"noClaimReason":"","warnings":[]}',
+    'Each claim: {"evidenceSentence":"","whyRelevant":"","claimKind":"","cancer":"","subject":"","interventionOrExposure":"","outcome":"","effectText":"","evidenceLevel":"","confidence":0}',
+    'Allowed claimKind: treatment, prognosis, biomarker, toxicity, biology, resistance, local_control, risk, diagnosis, other',
+    'Allowed evidenceLevel: human, animal, cell, computational, review, unclear',
+    'Extract when a sentence directly states association with survival, prognosis, response, resistance, toxicity/adverse events, recurrence, local control, tumor growth, biomarker status, or treatment effect.',
+    'Do not require proof that the statement is true. If a candidate sentence directly states a relationship/outcome, extract it as candidate evidence.',
+    'Good extraction targets include: "associated with longer OS", "worse prognosis", "improved progression-free survival", "reversed body weight loss", "reduced tumor growth", "toxicity occurred", "local control improved".',
+    'Do not extract pure methods, eligibility, definitions, abbreviation lists, or future-work speculation.',
+    'evidenceSentence must exactly equal one complete candidate sentence below. Do not paraphrase.',
+    'Return 0 to 3 claims total. If none, set noClaimReason.',
+    'Few-shot examples:',
+    '<sentence>Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis.</sentence> -> {"evidenceSentence":"Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis.","whyRelevant":"Direct biomarker-prognosis association in melanoma.","claimKind":"prognosis","cancer":"melanoma","subject":"elevated CD73 expression","outcome":"worse prognosis","effectText":"associated with worse prognosis","evidenceLevel":"human","confidence":0.82}',
+    '<sentence>Neutralization of GDF-15 with the anti-GDF-15 antibody significantly reversed body weight loss in tumour-bearing mice.</sentence> -> {"evidenceSentence":"Neutralization of GDF-15 with the anti-GDF-15 antibody significantly reversed body weight loss in tumour-bearing mice.","whyRelevant":"Direct treatment effect in an animal cancer-cachexia model.","claimKind":"treatment","cancer":"cancer cachexia","interventionOrExposure":"anti-GDF-15 antibody","outcome":"body weight loss","effectText":"significantly reversed","evidenceLevel":"animal","confidence":0.86}',
+    '<sentence>An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS.</sentence> -> {"evidenceSentence":"An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS.","whyRelevant":"Direct clinical prognosis/survival association.","claimKind":"prognosis","cancer":"metastatic melanoma","subject":"severe sunburns during childhood","outcome":"overall survival","effectText":"associated with longer OS","evidenceLevel":"human","confidence":0.78}',
     ...(contextLines.length ? ['Context:', ...contextLines] : []),
-    'Candidate sentences are listed below. evidenceSentence must equal one candidate sentence exactly; do not include numbering, bullets, quotes, or extra text.',
+    'Candidate sentences:',
     ...candidateSentences.map((sentence) => `<sentence>${sentence}</sentence>`)
   ].join('\n');
 }
@@ -325,7 +319,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const schemaVersion = source.schemaVersion;
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' || schemaVersion === 'claims-v2-lite.1' ? claimsSourceRaw : [];
+  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' || schemaVersion === 'claims-v2-lite.1' || schemaVersion === 'claims-v2-lite.2' ? claimsSourceRaw : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
   const diagnostics: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message?: string; claimIndex?: number; evidenceSentence?: string }> = [];
   const seenEvidenceSentences = new Set<string>();
@@ -333,7 +327,8 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
   const reject = (reason: string, claimIndex?: number, evidenceSentence?: string): null => { rejectionCounts.set(reason, (rejectionCounts.get(reason) ?? 0) + 1); diagnostics.push({ code: `claim_rejected:${reason}`, severity: 'warning', claimIndex, evidenceSentence }); return null; };
   const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim, claimIndex) => {
     const isLite1 = schemaVersion === 'claims-v2-lite.1';
-    const exactEvidenceSentence = requiredString(isLite1 ? claim.evidenceSentence : claim.exactEvidenceSentence, '');
+    const isLite2 = schemaVersion === 'claims-v2-lite.2';
+    const exactEvidenceSentence = requiredString(isLite1 || isLite2 ? claim.evidenceSentence : claim.exactEvidenceSentence, '');
     const claimContextText = [context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join('\n');
     const cancerSupport = evidenceCancerSupport(exactEvidenceSentence, claimContextText);
     if (isBadEvidenceSentence(exactEvidenceSentence, claimContextText)) return reject('bad_evidence_sentence', claimIndex, exactEvidenceSentence);
@@ -344,12 +339,15 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
     const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
     if (seenEvidenceSentences.has(evidenceKey)) return reject('duplicate_evidence_sentence', claimIndex, exactEvidenceSentence);
     seenEvidenceSentences.add(evidenceKey);
-    const claimTypeRaw = isLite1 ? ({ biomarker_association: 'biology', other: 'unclear' } as Record<string, string>)[String(claim.claimLabel)] ?? claim.claimLabel : claim.claimType;
-    const evidenceOriginRaw = isLite1 ? ({ prior_work: 'cited_prior_work', method_or_design: 'methods_only', hypothesis: 'hypothesis_or_speculation' } as Record<string, string>)[String(claim.evidenceRole)] ?? claim.evidenceRole : claim.evidenceOrigin;
-    const evidenceTypeRaw = isLite1 ? ({ epidemiology: 'clinical' } as Record<string, string>)[String(claim.evidenceModality)] ?? claim.evidenceModality : claim.evidenceType;
-    const directionRaw = isLite1 ? claim.effect : claim.direction;
-    const polarityRaw = isLite1 ? (claim.negated === true ? 'negated' : claim.speculative === true ? 'speculative' : 'affirmed') : claim.polarity;
-    const studyContextFallback = isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'unclear' : 'unclear') : claim.studyContext;
+    const lite2KindMap: Record<string, string> = { treatment: 'treatment_response', prognosis: 'prognosis', biomarker: 'biology', toxicity: 'toxicity', biology: 'biology', resistance: 'resistance', local_control: 'local_control', risk: 'risk', diagnosis: 'diagnosis', other: 'unclear' };
+    const lite2LevelMap: Record<string, string> = { human: 'clinical', animal: 'preclinical', cell: 'preclinical', computational: 'computational', review: 'review', unclear: 'unclear' };
+    const lite2Direction = /\b(worse|poor|increased|higher|longer|improved|reversed|promoted|enhanced)\b/i.test(String(claim.effectText ?? '')) ? 'increased' : /\b(reduced|decreased|inhibited|lower|shorter|suppressed)\b/i.test(String(claim.effectText ?? '')) ? 'decreased' : 'associated';
+    const claimTypeRaw = isLite2 ? lite2KindMap[String(claim.claimKind)] ?? 'unclear' : isLite1 ? ({ biomarker_association: 'biology', other: 'unclear' } as Record<string, string>)[String(claim.claimLabel)] ?? claim.claimLabel : claim.claimType;
+    const evidenceOriginRaw = isLite2 ? 'this_study_result' : isLite1 ? ({ prior_work: 'cited_prior_work', method_or_design: 'methods_only', hypothesis: 'hypothesis_or_speculation' } as Record<string, string>)[String(claim.evidenceRole)] ?? claim.evidenceRole : claim.evidenceOrigin;
+    const evidenceTypeRaw = isLite2 ? lite2LevelMap[String(claim.evidenceLevel)] ?? 'unclear' : isLite1 ? ({ epidemiology: 'clinical' } as Record<string, string>)[String(claim.evidenceModality)] ?? claim.evidenceModality : claim.evidenceType;
+    const directionRaw = isLite2 ? lite2Direction : isLite1 ? claim.effect : claim.direction;
+    const polarityRaw = isLite2 ? 'affirmed' : isLite1 ? (claim.negated === true ? 'negated' : claim.speculative === true ? 'speculative' : 'affirmed') : claim.polarity;
+    const studyContextFallback = isLite2 ? ({ human: 'human_cohort', animal: 'animal', cell: 'cell_line', computational: 'unclear', review: 'unclear', unclear: 'unclear' } as Record<string, string>)[String(claim.evidenceLevel)] ?? 'unclear' : isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'unclear' : 'unclear') : claim.studyContext;
     const studyContextRaw = inferStudyContext(claim, exactEvidenceSentence, studyContextFallback);
     const claimType = strictEnum(claimTypeRaw, CLAIM_TYPES);
     const evidenceOrigin = strictEnum(evidenceOriginRaw, EVIDENCE_ORIGINS);
@@ -369,13 +367,13 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
       studyContext,
       polarity,
       direction,
-      cancerType: optionalString(isLite1 ? claim.cancer : claim.cancerType) ?? inferCancerTypeFromText([exactEvidenceSentence, context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join(' \n')),
-      biomarkerMention: optionalString(isLite1 ? claim.biomarker : claim.biomarkerMention),
-      drugOrInterventionMention: optionalString(isLite1 ? claim.intervention : claim.drugOrInterventionMention),
+      cancerType: optionalString(isLite1 || isLite2 ? claim.cancer : claim.cancerType) ?? inferCancerTypeFromText([exactEvidenceSentence, context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join(' \n')),
+      biomarkerMention: optionalString(isLite2 && String(claim.claimKind) === 'biomarker' ? claim.subject : isLite1 ? claim.biomarker : claim.biomarkerMention),
+      drugOrInterventionMention: optionalString(isLite2 ? claim.interventionOrExposure : isLite1 ? claim.intervention : claim.drugOrInterventionMention),
       variantMention: optionalString(isLite1 ? claim.variant : claim.variantMention),
-      speciesOrModelMention: optionalString(isLite1 ? claim.populationOrModel : claim.speciesOrModelMention),
-      outcomeMention: optionalString(isLite1 ? claim.outcome : claim.outcomeMention),
-      statisticalEvidenceMention: optionalString(isLite1 ? claim.quantitativeSupport : claim.statisticalEvidenceMention),
+      speciesOrModelMention: optionalString(isLite2 ? claim.evidenceLevel : isLite1 ? claim.populationOrModel : claim.speciesOrModelMention),
+      outcomeMention: optionalString(isLite2 ? claim.outcome : isLite1 ? claim.outcome : claim.outcomeMention),
+      statisticalEvidenceMention: optionalString(isLite2 ? claim.effectText : isLite1 ? claim.quantitativeSupport : claim.statisticalEvidenceMention),
       sampleSizeMention: optionalString(claim.sampleSizeMention),
       charStart: charStart >= 0 ? charStart : undefined,
       charEnd,

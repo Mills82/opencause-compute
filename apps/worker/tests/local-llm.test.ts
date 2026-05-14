@@ -22,19 +22,19 @@ describe('local llm helpers', () => {
     expect(() => parseLocalLlmJson('{"claims":[')).toThrowError('local_llm_invalid_json');
   });
 
-  it('uses claims-v2-lite.1 prompts without summaries', () => {
+  it('uses claims-v2-lite.2 prompts with simpler model-facing fields', () => {
     const prompt = extractionPromptV2('source text');
-    expect(prompt).toContain('"schemaVersion":"claims-v2-lite.1"');
-    expect(prompt).toContain('Do not include a summary');
-    expect(prompt).toContain('toxicity');
-    expect(prompt).toContain('local control');
+    expect(prompt).toContain('"schemaVersion":"claims-v2-lite.2"');
+    expect(prompt).toContain('Allowed claimKind');
+    expect(prompt).toContain('association with survival');
+    expect(prompt).toContain('Kaplan-Meier survival analysis');
   });
 
-  it('builds a compact sentence-level claims-v2-lite.1 prompt', () => {
+  it('builds a compact sentence-level claims-v2-lite.2 prompt', () => {
     const prompt = candidateSentencePromptV2(['Radiotherapy significantly improved local control in lung cancer patients.'], { title: 'Lung cancer radiotherapy' });
-    expect(prompt).toContain('You classify candidate oncology evidence sentences');
-    expect(prompt).toContain('claimLabel="toxicity"');
-    expect(prompt).toContain('claimLabel="local_control"');
+    expect(prompt).toContain('You extract candidate oncology evidence from candidate sentences');
+    expect(prompt).toContain('Allowed claimKind');
+    expect(prompt).toContain('local_control');
     expect(prompt).toContain('<sentence>Radiotherapy significantly improved local control in lung cancer patients.</sentence>');
   });
 

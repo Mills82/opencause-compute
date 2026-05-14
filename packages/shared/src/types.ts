@@ -128,6 +128,29 @@ export const resultPayloadV2Lite1Schema = z.object({
   warnings: z.array(z.string())
 });
 
+
+export const lite2ClaimKindSchema = z.enum(['treatment', 'prognosis', 'biomarker', 'toxicity', 'biology', 'resistance', 'local_control', 'risk', 'diagnosis', 'other']);
+export const lite2EvidenceLevelSchema = z.enum(['human', 'animal', 'cell', 'computational', 'review', 'unclear']);
+export const resultPayloadV2Lite2ClaimSchema = z.object({
+  evidenceSentence: z.string().min(1),
+  whyRelevant: z.string().min(1).optional(),
+  claimKind: lite2ClaimKindSchema,
+  cancer: z.string().min(1).optional(),
+  subject: z.string().min(1).optional(),
+  interventionOrExposure: z.string().min(1).optional(),
+  outcome: z.string().min(1).optional(),
+  effectText: z.string().min(1).optional(),
+  evidenceLevel: lite2EvidenceLevelSchema,
+  confidence: z.number().min(0).max(1)
+});
+
+export const resultPayloadV2Lite2Schema = z.object({
+  schemaVersion: z.literal('claims-v2-lite.2'),
+  claims: z.array(resultPayloadV2Lite2ClaimSchema).max(4),
+  noClaimReason: noClaimReasonSchema.optional(),
+  warnings: z.array(z.string())
+});
+
 export const projectSchema = z.object({
   id: z.string(),
   slug: z.string(),

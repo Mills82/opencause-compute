@@ -1,0 +1,212 @@
+{
+  "createdAt": "2026-05-14T23:50:14.453Z",
+  "description": "Golden eval from first 20 improved ingestion packets. Expected positives are obvious direct evidence statements; negatives are no-claim/borderline cases.",
+  "cases": [
+    {
+      "id": "5e21bcd0-a18c-4f66-81b7-0cb38075c6a8",
+      "title": "Glycerol-mediated nose-to-brain codelivery of anti-IL-17 and anti-CD73 antibodies enhances immunotherapy for melanoma brain metastases. (DISCUSSION candidate 1/5; score 7)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170669/",
+      "sourceCitation": "Science advances (2026 May 15); PMCID:PMC13170669",
+      "sourceText": "Primary or acquired resistance to cancer immunotherapy remains a major clinical challenge, driving the search for complementary strategies to overcome this resistance and improve treatment outcomes. Substantial evidence indicates that CD73 expression on cancer cells exacerbates immune suppression and promotes tumor progression by enhancing ADO accumulation in the TME ( ), thereby establishing a key mechanism of tumor immune resistance.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "d10a4453-48f2-4ff3-9159-dfb40479f11f",
+      "title": "Glycerol-mediated nose-to-brain codelivery of anti-IL-17 and anti-CD73 antibodies enhances immunotherapy for melanoma brain metastases. (INTRODUCTION candidate 2/5; score 6)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170669/",
+      "sourceCitation": "Science advances (2026 May 15); PMCID:PMC13170669",
+      "sourceText": "Melanoma, a highly aggressive tumor, has seen remarkable therapeutic advances with the advent of immune checkpoint inhibitors (ICIs), improving overall survival in advanced patients ( , ). However, melanoma brain metastases (MBMs), the third most common cause of brain metastases after lung and breast cancer, present a particular therapeutic challenge because of their association with high rates of morbidity and mortality ( – ).",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "d9e2890a-a6a1-44dd-a577-e927668f2c80",
+      "title": "Glycerol-mediated nose-to-brain codelivery of anti-IL-17 and anti-CD73 antibodies enhances immunotherapy for melanoma brain metastases. (RESULTS candidate 3/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170669/",
+      "sourceCitation": "Science advances (2026 May 15); PMCID:PMC13170669",
+      "sourceText": "Given reports that the evasion of immune destruction by MBMs occurs through the CD73/ADO axis, making it a key therapeutic target ( , ), we sought to investigate the prognostic impact of CD73 expression levels (high versus low) in melanoma by analyzing data from The Cancer Genome Atlas (TCGA). Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis ( ), confirming that high CD73 expression is correlated with poor clinical outcomes.",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis ( ), confirming that high CD73 expression is correlated with poor clinical outcomes."
+      }
+    },
+    {
+      "id": "79d4cd96-5409-43e0-9766-4a609aa08e3b",
+      "title": "Glycerol-mediated nose-to-brain codelivery of anti-IL-17 and anti-CD73 antibodies enhances immunotherapy for melanoma brain metastases. (RESULTS candidate 4/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170669/",
+      "sourceCitation": "Science advances (2026 May 15); PMCID:PMC13170669",
+      "sourceText": "Given reports that the evasion of immune destruction by MBMs occurs through the CD73/ADO axis, making it a key therapeutic target ( , ), we sought to investigate the prognostic impact of CD73 expression levels (high versus low) in melanoma by analyzing data from The Cancer Genome Atlas (TCGA). Kaplan-Meier survival analysis revealed that melanoma patients with elevated CD73 expression exhibited significantly worse prognosis ( ), confirming that high CD73 expression is correlated with poor clinical outcomes. To further assess the expression of CD73 in B16F10-luc tumor-bearing mice, we conducted immunofluorescence staining (fig.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "78676561-55d8-471f-8280-8bad1eda1e04",
+      "title": "Glycerol-mediated nose-to-brain codelivery of anti-IL-17 and anti-CD73 antibodies enhances immunotherapy for melanoma brain metastases. (DISCUSSION candidate 5/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170669/",
+      "sourceCitation": "Science advances (2026 May 15); PMCID:PMC13170669",
+      "sourceText": "Primary or acquired resistance to cancer immunotherapy remains a major clinical challenge, driving the search for complementary strategies to overcome this resistance and improve treatment outcomes. Substantial evidence indicates that CD73 expression on cancer cells exacerbates immune suppression and promotes tumor progression by enhancing ADO accumulation in the TME ( ), thereby establishing a key mechanism of tumor immune resistance. In line with this, our study demonstrates that targeting CD73 in tumor tissues significantly reduces ADO production, promotes CD8 + T cell proliferation, activates DCs, and induces pro-inflammatory macrophage polarization, ultimately leading to tumor cell death and prolonged survival in mice.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "fdf71152-d88e-4c35-8ea0-1bb5bbfda2ef",
+      "title": "CD24 in Melanoma: Biomarker, Innate Immune Checkpoint and Emerging Therapeutic Target. (Therapeutic Targeting of the CD 24 Axis candidate 1/5; score 7)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170416/",
+      "sourceCitation": "Experimental dermatology (2026 May); PMCID:PMC13170416",
+      "sourceText": "The OncoC4 neo‐CD24/ONC‐783 platform is classified as X/C because current support is cross‐tumor/translational rather than melanoma‐specific. Abbreviations: ORR, objective response rate; PFS, progression‐free survival; OS, overall survival. Tumour‐selective recognition of cancer‐associated CD24 glyco‐epitope; adaptable to bispecifics/ADCs/ Abbreviations: ADC, antibody–drug conjugate; ADCC, antibody‐dependent cellular cytotoxicity; ADCP, antibody‐dependent cellular phagocytosis; CAR, chimeric antigen receptor; CAR‐NK, CAR‐natural killer cell; CAR‐T, CAR T‐cell; CRS, cytokine release syndrome; ICB, immune checkpoint blockade; mAb, monoclonal antibody; PK, pharmacokinetics.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "129b5757-b173-4fac-9d41-54aeb4c7e25c",
+      "title": "CD24 in Melanoma: Biomarker, Innate Immune Checkpoint and Emerging Therapeutic Target. (Therapeutic Targeting of the CD 24 Axis candidate 2/5; score 7)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170416/",
+      "sourceCitation": "Experimental dermatology (2026 May); PMCID:PMC13170416",
+      "sourceText": "Rational combinations matrix for CD24‐axis inhibition in melanoma. Abbreviations: CTLA‐4, cytotoxic T‐lymphocyte‐associated protein 4; DC, dendritic cell; ICD, immunogenic cell death; IHC, immunohistochemistry; MAPK, mitogen‐activated protein kinase; MDSCs, myeloid‐derived suppressor cells; MEK, MAPK/ERK kinase; MRD, minimal residual disease; ORR, objective response rate; PD‐1, programmed cell death protein 1; PD‐L1, programmed death‐ligand 1; PFS, progression‐free survival; TAMs, tumour‐associated macrophages; Tconv, conventional CD4 T cells; TME, tumour microenvironment; Treg, regulatory T cells. Direct targeting of CD24 with monoclonal antibodies is the most developed ligand‐side strategy and has shown broad preclinical activity across solid tumours [ , ].",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "2abc1e11-6e14-42d5-b154-22b3b364aae1",
+      "title": "CD24 in Melanoma: Biomarker, Innate Immune Checkpoint and Emerging Therapeutic Target. (Tumour‐Intrinsic Roles of CD24 in Melanoma candidate 3/5; score 6)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170416/",
+      "sourceCitation": "Experimental dermatology (2026 May); PMCID:PMC13170416",
+      "sourceText": "This distinction is important because some mechanistic interpretations derive from perturbation experiments in melanoma, whereas others reflect broader conceptual links drawn from cancer stem cell biology, stress adaptation and cross‐tumour CD24 literature [ , , , ]. Cancer stem cells are considered important contributors to melanoma initiation, persistence and recurrence [ , ]. Within this framework, CD24 has emerged as a marker of melanoma subpopulations enriched for tumour‐initiating and stem‐like properties.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "b7302c58-669e-47a9-8d23-93c869397df7",
+      "title": "CD24 in Melanoma: Biomarker, Innate Immune Checkpoint and Emerging Therapeutic Target. (CD 24 and Adaptive Therapy Resistance candidate 4/5; score 6)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170416/",
+      "sourceCitation": "Experimental dermatology (2026 May); PMCID:PMC13170416",
+      "sourceText": "Beyond targeted therapy, broader cancer literature links CD24+ states to increased expression of ATP‐binding cassette (ABC) transporters, anti‐apoptotic regulators such as Bcl‐2, enhanced DNA damage tolerance and metabolic reprogramming [ , ]. These observations provide plausible mechanisms by which CD24‐enriched melanoma cells may develop cross‐resistance to multiple therapies, although direct melanoma‐specific evidence is stronger for adaptive targeted‐therapy resistance than for chemotherapy resistance per se [ , , ]. Therefore, it is more accurate to state that CD24 is associated with, and in some melanoma models contributes to, survival programmes that support therapy resistance.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "4473ed6e-ad55-44fc-a029-c6d66d198449",
+      "title": "CD24 in Melanoma: Biomarker, Innate Immune Checkpoint and Emerging Therapeutic Target. (CD 24 Marks Anastasis‐Prone Melanoma Subpopulations candidate 5/5; score 6)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170416/",
+      "sourceCitation": "Experimental dermatology (2026 May); PMCID:PMC13170416",
+      "sourceText": "At present, this should be interpreted as an emerging melanoma‐specific observation rather than a fully established general mechanism. Nevertheless, it broadens the conceptual framework of CD24 biology by linking CD24 not only to stem‐like and therapy‐resistant states, but also to anastasis‐prone subpopulations with potential relevance to minimal residual disease, recurrence and dissemination [ ]. Notably, PD‐L1 (CD274) was detectable in this compartment, raising the possibility that anastasis‐prone CD24‐enriched states may intersect with adaptive immune checkpoint programmes [ ].",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "5f773fbb-222a-4898-a693-07ff6d684a9d",
+      "title": "Targeting Cancer Cachexia: A Mechanistic Evaluation of Anti-GDF-15 Antibody-Based Combination Therapies. (Results candidate 1/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170096/",
+      "sourceCitation": "Journal of cachexia, sarcopenia and muscle (2026 Jun); PMCID:PMC13170096",
+      "sourceText": "HT‐1080 and RENCA mouse tumour models were selected because they are each associated with high circulating GDF‐15 concentrations and GDF‐15‐dependent cachexia but represent different tumour types and mouse strain backgrounds. The HT‐1080 tumour model generated a cachectic phenotype characterized by increases in plasma GDF‐15 (Figure ), decreases in plasma myostatin levels ( p < 0.0001; Figure ), progressive weight loss ( p < 0.0001; Figure ) and reductions in fat mass ( p < 0.01; Figure ), consistent with previous studies [ ].",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "The HT‐1080 tumour model generated a cachectic phenotype characterized by increases in plasma GDF‐15 (Figure ), decreases in plasma myostatin levels ( p < 0.0001; Figure ), progressive weight loss ( p < 0.0001; Figure ) and reductions in fat mass ( p < 0.01; Figure ), consistent with previous studies [ ]."
+      }
+    },
+    {
+      "id": "f15a5002-2082-4b68-b307-fba4ff12675e",
+      "title": "Targeting Cancer Cachexia: A Mechanistic Evaluation of Anti-GDF-15 Antibody-Based Combination Therapies. (Results candidate 2/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170096/",
+      "sourceCitation": "Journal of cachexia, sarcopenia and muscle (2026 Jun); PMCID:PMC13170096",
+      "sourceText": "Modest effects were observed on daily food intake, lean mass and gastrocnemius weight, but these did not reach statistical significance relative to respective vehicle groups, which is likely due to the limited duration of the model determined by aggressive tumour growth (Figure ). Neutralization of GDF‐15 with the anti‐GDF‐15 antibody significantly reversed body weight loss ( p < 0.0001), restored fat mass ( p < 0.01) and increased gastrocnemius weight ( p < 0.05) in tumour‐bearing mice (Figure ), whereas treatment with the anti‐myostatin antibody had negligible effects (Figure ). There were no statistically significant differences between any treatment groups for tumour weight (Table ).",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "Neutralization of GDF‐15 with the anti‐GDF‐15 antibody significantly reversed body weight loss ( p < 0.0001), restored fat mass ( p < 0.01) and increased gastrocnemius weight ( p < 0.05) in tumour‐bearing mice (Figure ), whereas treatment with the anti‐myostatin antibody had negligible effects (Figure )."
+      }
+    },
+    {
+      "id": "e7fc4407-480e-49ff-a8b9-69214013a7fa",
+      "title": "Targeting Cancer Cachexia: A Mechanistic Evaluation of Anti-GDF-15 Antibody-Based Combination Therapies. (Discussion candidate 3/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170096/",
+      "sourceCitation": "Journal of cachexia, sarcopenia and muscle (2026 Jun); PMCID:PMC13170096",
+      "sourceText": "Recent Phase 2 data with the anti‐GDF‐15 antibody ponsegromab [ ] support the hypothesis that GDF‐15 is a primary driver of cancer cachexia, improving appetite and body weight (including skeletal muscle mass), and establish the therapeutic potential of GDF‐15 neutralization for further evaluation in clinical trials. Clinical trials of other agents have not shown benefits sufficient for the US Food and Drug Administration regulatory approval; however, improvements in body composition were reported [ ].",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "7a292cb9-f803-45ea-9830-797227e03038",
+      "title": "Targeting Cancer Cachexia: A Mechanistic Evaluation of Anti-GDF-15 Antibody-Based Combination Therapies. (Discussion candidate 4/5; score 4)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170096/",
+      "sourceCitation": "Journal of cachexia, sarcopenia and muscle (2026 Jun); PMCID:PMC13170096",
+      "sourceText": "Recent Phase 2 data with the anti‐GDF‐15 antibody ponsegromab [ ] support the hypothesis that GDF‐15 is a primary driver of cancer cachexia, improving appetite and body weight (including skeletal muscle mass), and establish the therapeutic potential of GDF‐15 neutralization for further evaluation in clinical trials. Clinical trials of other agents have not shown benefits sufficient for the US Food and Drug Administration regulatory approval; however, improvements in body composition were reported [ ]. Taken together, this raises important mechanistic questions about how GDF‐15 neutralization interacts with other food intake and muscle anabolic pathways, and what mechanistic combinations with GDF‐15 neutralization could optimize efficacy for patients.",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "c40b04c8-c6d6-4120-b5a6-d8c78d51918b",
+      "title": "Targeting Cancer Cachexia: A Mechanistic Evaluation of Anti-GDF-15 Antibody-Based Combination Therapies. (Introduction candidate 5/5; score 3)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13170096/",
+      "sourceCitation": "Journal of cachexia, sarcopenia and muscle (2026 Jun); PMCID:PMC13170096",
+      "sourceText": "This tissue loss is thought to arise from a persistent energy imbalance, resulting from reduced food intake combined with a shift from anabolic to catabolic metabolism [ ]. Currently, no pharmacologic treatment is approved by the regulatory authorities in the United States or EU for cancer cachexia [ ]. A recent Phase 2 trial in patients with cancer cachexia (non–small‐cell lung cancer [NSCLC], colorectal and pancreatic cancer) and elevated circulating GDF‐15, the anti‐GDF‐15 antibody ponsegromab resulted in increased body weight, appetite, muscle mass and physical activity compared with placebo [ ].",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "A recent Phase 2 trial in patients with cancer cachexia (non–small‐cell lung cancer [NSCLC], colorectal and pancreatic cancer) and elevated circulating GDF‐15, the anti‐GDF‐15 antibody ponsegromab resulted in increased body weight, appetite, muscle mass and physical activity compared with placebo [ ]."
+      }
+    },
+    {
+      "id": "c1ee3c24-4e63-43af-9d41-ec0e56ad58ee",
+      "title": "The Effects of Sun Exposure and Pigmentation Phenotype on Prognosis in Metastatic Melanoma. (RESULTS candidate 1/5; score 8)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13168784/",
+      "sourceCitation": "Acta dermato-venereologica (2026 May 12); PMCID:PMC13168784",
+      "sourceText": "Univariate analyses of the associations between patients' risk factors for primary melanoma and OS in stage IV disease are presented in . An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS ( p =0.046). Median OS for patients with >5 severe sunburns was not reached, while for patients with 2–5 and 0–1 severe sunburns median OS was 2.6 and 1.5 years, respectively ( ).",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS ( p =0.046)."
+      }
+    },
+    {
+      "id": "51eb2319-a6bc-497d-a485-01b61116b0ee",
+      "title": "The Effects of Sun Exposure and Pigmentation Phenotype on Prognosis in Metastatic Melanoma. (RESULTS candidate 2/5; score 8)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13168784/",
+      "sourceCitation": "Acta dermato-venereologica (2026 May 12); PMCID:PMC13168784",
+      "sourceText": "Log-rank test was performed, and the result is presented as a p -value. a Cases with missing data were excluded from tabulations and analyses. b < 15 times vs≥15 times. AJCC: American Joint Committee on Cancer Staging Manual eighth edition; CI: confidence interval; HR: hazard ratio. There was no significant difference between any of the individual phenotypic characteristics and OS ( ).",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "4e73df9d-f0c3-459f-8b35-dd4f2733087e",
+      "title": "The Effects of Sun Exposure and Pigmentation Phenotype on Prognosis in Metastatic Melanoma. (Conclusion candidate 3/5; score 7)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13168784/",
+      "sourceCitation": "Acta dermato-venereologica (2026 May 12); PMCID:PMC13168784",
+      "sourceText": "This study showed an association between a higher number of severe sunburns during childhood and longer overall survival in patients with metastatic melanoma, which to our knowledge has not been previously described in a modern setting where immunotherapy is available. Further research is needed to confirm the results, given the small study population, and to delineate the underlying mechanisms.",
+      "expected": {
+        "shouldExtract": true,
+        "evidenceSentence": "This study showed an association between a higher number of severe sunburns during childhood and longer overall survival in patients with metastatic melanoma, which to our knowledge has not been previously described in a modern setting where immunotherapy is available."
+      }
+    },
+    {
+      "id": "69cf1d17-c717-4040-9b63-1306000e411c",
+      "title": "The Effects of Sun Exposure and Pigmentation Phenotype on Prognosis in Metastatic Melanoma. (DISCUSSION candidate 4/5; score 5)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13168784/",
+      "sourceCitation": "Acta dermato-venereologica (2026 May 12); PMCID:PMC13168784",
+      "sourceText": "How these clinical risk factors affect survival in melanoma is less established, especially after immunotherapy was introduced. In this study, an increasing number of severe sunburns during childhood was significantly associated with an improved OS in stage IV melanoma. This might be explained by a previously described association between a history of blistering sunburns and a higher TMB ( ).",
+      "expected": {
+        "shouldExtract": false
+      }
+    },
+    {
+      "id": "c5c3bccc-146a-4638-aca7-00d4605ca80b",
+      "title": "The Effects of Sun Exposure and Pigmentation Phenotype on Prognosis in Metastatic Melanoma. (DISCUSSION candidate 5/5; score 5)",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13168784/",
+      "sourceCitation": "Acta dermato-venereologica (2026 May 12); PMCID:PMC13168784",
+      "sourceText": "Another study showed that head/neck melanomas had the most significant improvement in prognosis since ICI was introduced ( ). Moreover, it has been shown that patients with head/neck melanomas had longer progression free survival and OS compared to other primary sites when treated with immunotherapy, particularly single PD-1 inhibitor ( ). In our study, tumour site was not associated with prognosis.",
+      "expected": {
+        "shouldExtract": false
+      }
+    }
+  ]
+}
