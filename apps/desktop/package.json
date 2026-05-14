@@ -1,6 +1,6 @@
 {
   "name": "@opencause/desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "main": "dist/electron-main.js",
@@ -11,8 +11,11 @@
     "dev": "tsx src/index.ts",
     "electron:dev": "npm run build && electron dist/electron-main.js",
     "package:plan": "node dist/index.js package-plan",
-    "package:win:unsigned": "npm run build && electron-builder --config electron-builder.json --win --x64",
-    "package:dir": "npm run build && electron-builder --config electron-builder.json --dir"
+    "package:win:unsigned": "npm run prepackage:win:unsigned && npm run build && electron-builder --config electron-builder.json --win --x64 && node scripts/release-smoke-check.mjs",
+    "package:dir": "npm run prepackage:dir && npm run build && electron-builder --config electron-builder.json --dir && node scripts/release-smoke-check.mjs",
+    "prepackage:win:unsigned": "npm run build -w @opencause/shared && npm run build -w @opencause/worker",
+    "prepackage:dir": "npm run build -w @opencause/shared && npm run build -w @opencause/worker",
+    "release:smoke": "node scripts/release-smoke-check.mjs"
   },
   "dependencies": {
     "@opencause/shared": "file:../../packages/shared"
