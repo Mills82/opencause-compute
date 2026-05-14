@@ -5,7 +5,6 @@ import {
   validateResultForPacket,
   workPacketPayloadSchema,
   type ExtractedClaimRecord,
-  type ExtractedFactRecord,
   type ExtractionResult,
   type ResultPayload,
   type ResultProvenance,
@@ -94,10 +93,6 @@ function packetFromRow(row: any): WorkPacket {
   };
 }
 
-function sqlConsensusFactKey(): string {
-  return `lower(trim('facts-v1|' || coalesce(relationship_type,'') || '|' || coalesce(cancer_type,'') || '|' || coalesce(gene_or_biomarker,'') || '|' || coalesce(drug_or_compound,'')))`;
-}
-
 function sqlConsensusClaimKey(): string {
   return `lower(trim('claims-v2|' || coalesce(claim_type,'') || '|' || coalesce(cancer_type,'') || '|' || coalesce(biomarker_mention,'') || '|' || coalesce(drug_or_intervention_mention,'') || '|' || coalesce(outcome_mention,'') || '|' || coalesce(exact_evidence_sentence,'') || '|' || coalesce(evidence_origin,'') || '|' || coalesce(polarity,'') || '|' || coalesce(direction,'')))`;
 }
@@ -111,17 +106,13 @@ async function updateConsensusForPacket(client: PoolClient, packetId: string): P
 
   const agreement = await client.query(
     `SELECT COUNT(*)::int AS count FROM (
-      SELECT ${sqlConsensusFactKey()} AS fact_key,
+      SELECT ${sqlConsensusClaimKey()} AS claim_key,
         COUNT(DISTINCT r.node_id)::int AS node_count,
         SUM(${sqlModelConsensusWeight()} )::float AS agreement_weight
-      FROM (
-        SELECT result_id, ${sqlConsensusFactKey()} AS fact_key FROM extracted_facts
-        UNION ALL
-        SELECT result_id, ${sqlConsensusClaimKey()} AS fact_key FROM extracted_claims WHERE evidence_origin <> 'methods_only'
-      ) f
-      JOIN extraction_results r ON r.id = f.result_id
-      WHERE r.work_packet_id = $1 AND r.format_validated = true
-      GROUP BY fact_key
+      FROM extracted_claims c
+      JOIN extraction_results r ON r.id = c.result_id
+      WHERE r.work_packet_id = $1 AND r.format_validated = true AND c.evidence_origin <> 'methods_only'
+      GROUP BY claim_key
       HAVING COUNT(DISTINCT r.node_id) >= $2 AND SUM(${sqlModelConsensusWeight()} ) >= $3
     ) agreed`,
     [packetId, REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT]
@@ -332,10 +323,10 @@ export async function submitResultRelational(input: {
   token: string | null;
   claimId: string;
   workPacketId: string;
-  extractorVersion: 'Local LLM v1' | 'Local LLM v2' | 'Mock Extractor v1';
+  extractorVersion: 'Local LLM v2';
   result: ResultPayload;
   provenance?: ResultProvenance;
-}): Promise<{ record: ExtractionResult; facts: ExtractedFactRecord[]; claims: ExtractedClaimRecord[]; workPacket: WorkPacket } | undefined> {
+}): Promise<{ record: ExtractionResult; claims: ExtractedClaimRecord[]; workPacket: WorkPacket } | undefined> {
   if (!enabled()) return undefined;
   const client = await getPool().connect();
   try {
@@ -387,11 +378,7 @@ export async function submitResultRelational(input: {
       [record.id, record.workPacketId, record.nodeId, record.claimId, record.extractorVersion, record.resultHash, record.validated, record.formatValidated, record.consensusStatus, record.reviewStatus, JSON.stringify(record.validationErrors), JSON.stringify(record.warnings), record.summary, record.submittedAt, JSON.stringify(record.provenance)]
     );
 
-    const facts: ExtractedFactRecord[] = 'facts' in input.result ? input.result.facts.map((fact) => ({ id: randomUUID(), resultId, ...fact, sourceCitation: packet.sourceCitation, sourceUrl: packet.sourceUrl })) : [];
-    for (const fact of facts) {
-      await client.query('INSERT INTO extracted_facts(id,result_id,cancer_type,gene_or_biomarker,drug_or_compound,relationship_type,evidence_sentence,confidence,source_citation,source_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [fact.id, fact.resultId, fact.cancerType, fact.geneOrBiomarker, fact.drugOrCompound, fact.relationshipType, fact.evidenceSentence, fact.confidence, fact.sourceCitation, fact.sourceUrl]);
-    }
-    const claims: ExtractedClaimRecord[] = 'claims' in input.result ? input.result.claims.map((claim) => ({ id: randomUUID(), resultId, ...claim, sourceCitation: packet.sourceCitation, sourceUrl: packet.sourceUrl })) : [];
+    const claims: ExtractedClaimRecord[] = input.result.claims.map((claim) => ({ id: randomUUID(), resultId, ...claim, sourceCitation: packet.sourceCitation, sourceUrl: packet.sourceUrl }));
     for (const claim of claims) {
       await client.query('INSERT INTO extracted_claims(id,result_id,claim_type,evidence_origin,evidence_type,study_context,polarity,direction,cancer_type,biomarker_mention,biomarker_normalized_guess,drug_or_intervention_mention,drug_normalized_guess,variant_mention,pathway_mention,cell_line_mention,species_or_model_mention,outcome_mention,outcome_measure_mention,statistical_evidence_mention,sample_size_mention,pmid,pmcid,section_title,section_type,paragraph_index,sentence_index,char_start,char_end,exact_evidence_sentence,evidence_context,review_priority,confidence,source_citation,source_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)', [claim.id, claim.resultId, claim.claimType, claim.evidenceOrigin, claim.evidenceType, claim.studyContext, claim.polarity, claim.direction, claim.cancerType, claim.biomarkerMention, claim.biomarkerNormalizedGuess, claim.drugOrInterventionMention, claim.drugNormalizedGuess, claim.variantMention, claim.pathwayMention, claim.cellLineMention, claim.speciesOrModelMention, claim.outcomeMention, claim.outcomeMeasureMention, claim.statisticalEvidenceMention, claim.sampleSizeMention, claim.pmid, claim.pmcid, claim.sectionTitle, claim.sectionType, claim.paragraphIndex, claim.sentenceIndex, claim.charStart, claim.charEnd, claim.exactEvidenceSentence, claim.evidenceContext, claim.reviewPriority, claim.confidence, claim.sourceCitation, claim.sourceUrl]);
     }
@@ -403,7 +390,7 @@ export async function submitResultRelational(input: {
     packet.updatedAt = submittedAt;
     await recordAuditEvent(client, { actorType: 'node', actorId: input.nodeId, action: 'work.submit.completed', targetType: 'work_packet', targetId: packet.id, metadata: { claimId: input.claimId, resultId, formatValidated: record.formatValidated, validationErrors: record.validationErrors.length } });
     await client.query('COMMIT');
-    return { record, facts, claims, workPacket: packet };
+    return { record, claims, workPacket: packet };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

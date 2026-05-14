@@ -11,12 +11,10 @@ const requestSchema = z.object({
   nodeId: z.string().min(1),
   claimId: z.string().min(1),
   workPacketId: z.string().min(1),
-  extractorVersion: z.enum(['Local LLM v1', 'Local LLM v2', 'Mock Extractor v1']),
+  extractorVersion: z.literal('Local LLM v2'),
   result: resultPayloadSchema,
   provenance: resultProvenanceSchema.optional()
 });
-
-const ALLOW_MOCK_RESULTS = process.env.ALLOW_MOCK_RESULTS === 'true';
 
 export async function POST(request: Request) {
   const parsed = requestSchema.safeParse(await request.json());
@@ -27,13 +25,6 @@ export async function POST(request: Request) {
   const limit = await checkNamedRateLimitAsync(request, 'workSubmit', parsed.data.nodeId);
   if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
-  if (parsed.data.extractorVersion === 'Mock Extractor v1' && !ALLOW_MOCK_RESULTS) {
-    return NextResponse.json(
-      { error: 'mock_results_not_allowed', message: 'Mock extractor results are disabled in release mode.' },
-      { status: 403 }
-    );
-  }
-
   try {
     const token = extractNodeToken(request);
     const relationalOutput = await submitResultRelational({ ...parsed.data, token });
@@ -43,7 +34,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({
       result: output.record,
-      facts: output.facts,
       claims: output.claims,
       workPacket: output.workPacket
     });

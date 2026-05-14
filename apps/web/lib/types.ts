@@ -7,7 +7,7 @@ import type {
   ResultPayload,
   Project,
   ExtractionResult,
-  ExtractedFactRecord
+  ExtractedClaimRecord
 } from '@opencause/shared';
 
 export type AppDatabase = DatabaseState;
@@ -18,7 +18,7 @@ export type SubmitInput = {
   nodeId: string;
   claimId: string;
   workPacketId: string;
-  extractorVersion: 'Local LLM v1' | 'Mock Extractor v1';
+  extractorVersion: 'Local LLM v2';
   result: ResultPayload;
 };
 
@@ -29,6 +29,6 @@ export type SeedOutput = {
 
 export type SubmitOutput = {
   record: ExtractionResult;
-  facts: ExtractedFactRecord[];
+  claims: ExtractedClaimRecord[];
   workPacket: WorkPacket;
 };

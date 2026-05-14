@@ -1,6 +1,6 @@
 # Release rollback procedure
 
-OpenCause Compute public releases should be reversible without data loss or hidden background work. Use this procedure for hosted web/coordinator releases and desktop worker artifacts.
+OpenCause Compute public releases should be reversible without data loss or hidden background work. Use this procedure for hosted web/coordinator releases and desktop worker artievidence records.
 
 ## Hosted web/coordinator rollback
 
@@ -14,7 +14,7 @@ OpenCause Compute public releases should be reversible without data loss or hidd
 5. If a schema migration is implicated:
    - prefer forward repair migrations over destructive rollback
    - snapshot/export affected tables first
-   - verify `projects`, `work_packets`, `work_claims`, `extraction_results`, `extracted_facts`, `audit_events`, `rate_limit_buckets`, and `volunteer_enrollments`
+   - verify `projects`, `work_packets`, `work_claims`, `extraction_results`, `extracted_claims`, `audit_events`, `rate_limit_buckets`, and `volunteer_enrollments`
 6. Verify after rollback:
    - `/api/health` returns OK
    - `/api/readiness` is reachable

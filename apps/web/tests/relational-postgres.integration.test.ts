@@ -35,7 +35,7 @@ describePg('real Postgres relational storage integration', () => {
       delete process.env.NODE_ENROLLMENT_CODES;
       const code = `occ_${randomBytes(18).toString('base64url')}`;
       const enrollment = await repo.issueVolunteerEnrollmentRelational('a@example.com', hashEnrollmentCode(code));
-      const registration = await repo.registerNodeRelational({ nodeName: 'fresh-win', platform: 'win32', version: '0.1.0', capabilities: ['local-llm-v1'], enrollmentCode: code });
+      const registration = await repo.registerNodeRelational({ nodeName: 'fresh-win', platform: 'win32', version: '0.1.0', capabilities: ['local-llm-v2'], enrollmentCode: code });
       expect(enrollment?.status).toBe('issued');
       expect(registration?.node.id).toBeTruthy();
       expect(registration?.profileSetupToken).toMatch(/^ocp_/);
@@ -52,7 +52,7 @@ describePg('real Postgres relational storage integration', () => {
       const report = await repo.createPublicReportRelational({ targetType: 'team', targetSlug: 'report-team', reason: 'spam' });
       expect(report?.status).toBe('open');
       const run = await repo.startIngestionRunRelational({ sourceType: 'pubmed_abstract', mode: 'manual', query: 'q', retmax: 1, usedNcbiEmail: false, usedNcbiApiKey: false });
-      const ingested = await repo.ingestSourcesRelational({ projectSlug: 'proj', projectName: 'Project', projectDescription: 'Desc', sources: [{ title: 'T', sourceText: 'text', sourceCitation: 'cite', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v1' });
+      const ingested = await repo.ingestSourcesRelational({ projectSlug: 'proj', projectName: 'Project', projectDescription: 'Desc', sources: [{ title: 'T', sourceText: 'text', sourceCitation: 'cite', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v2' });
       await repo.completeIngestionRunRelational(run.id, { fetchedCount: 1, packetsCreated: ingested.packetsCreated, packetsSkipped: ingested.packetsSkipped });
       expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_packets WHERE status = 'queued'")).rows[0].count)).toBe(1);
       await repo.appendAuditEventRelational({ actorType: 'system', action: 'test.audit.append', targetType: 'system' });
@@ -94,8 +94,8 @@ describePg('real Postgres relational storage integration', () => {
     try {
       const repo = await import('../lib/relational-app');
       const firstRun = await repo.startIngestionRunRelational({ sourceType: 'combined', mode: 'cron', query: 'pubmed | pmc', retmax: 2, usedNcbiEmail: false, usedNcbiApiKey: false });
-      const pubmed = await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite a', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v1' });
-      const pmc = await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'B', sourceText: 'beta', sourceCitation: 'cite b', sourceUrl: 'https://example.com/b' }], extractor: 'local-llm-v1' });
+      const pubmed = await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite a', sourceUrl: 'https://example.com/a' }], extractor: 'local-llm-v2' });
+      const pmc = await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'B', sourceText: 'beta', sourceCitation: 'cite b', sourceUrl: 'https://example.com/b' }], extractor: 'local-llm-v2' });
       await repo.completeIngestionRunRelational(firstRun.id, { fetchedCount: 2, skippedCount: 0, failedCount: 1, failureReasons: ['PMC1:fetch_failed'], packetsCreated: pubmed.packetsCreated + pmc.packetsCreated, packetsSkipped: 0 });
       const completed = (await pool.query('SELECT status, failed_count, packets_created FROM ingestion_runs WHERE id = $1', [firstRun.id])).rows[0];
       expect(completed.status).toBe('partial_failed');
@@ -106,7 +106,7 @@ describePg('real Postgres relational storage integration', () => {
       const claim = (await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes') RETURNING id", [claimedPacket.id, node.rows[0].id])).rows[0];
       await pool.query("INSERT INTO extraction_results(id,work_packet_id,node_id,claim_id,extractor_version,result_hash,summary,validated,format_validated,consensus_status,review_status,validation_errors,warnings,submitted_at,provenance) VALUES(gen_random_uuid(),$1,$2,$3,'Local LLM v1','h','ok',true,true,'consensus_pending','not_reviewed','[]','[]',NOW(),jsonb_build_object('workerVersion','0.1.0','extractorVersion','Local LLM v1','promptVersion','test','promptHash','hash','packetSchemaVersion','work-packet-v1','extractionTimestamp',NOW()::text,'workerPlatform','linux','workerCapabilities',jsonb_build_array(),'resultValidationVersion','format-validation-v1'))", [claimedPacket.id, node.rows[0].id, claim.id]);
       const secondRun = await repo.startIngestionRunRelational({ sourceType: 'combined', mode: 'cron', query: 'pubmed | pmc', retmax: 1, usedNcbiEmail: false, usedNcbiApiKey: false });
-      await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'C', sourceText: 'gamma', sourceCitation: 'cite c', sourceUrl: 'https://example.com/c' }], extractor: 'local-llm-v1' });
+      await repo.ingestSourcesRelational({ projectSlug: 'cron-proj', projectName: 'Cron Project', projectDescription: 'Desc', sources: [{ title: 'C', sourceText: 'gamma', sourceCitation: 'cite c', sourceUrl: 'https://example.com/c' }], extractor: 'local-llm-v2' });
       await repo.completeIngestionRunRelational(secondRun.id, { fetchedCount: 1, packetsCreated: 1, packetsSkipped: 0 });
       expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM work_claims WHERE status='claimed'")).rows[0].count)).toBe(1);
       expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extraction_results')).rows[0].count)).toBe(1);
@@ -119,7 +119,7 @@ describePg('real Postgres relational storage integration', () => {
     const pool = await freshDb();
     try {
       const repo = await import('../lib/relational-app');
-      await repo.ingestSourcesRelational({ projectSlug: 'full', projectName: 'Full', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/full' }], extractor: 'local-llm-v1' });
+      await repo.ingestSourcesRelational({ projectSlug: 'full', projectName: 'Full', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/full' }], extractor: 'local-llm-v2' });
       const snapshot = await repo.queueSnapshotRelational();
       const activeBacklog = snapshot.queuedPackets + snapshot.claimedPackets;
       const queueDeficit = Math.max(0, 1 - activeBacklog);
@@ -135,7 +135,7 @@ describePg('real Postgres relational storage integration', () => {
     const pool = await freshDb();
     try {
       const repo = await import('../lib/relational-app');
-      await repo.ingestSourcesRelational({ projectSlug: 'fail', projectName: 'Fail', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/fail' }], extractor: 'local-llm-v1' });
+      await repo.ingestSourcesRelational({ projectSlug: 'fail', projectName: 'Fail', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/fail' }], extractor: 'local-llm-v2' });
       const node = await pool.query("INSERT INTO volunteer_nodes(id,node_name,platform,version,status,capabilities,registered_at,last_heartbeat_at,node_token_hash) VALUES(gen_random_uuid(),'n','linux','0.1.0','online','[]'::jsonb,NOW(),NOW(),'hash') RETURNING id");
       const packet = (await pool.query("UPDATE work_packets SET status='claimed' WHERE source_url='https://example.com/fail' RETURNING id")).rows[0];
       await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes')", [packet.id, node.rows[0].id]);
@@ -174,7 +174,7 @@ describePg('real Postgres relational storage integration', () => {
       await expect(repo.updateProfileSetupRelational({ token, teamId: privateTeam.id })).rejects.toThrow('team_not_found');
       await repo.updateProfileSetupRelational({ token, teamId: null });
       expect(Number((await pool.query("SELECT COUNT(*)::int AS count FROM team_memberships WHERE volunteer_profile_id=$1 AND status='active'", [setup.profile.id])).rows[0].count)).toBe(0);
-      await repo.ingestSourcesRelational({ projectSlug: 'p', projectName: 'P', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/profile-state' }], extractor: 'local-llm-v1' });
+      await repo.ingestSourcesRelational({ projectSlug: 'p', projectName: 'P', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/profile-state' }], extractor: 'local-llm-v2' });
       const packet = (await pool.query("UPDATE work_packets SET status='claimed' WHERE source_url='https://example.com/profile-state' RETURNING id")).rows[0];
       const claim = (await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes') RETURNING id", [packet.id, registration.node.id])).rows[0];
       await pool.query("INSERT INTO extraction_results(id,work_packet_id,node_id,claim_id,extractor_version,result_hash,summary,validated,format_validated,consensus_status,review_status,validation_errors,warnings,submitted_at,provenance) VALUES(gen_random_uuid(),$1,$2,$3,'Local LLM v1','h','ok',true,true,'consensus_pending','not_reviewed','[]','[]',NOW(),jsonb_build_object('workerVersion','0.1.0','extractorVersion','Local LLM v1','promptVersion','test','promptHash','hash','packetSchemaVersion','work-packet-v1','extractionTimestamp',NOW()::text,'workerPlatform','linux','workerCapabilities',jsonb_build_array(),'resultValidationVersion','format-validation-v1'))", [packet.id, registration.node.id, claim.id]);
@@ -216,7 +216,7 @@ describePg('real Postgres relational storage integration', () => {
       await repo.moderatePublicTargetRelational({ targetType: 'volunteer_profile', targetId: setup.profile.id, moderationStatus: 'hidden', note: 'test' });
       expect((await pool.query('SELECT public_profile_enabled, moderation_status FROM volunteer_profiles WHERE id=$1', [setup.profile.id])).rows[0]).toMatchObject({ public_profile_enabled: false, moderation_status: 'hidden' });
 
-      await repo.ingestSourcesRelational({ projectSlug: 'g', projectName: 'G', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/gamification-state' }], extractor: 'local-llm-v1' });
+      await repo.ingestSourcesRelational({ projectSlug: 'g', projectName: 'G', projectDescription: 'D', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/gamification-state' }], extractor: 'local-llm-v2' });
       const packet = (await pool.query("UPDATE work_packets SET status='claimed' WHERE source_url='https://example.com/gamification-state' RETURNING id")).rows[0];
       const claim = (await pool.query("INSERT INTO work_claims(id,work_packet_id,node_id,status,claimed_at,lease_expires_at) VALUES(gen_random_uuid(),$1,$2,'claimed',NOW(),NOW()+INTERVAL '10 minutes') RETURNING id", [packet.id, registration.node.id])).rows[0];
       await pool.query("INSERT INTO extraction_results(id,work_packet_id,node_id,claim_id,extractor_version,result_hash,summary,validated,format_validated,consensus_status,review_status,validation_errors,warnings,submitted_at,provenance) VALUES(gen_random_uuid(),$1,$2,$3,'Local LLM v1','h','ok',true,true,'consensus_pending','not_reviewed','[]','[]',NOW(),jsonb_build_object('workerVersion','0.1.0','extractorVersion','Local LLM v1','promptVersion','test','promptHash','hash','packetSchemaVersion','work-packet-v1','extractionTimestamp',NOW()::text,'workerPlatform','linux','workerCapabilities',jsonb_build_array(),'resultValidationVersion','format-validation-v1'))", [packet.id, registration.node.id, claim.id]);

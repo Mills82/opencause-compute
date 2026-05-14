@@ -53,15 +53,12 @@ export const drizzleStyleSchema = {
     summary: 'text not null',
     submittedAt: 'text not null'
   },
-  extractedFacts: {
+  extractedClaims: {
     id: 'text primary key',
     resultId: 'text references extractionResults(id)',
-    relationshipType: 'text not null',
-    evidenceSentence: 'text not null',
+    claimType: 'text not null',
+    exactEvidenceSentence: 'text not null',
     confidence: 'real not null',
-    cancerType: 'text',
-    geneOrBiomarker: 'text',
-    drugOrCompound: 'text',
     sourceCitation: 'text not null',
     sourceUrl: 'text not null'
   }

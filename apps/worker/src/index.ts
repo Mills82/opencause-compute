@@ -4,7 +4,6 @@ import path from 'node:path';
 import {
   hashJson,
   hashText,
-  runMockExtractorV1,
   verifyPayloadEd25519,
   verifyPayloadHmac,
   type ResultPayload,
@@ -14,12 +13,12 @@ import {
 } from '@opencause/shared';
 import { assertApprovedExtractor, assertLocalhostEndpoint, assertPathInside } from './extractor-manifest.js';
 import { checkBatteryPolicy, checkHostIdle, checkHostStillIdle, type IdleConfig, type IdleMode } from './idle.js';
-import { LOCAL_LLM_PROMPT_VERSION, LOCAL_LLM_V2_PROMPT_VERSION, emptyClaimsV2FromTriage, generationQualityTier, localLlmPromptHash, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmExtractor, runLocalLlmV2Extractor, triagePacketLocally, verifyLocalLlmAvailable, type LocalLlmProgress } from './local-llm.js';
+import { LOCAL_LLM_V2_PROMPT_VERSION, emptyClaimsV2FromTriage, generationQualityTier, localLlmV2PromptHash, readLocalLlmConfig, runLocalLlmV2Extractor, triagePacketLocally, verifyLocalLlmAvailable, type LocalLlmProgress } from './local-llm.js';
 import { redactSensitive } from './redaction.js';
 
 type JsonValue = Record<string, unknown>;
-type ExtractorMode = 'local-llm' | 'mock';
-type ExtractorVersion = 'Local LLM v1' | 'Local LLM v2' | 'Mock Extractor v1';
+type ExtractorMode = 'local-llm';
+type ExtractorVersion = 'Local LLM v2';
 
 const DEFAULT_SERVER = process.env.COORDINATOR_URL ?? 'http://localhost:3000';
 const SIGNING_SECRET = process.env.SIGNING_SECRET ?? 'opencause-dev-signing-secret-v1';
@@ -68,16 +67,12 @@ function required(value: string | undefined, name: string): string {
 
 function readExtractorMode(): ExtractorMode {
   const value = arg('--extractor-mode', process.env.EXTRACTOR_MODE ?? 'local-llm');
-  return value === 'mock' ? 'mock' : 'local-llm';
+  return 'local-llm';
 }
 
-function allowMockExtractor(): boolean {
-  return arg('--allow-mock-extractor', process.env.ALLOW_MOCK_EXTRACTOR ?? 'false') === 'true';
-}
-
-function enforceExtractorPolicy(mode: ExtractorMode, mockAllowed: boolean): void {
-  assertApprovedExtractor(mode, { allowMock: mockAllowed });
-  if (mode === 'local-llm') assertLocalhostEndpoint(localLlmConfig.endpoint);
+function enforceExtractorPolicy(mode: ExtractorMode): void {
+  assertApprovedExtractor(mode);
+  assertLocalhostEndpoint(localLlmConfig.endpoint);
 }
 
 function readIdleConfig(): IdleConfig {
@@ -170,9 +165,8 @@ function shouldFailClaimImmediately(reason: string): boolean {
 }
 
 
-function localLlmCapabilities(extractorMode: ExtractorMode): string[] {
-  if (extractorMode !== 'local-llm') return ['mock-extractor-v1'];
-  return ['local-llm-v1', 'local-llm-v2', `model:${localLlmConfig.model}`];
+function localLlmCapabilities(_extractorMode: ExtractorMode): string[] {
+  return ['local-llm-v2', `model:${localLlmConfig.model}`];
 }
 
 async function register(server: string, extractorMode: ExtractorMode): Promise<NodeCredentials> {
@@ -289,18 +283,18 @@ function buildProvenance(
   return {
     workerVersion: WORKER_VERSION,
     extractorVersion,
-    modelName: extractorMode === 'local-llm' ? localLlmConfig.model : 'mock',
-    modelProvider: extractorMode === 'local-llm' ? 'ollama' : 'mock',
-    promptVersion: extractorVersion === 'Local LLM v2' ? LOCAL_LLM_V2_PROMPT_VERSION : extractorMode === 'local-llm' ? LOCAL_LLM_PROMPT_VERSION : 'mock-extractor-v1-prompt',
-    promptHash: extractorVersion === 'Local LLM v2' ? localLlmV2PromptHash() : extractorMode === 'local-llm' ? localLlmPromptHash() : 'mock-extractor-v1',
+    modelName: localLlmConfig.model,
+    modelProvider: 'ollama',
+    promptVersion: LOCAL_LLM_V2_PROMPT_VERSION,
+    promptHash: localLlmV2PromptHash(),
     packetSchemaVersion: PACKET_SCHEMA_VERSION,
     extractionTimestamp: new Date().toISOString(),
-    localLlmEndpointType: extractorMode === 'local-llm' ? endpointType(localLlmConfig.endpoint) : undefined,
-    generationOptions: extractorMode === 'local-llm' ? localLlmConfig.options : undefined,
-    generationQualityTier: extractorMode === 'local-llm' ? generationQualityTier(localLlmConfig) : 'mock',
+    localLlmEndpointType: endpointType(localLlmConfig.endpoint),
+    generationOptions: localLlmConfig.options,
+    generationQualityTier: generationQualityTier(localLlmConfig),
     workerPlatform: `${process.platform}-${process.arch}`,
     workerCapabilities: capabilities,
-    resultValidationVersion: extractorVersion === 'Local LLM v2' ? 'claims-v2' : RESULT_VALIDATION_VERSION,
+    resultValidationVersion: 'claims-v2',
     resultKind: extractionAttempted ? 'llm_extraction' : 'triage_skip',
     extractionAttempted,
     packetTriage
@@ -310,62 +304,39 @@ function buildProvenance(
 async function extractFromPacket(
   packet: WorkPacketPayload,
   extractorMode: ExtractorMode,
-  mockAllowed: boolean,
+  _mockAllowed: boolean,
   signal?: AbortSignal,
   onProgress?: (progress: LocalLlmProgress) => void
 ): Promise<{ extractorVersion: ExtractorVersion; result: ResultPayload; provenance: ResultProvenance }> {
   const capabilities = localLlmCapabilities(extractorMode);
-  if (packet.extractor === 'mock-extractor-v1') {
-    if (!mockAllowed || extractorMode !== 'mock') {
-      throw new Error('mock_extractor_packet_rejected');
-    }
-    return {
-      extractorVersion: 'Mock Extractor v1',
-      result: runMockExtractorV1(packet.sourceText),
-      provenance: buildProvenance('Mock Extractor v1', extractorMode, capabilities)
-    };
-  }
-
-  if (extractorMode !== 'local-llm') {
-    throw new Error('packet_requires_local_llm');
-  }
-
-  if (packet.extractor === 'local-llm-v2') {
-    const triage = triagePacketLocally({
-      sourceText: packet.sourceText,
-      title: packet.title,
-      sourceCitation: packet.sourceCitation,
-      sourceUrl: packet.sourceUrl,
-      sourcePublishedAt: packet.sourcePublishedAt
-    });
-    if (triage.decision !== 'extract_now' && triage.decision !== 'unclear') {
-      await log(`triaged packet ${packet.id} decision=${triage.decision} cancerRelevance=${triage.cancerRelevance} claimOpportunity=${triage.claimOpportunity}`);
-      return {
-        extractorVersion: 'Local LLM v2',
-        result: emptyClaimsV2FromTriage(triage),
-        provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, false)
-      };
-    }
-    const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress, {
-      title: packet.title,
-      sourceCitation: packet.sourceCitation,
-      sourceUrl: packet.sourceUrl,
-      sourcePublishedAt: packet.sourcePublishedAt
-    });
+  const triage = triagePacketLocally({
+    sourceText: packet.sourceText,
+    title: packet.title,
+    sourceCitation: packet.sourceCitation,
+    sourceUrl: packet.sourceUrl,
+    sourcePublishedAt: packet.sourcePublishedAt
+  });
+  if (triage.decision !== 'extract_now' && triage.decision !== 'unclear') {
+    await log(`triaged packet ${packet.id} decision=${triage.decision} cancerRelevance=${triage.cancerRelevance} claimOpportunity=${triage.claimOpportunity}`);
     return {
       extractorVersion: 'Local LLM v2',
-      result,
-      provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, true)
+      result: emptyClaimsV2FromTriage(triage),
+      provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, false)
     };
   }
-
-  const result = await runLocalLlmExtractor(packet.sourceText, localLlmConfig, signal, onProgress);
+  const result = await runLocalLlmV2Extractor(packet.sourceText, localLlmConfig, signal, onProgress, {
+    title: packet.title,
+    sourceCitation: packet.sourceCitation,
+    sourceUrl: packet.sourceUrl,
+    sourcePublishedAt: packet.sourcePublishedAt
+  });
   return {
-    extractorVersion: 'Local LLM v1',
+    extractorVersion: 'Local LLM v2',
     result,
-    provenance: buildProvenance('Local LLM v1', extractorMode, capabilities)
+    provenance: buildProvenance('Local LLM v2', extractorMode, capabilities, triage, true)
   };
 }
+
 
 async function runOnce(
   server: string,
@@ -560,9 +531,9 @@ async function main() {
   const server = arg('--server', DEFAULT_SERVER) as string;
   const idleConfig = readIdleConfig();
   const extractorMode = readExtractorMode();
-  const mockAllowed = allowMockExtractor();
+  const mockAllowed = false;
 
-  enforceExtractorPolicy(extractorMode, mockAllowed);
+  enforceExtractorPolicy(extractorMode);
 
   if (command === 'status') {
     await status();
@@ -574,10 +545,8 @@ async function main() {
     return;
   }
 
-  if (extractorMode === 'local-llm') {
-    await verifyLocalLlmAvailable(localLlmConfig);
-    await log(`local llm ready endpointType=${endpointType(localLlmConfig.endpoint)} model=${localLlmConfig.model}`);
-  }
+  await verifyLocalLlmAvailable(localLlmConfig);
+  await log(`local llm ready endpointType=${endpointType(localLlmConfig.endpoint)} model=${localLlmConfig.model}`);
 
   if (command === 'register') {
     await register(server, extractorMode);

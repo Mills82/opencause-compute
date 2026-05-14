@@ -5,7 +5,7 @@ import { buildVolunteerLeaderboard } from './public';
 
 function db(): DatabaseState {
   return {
-    projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [],
+    projects: [], workPackets: [], nodes: [], claims: [], results: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [],
     volunteerProfiles: [{ id: '00000000-0000-0000-0000-000000000001', displayName: 'Volunteer 0001', slug: 'volunteer-0001', privacyMode: 'private', publicProfileEnabled: false, avatarColor: '#fff', joinedAt: '2026-01-01T00:00:00.000Z', lastActiveAt: null, statsUpdatedAt: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }],
     volunteerProfileNodes: [], teams: [], teamMemberships: [], badgeDefinitions: [], volunteerBadges: [],
     volunteerStatsSnapshots: [{ id: '00000000-0000-0000-0000-000000000002', volunteerProfileId: '00000000-0000-0000-0000-000000000001', window: 'all_time', windowStart: null, windowEnd: null, contributionScore: 10, sectionsProcessed: 1, packetsSubmitted: 1, formatValidatedSubmissions: 1, formatRejectedSubmissions: 0, consensusPassedContributions: 0, consensusFailedContributions: 0, humanReviewedAcceptedContributions: 0, idleMinutesDonated: 0, distinctActiveDays: 1, currentStreakDays: 1, longestStreakDays: 1, badgesCount: 0, computedAt: '2026-01-01T00:00:00.000Z' }],

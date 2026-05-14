@@ -91,7 +91,6 @@ export async function getResults() {
   const db = await loadDb();
   return db.results.map((result) => ({
     ...result,
-    facts: db.facts.filter((f) => f.resultId === result.id),
     claims: (db.extractedClaims ?? []).filter((claim) => claim.resultId === result.id)
   }));
 }

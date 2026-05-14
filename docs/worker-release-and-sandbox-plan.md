@@ -73,8 +73,8 @@ The worker now has an approved extractor manifest in `apps/worker/src/extractor-
 
 Current enforcement:
 
-- `local-llm-v1` is the only approved production extractor mode.
-- `mock-extractor-v1` is test-only and requires explicit mock allowance.
+- `local-llm-v2` is the only approved production extractor mode.
+- `local-llm-v2` is test-only and requires explicit mock allowance.
 - local LLM endpoints must be localhost/loopback.
 - worker credential/log paths are asserted to remain inside the configured app data directory.
 - Ed25519 or configured fallback signatures are verified before extraction.

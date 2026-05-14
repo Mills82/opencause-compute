@@ -48,5 +48,5 @@ Revoked/suspended nodes cannot authenticate, heartbeat, claim, or submit. Requir
 If output is presented as validated, clinical, or medical advice by mistake:
 
 1. Remove or hide the public surface.
-2. Restore wording to candidate facts / format validation / requires consensus or human review.
+2. Restore wording to candidate evidence / format validation / requires consensus or human review.
 3. Add a note to launch checklist before continuing.

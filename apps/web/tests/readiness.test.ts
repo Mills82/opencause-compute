@@ -9,7 +9,6 @@ function emptyDb(): DatabaseState {
     nodes: [],
     claims: [],
     results: [],
-    facts: [],
     ingestionRuns: [],
     auditEvents: [],
     volunteerEnrollments: [],

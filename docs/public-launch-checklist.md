@@ -81,10 +81,10 @@ OpenCause Compute is **not public-launch ready** until every Public Launch item 
 
 ## AI/science-risk checklist
 
-- [x] UI uses “candidate facts,” “citation-backed extraction,” and “format/schema validation.”
+- [x] UI uses “candidate evidence,” “citation-backed extraction,” and “format/schema validation.”
 - [x] UI avoids medical/clinical overclaims.
-- [x] Add consensus validation levels and separate raw submissions from consensus facts in labels/docs.
-- [x] No extracted fact is labeled accepted solely because one worker produced schema-valid JSON.
+- [x] Add consensus validation levels and separate raw submissions from consensus evidence in labels/docs.
+- [x] No candidate evidence record is labeled accepted solely because one worker produced schema-valid JSON.
 - [x] Implement initial duplicate independent processing and structural consensus comparison.
 - [ ] Add semantic comparison, configurable thresholds, reviewer tooling, and consensus exports.
 

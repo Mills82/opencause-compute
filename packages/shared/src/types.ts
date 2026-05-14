@@ -1,24 +1,5 @@
 import { z } from 'zod';
 
-export const relationshipTypeSchema = z.enum([
-  'associated_with_response',
-  'associated_with_resistance',
-  'associated_with_risk',
-  'associated_with_progression',
-  'studied_with',
-  'unclear'
-]);
-
-export const extractedFactSchema = z.object({
-  cancerType: z.string().min(1).optional(),
-  geneOrBiomarker: z.string().min(1).optional(),
-  drugOrCompound: z.string().min(1).optional(),
-  relationshipType: relationshipTypeSchema,
-  evidenceSentence: z.string().min(1),
-  confidence: z.number().min(0).max(1)
-});
-
-
 export const claimTypeSchema = z.enum([
   'treatment_response',
   'resistance',
@@ -96,12 +77,6 @@ export const extractedClaimSchema = z.object({
   confidence: z.number().min(0).max(1)
 });
 
-export const resultPayloadV1Schema = z.object({
-  facts: z.array(extractedFactSchema),
-  summary: z.string().min(1),
-  warnings: z.array(z.string())
-});
-
 export const extractionDiagnosticSchema = z.object({
   code: z.string().min(1),
   severity: z.enum(['info', 'warning', 'error']).default('warning'),
@@ -119,7 +94,7 @@ export const resultPayloadV2Schema = z.object({
   diagnostics: z.array(extractionDiagnosticSchema).optional()
 });
 
-export const resultPayloadSchema = z.union([resultPayloadV1Schema, resultPayloadV2Schema]);
+export const resultPayloadSchema = resultPayloadV2Schema;
 
 
 export const liteClaimLabelSchema = z.enum(['treatment_response', 'resistance', 'prognosis', 'risk', 'progression', 'diagnosis', 'biology', 'toxicity', 'local_control', 'biomarker_association', 'studied_with', 'other']);
@@ -174,7 +149,7 @@ export const workPacketPayloadSchema = z.object({
   sectionType: sectionTypeSchema.optional(),
   paragraphIndex: z.number().int().min(0).optional(),
   inputHash: z.string(),
-  extractor: z.enum(['local-llm-v1', 'local-llm-v2', 'mock-extractor-v1']),
+  extractor: z.literal('local-llm-v2'),
   createdAt: z.string()
 });
 
@@ -234,7 +209,7 @@ export const extractionResultSchema = z.object({
   workPacketId: z.string(),
   nodeId: z.string(),
   claimId: z.string(),
-  extractorVersion: z.enum(['Local LLM v1', 'Local LLM v2', 'Mock Extractor v1']),
+  extractorVersion: z.literal('Local LLM v2'),
   resultHash: z.string(),
   validated: z.boolean(),
   formatValidated: z.boolean().optional(),
@@ -248,13 +223,6 @@ export const extractionResultSchema = z.object({
 });
 
 export const extractedClaimRecordSchema = extractedClaimSchema.extend({
-  id: z.string(),
-  resultId: z.string(),
-  sourceCitation: z.string(),
-  sourceUrl: z.string().url()
-});
-
-export const extractedFactRecordSchema = extractedFactSchema.extend({
   id: z.string(),
   resultId: z.string(),
   sourceCitation: z.string(),
@@ -487,7 +455,6 @@ export const databaseSchema = z.object({
   nodes: z.array(volunteerNodeSchema),
   claims: z.array(workClaimSchema),
   results: z.array(extractionResultSchema),
-  facts: z.array(extractedFactRecordSchema),
   extractedClaims: z.array(extractedClaimRecordSchema).default([]),
   ingestionRuns: z.array(ingestionRunSchema).default([]),
   auditEvents: z.array(auditEventSchema).default([]),
@@ -507,11 +474,8 @@ export const databaseSchema = z.object({
   workerControl: workerControlConfigSchema
 });
 
-export type RelationshipType = z.infer<typeof relationshipTypeSchema>;
-export type ExtractedFact = z.infer<typeof extractedFactSchema>;
 export type ExtractedClaim = z.infer<typeof extractedClaimSchema>;
 export type ExtractedClaimRecord = z.infer<typeof extractedClaimRecordSchema>;
-export type ResultPayloadV1 = z.infer<typeof resultPayloadV1Schema>;
 export type ResultPayloadV2 = z.infer<typeof resultPayloadV2Schema>;
 export type ResultPayload = z.infer<typeof resultPayloadSchema>;
 export type PacketTriage = z.infer<typeof packetTriageSchema>;
@@ -522,7 +486,6 @@ export type VolunteerNode = z.infer<typeof volunteerNodeSchema>;
 export type WorkClaim = z.infer<typeof workClaimSchema>;
 export type ResultProvenance = z.infer<typeof resultProvenanceSchema>;
 export type ExtractionResult = z.infer<typeof extractionResultSchema>;
-export type ExtractedFactRecord = z.infer<typeof extractedFactRecordSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type VolunteerEnrollment = z.infer<typeof volunteerEnrollmentSchema>;
 export type PrivacyMode = z.infer<typeof privacyModeSchema>;

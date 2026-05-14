@@ -18,7 +18,7 @@
   - VolunteerNode
   - WorkClaim
   - ExtractionResult
-  - ExtractedFact
+  - ExtractedClaim
 - Maintains worker control state:
   - paused/resumed status
   - idle mode and thresholds

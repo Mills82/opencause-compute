@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       nodes: db.nodes.length,
       claims: db.claims.length,
       results: db.results.length,
-      facts: db.facts.length,
+      extractedClaims: db.extractedClaims.length,
       ingestionRuns: db.ingestionRuns.length,
       volunteerEnrollments: db.volunteerEnrollments.length
     };
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     db.nodes = [];
     db.claims = [];
     db.results = [];
-    db.facts = [];
+    db.extractedClaims = [];
     db.ingestionRuns = [];
     db.volunteerEnrollments = [];
     db.workerControl = {

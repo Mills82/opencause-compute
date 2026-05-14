@@ -21,7 +21,7 @@ export default async function ResultsPage() {
               <h2 className="mt-1 text-lg font-semibold">{validationLevel(result)}</h2>
               <p className="text-sm text-slate-300">{validationLevelDescription(validationLevel(result))}</p>
             </div>
-            <span className="w-fit rounded-full border border-line px-3 py-1 text-xs text-slate-300">{(result.claims.length || result.facts.length)} candidate claim{(result.claims.length || result.facts.length) === 1 ? '' : 's'}</span>
+            <span className="w-fit rounded-full border border-line px-3 py-1 text-xs text-slate-300">{result.claims.length} candidate evidence record{result.claims.length === 1 ? '' : 's'}</span>
           </div>
 
           <div className="mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-3">
@@ -48,13 +48,7 @@ export default async function ResultsPage() {
                 <p className="mt-2 text-xs text-slate-300">Confidence: {claim.confidence} · Priority: {claim.reviewPriority ?? 'medium'} · Citation: {claim.sourceCitation} ({claim.sourceUrl})</p>
               </div>
             ))}
-            {!result.claims.length ? result.facts.map((fact) => (
-              <div key={fact.id} className="rounded-md border border-line/80 p-3 text-sm">
-                <p className="capitalize text-accent">{fact.relationshipType.replaceAll('_', ' ')}</p>
-                <p className="mt-1">{fact.evidenceSentence}</p>
-                <p className="mt-2 text-xs text-slate-300">Confidence: {fact.confidence} · Citation: {fact.sourceCitation} ({fact.sourceUrl})</p>
-              </div>
-            )) : null}
+            {!result.claims.length ? <p className="text-sm text-slate-400">No accepted candidate evidence records were stored for this submission.</p> : null}
           </div>
         </article>
       ))}

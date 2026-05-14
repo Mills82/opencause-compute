@@ -1,15 +1,5 @@
-import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadSchema, resultPayloadV2Schema, type ExtractedClaim, type PacketTriage, type ResultPayload, type ResultPayloadV2 } from '@opencause/shared';
+import { DEFAULT_LOCAL_MODEL, assertApprovedModel, hashText, resultPayloadV2Schema, type ExtractedClaim, type PacketTriage, type ResultPayload, type ResultPayloadV2 } from '@opencause/shared';
 
-const ALLOWED_RELATIONSHIPS = new Set([
-  'associated_with_response',
-  'associated_with_resistance',
-  'associated_with_risk',
-  'associated_with_progression',
-  'studied_with',
-  'unclear'
-]);
-
-export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
 export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite.1-prompt-2026-05-14a';
 
 const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','toxicity','local_control','studied_with','unclear'] as const;
@@ -86,30 +76,10 @@ export function generationQualityTier(config: LocalLlmConfig): 'low' | 'balanced
   return config.qualityTier ?? defaultQualityTier(config.options);
 }
 
-export function extractionPrompt(sourceText: string): string {
-  return [
-    'You extract structured biomedical facts from source text.',
-    'Return ONLY valid compact JSON matching this schema exactly:',
-    '{"facts":[{"cancerType?":string,"geneOrBiomarker?":string,"drugOrCompound?":string,"relationshipType":string,"evidenceSentence":string,"confidence":number}],"summary":string,"warnings":string[]}',
-    'Allowed relationshipType values:',
-    'associated_with_response, associated_with_resistance, associated_with_risk, associated_with_progression, studied_with, unclear',
-    'Rules:',
-    '- evidenceSentence must be an exact sentence copied from source text',
-    '- if you cannot copy an exact evidence sentence, omit that fact',
-    '- omit cancerType, geneOrBiomarker, and drugOrCompound when unknown; never use null or placeholder text',
-    '- confidence must be between 0 and 1',
-    '- return at most 3 high-confidence facts',
-    '- returning zero facts is acceptable when evidence is weak or not exact',
-    '- do not add markdown or commentary, output JSON only',
-    'Source text follows:',
-    sourceText
-  ].join('\n');
-}
-
 export function extractionPromptV2(sourceText: string): string {
   return [
     'You extract AI-readable candidate oncology evidence from source text.',
-    'Important: these are NOT accepted scientific facts. They are candidate evidence records for later validation.',
+    'Important: these are NOT accepted scientific conclusions. They are candidate evidence records for later validation.',
     'Return ONLY valid JSON. No markdown. No commentary.',
     'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
     'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
@@ -140,7 +110,7 @@ export function candidateSentencePromptV2(candidateSentences: string[], context:
   ].filter(Boolean);
   return [
     'You classify candidate oncology evidence sentences for an AI-readable citation-grounded evidence index.',
-    'Important: these are candidate evidence records, not accepted scientific facts.',
+    'Important: these are candidate evidence records, not accepted scientific conclusions.',
     'Return ONLY valid JSON. No markdown. No commentary.',
     'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
     'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
@@ -406,55 +376,27 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
   return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: cappedClaims, noClaimReason, summary: cappedClaims.length ? `Extracted ${cappedClaims.length} candidate evidence record${cappedClaims.length === 1 ? '' : 's'} from local model output.` : 'No candidate evidence extracted from local model output.', warnings, diagnostics });
 }
 
-export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): ResultPayload {
-  const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
-  const factsSource = Array.isArray(source.facts) ? source.facts : [];
-  const facts = factsSource.filter((fact): fact is Record<string, unknown> => Boolean(fact && typeof fact === 'object')).map((fact) => {
-    const evidenceSentence = requiredString(fact.evidenceSentence, '');
-    if (!evidenceSentence || (sourceText && !sourceText.includes(evidenceSentence))) return null;
-    const relationship = typeof fact.relationshipType === 'string' && ALLOWED_RELATIONSHIPS.has(fact.relationshipType) ? fact.relationshipType : 'unclear';
-    return { cancerType: optionalString(fact.cancerType), geneOrBiomarker: optionalString(fact.geneOrBiomarker), drugOrCompound: optionalString(fact.drugOrCompound), relationshipType: relationship, evidenceSentence, confidence: confidence(fact.confidence) };
-  }).filter((fact): fact is NonNullable<typeof fact> => Boolean(fact));
-  const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : [];
-  if (!Array.isArray(source.warnings)) warnings.push('local_model_missing_warnings_array');
-  if (!facts.length) warnings.push('local_model_returned_no_facts');
-  return resultPayloadSchema.parse({ facts, summary: requiredString(source.summary, facts.length ? `Extracted ${facts.length} candidate fact${facts.length === 1 ? '' : 's'} from local model output.` : 'No candidate facts extracted from local model output.'), warnings });
+export function localLlmV2PromptHash(): string {
+  return hashText(extractionPromptV2('{{sourceText}}'));
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, externalSignal?: AbortSignal): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<Response> {
   const controller = new AbortController();
-  const abortFromExternal = () => controller.abort(externalSignal?.reason ?? new Error('local_llm_cancelled'));
-  if (externalSignal?.aborted) abortFromExternal();
-  externalSignal?.addEventListener('abort', abortFromExternal, { once: true });
-  const timer = setTimeout(() => controller.abort(new Error(`local_llm_timeout:${timeoutMs}`)), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
   try {
     return await fetch(url, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      if (externalSignal?.aborted) throw externalSignal.reason instanceof Error ? externalSignal.reason : new Error('local_llm_cancelled');
-      throw new Error(`local_llm_timeout:${timeoutMs}`);
-    }
-    throw error;
   } finally {
-    clearTimeout(timer);
-    externalSignal?.removeEventListener('abort', abortFromExternal);
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
   }
 }
 
 export async function verifyLocalLlmAvailable(config: LocalLlmConfig): Promise<void> {
-  const response = await fetchWithTimeout(`${config.endpoint}/api/tags`, { method: 'GET' }, config.timeoutMs);
+  assertApprovedModel(config.model);
+  const response = await fetchWithTimeout(`${config.endpoint}/api/tags`, { method: 'GET' }, Math.min(config.timeoutMs, 10_000));
   if (!response.ok) throw new Error(`local_llm_unavailable:${response.status}`);
-  const json = (await response.json()) as { models?: Array<{ name?: string; model?: string }> };
-  const installed = (json.models ?? []).map((model) => model.name ?? model.model).filter(Boolean);
-  if (!installed.includes(config.model)) throw new Error(`local_llm_model_missing:${config.model}`);
-}
-
-export function localLlmPromptHash(): string {
-  return hashText(extractionPrompt('{{sourceText}}'));
-}
-
-export function localLlmV2PromptHash(): string {
-  return hashText(extractionPromptV2('{{sourceText}}'));
 }
 
 async function generateWithPrompt(sourceText: string, prompt: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<unknown> {
@@ -503,10 +445,6 @@ async function generateWithPrompt(sourceText: string, prompt: string, config: Lo
   buffer += decoder.decode();
   handleLine(buffer);
   return parseLocalLlmJson(raw);
-}
-
-export async function runLocalLlmExtractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void): Promise<ResultPayload> {
-  return normalizeLocalLlmPayload(await generateWithPrompt(sourceText, extractionPrompt(sourceText), config, signal, onProgress), sourceText);
 }
 
 export async function runLocalLlmV2Extractor(sourceText: string, config: LocalLlmConfig, signal?: AbortSignal, onProgress?: (progress: LocalLlmProgress) => void, context: PacketContext = {}): Promise<ResultPayloadV2> {

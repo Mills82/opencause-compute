@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resultPayloadV2Schema } from './types.js';
 import { validateResultForPacket } from './validation.js';
-import type { WorkPacketPayload } from './types.js';
+import type { ExtractedClaim, WorkPacketPayload } from './types.js';
 
 const sourceText = [
   'In this human cohort, EGFR mutation was associated with improved response to osimertinib in lung cancer.',
@@ -22,7 +22,7 @@ const packet: WorkPacketPayload = {
   createdAt: new Date().toISOString()
 };
 
-function baseClaim(overrides = {}) {
+function baseClaim(overrides: Partial<ExtractedClaim> = {}): ExtractedClaim {
   return {
     claimType: 'treatment_response',
     evidenceOrigin: 'this_study_result',

@@ -10,7 +10,6 @@ import {
   type WorkPacketPayload,
   type Project,
   type ExtractionResult,
-  type ExtractedFactRecord,
   type ExtractedClaimRecord,
   type ResultProvenance,
   type DatabaseState,
@@ -26,10 +25,7 @@ import { issueProfileSetupToken } from './gamification/profile-setup';
 
 const LEASE_MINUTES = 10;
 const NODE_STALE_MINUTES = 3;
-const DEFAULT_PACKET_EXTRACTOR = (process.env.DEFAULT_PACKET_EXTRACTOR ?? 'local-llm-v2') as
-  | 'local-llm-v1'
-  | 'local-llm-v2'
-  | 'mock-extractor-v1';
+const DEFAULT_PACKET_EXTRACTOR = 'local-llm-v2' as const;
 
 type RegisterInput = Pick<VolunteerNode, 'nodeName' | 'platform' | 'version' | 'capabilities'> & { enrollmentCode?: string };
 type WorkerControlUpdate = Partial<Pick<WorkerControlConfig, 'paused' | 'idleMode' | 'minIdleSeconds' | 'maxCpuPercent'>>;
@@ -390,11 +386,11 @@ export function submitResult(
     nodeId: string;
     claimId: string;
     workPacketId: string;
-    extractorVersion: 'Local LLM v1' | 'Local LLM v2' | 'Mock Extractor v1';
+    extractorVersion: 'Local LLM v2';
     result: ResultPayload;
     provenance?: ResultProvenance;
   }
-): { record: ExtractionResult; facts: ExtractedFactRecord[]; claims: ExtractedClaimRecord[]; workPacket: WorkPacket } {
+): { record: ExtractionResult; claims: ExtractedClaimRecord[]; workPacket: WorkPacket } {
   const packet = db.workPackets.find((p) => p.id === input.workPacketId);
   if (!packet) {
     throw new Error('work_packet_not_found');
@@ -416,13 +412,7 @@ export function submitResult(
     throw new Error('claim_expired');
   }
 
-  if (packet.extractor === 'local-llm-v1' && input.extractorVersion !== 'Local LLM v1') {
-    throw new Error('extractor_version_mismatch');
-  }
-  if (packet.extractor === 'local-llm-v2' && input.extractorVersion !== 'Local LLM v2') {
-    throw new Error('extractor_version_mismatch');
-  }
-  if (packet.extractor === 'mock-extractor-v1' && input.extractorVersion !== 'Mock Extractor v1') {
+  if (packet.extractor !== 'local-llm-v2' || input.extractorVersion !== 'Local LLM v2') {
     throw new Error('extractor_version_mismatch');
   }
 
@@ -466,31 +456,18 @@ export function submitResult(
       }
   };
 
-  const facts: ExtractedFactRecord[] = 'facts' in input.result ? input.result.facts.map((fact) => ({
-    id: randomUUID(),
-    resultId: record.id,
-    relationshipType: fact.relationshipType,
-    evidenceSentence: fact.evidenceSentence,
-    confidence: fact.confidence,
-    cancerType: fact.cancerType,
-    geneOrBiomarker: fact.geneOrBiomarker,
-    drugOrCompound: fact.drugOrCompound,
-    sourceCitation: packet.sourceCitation,
-    sourceUrl: packet.sourceUrl
-  })) : [];
-  const claims: ExtractedClaimRecord[] = 'claims' in input.result ? input.result.claims.map((claim) => ({
+  const claims: ExtractedClaimRecord[] = input.result.claims.map((claim) => ({
     id: randomUUID(),
     resultId: record.id,
     ...claim,
     sourceCitation: packet.sourceCitation,
     sourceUrl: packet.sourceUrl
-  })) : [];
+  }));
 
   claim.status = 'completed';
   claim.completedAt = submittedAt;
 
   db.results.push(record);
-  db.facts.push(...facts);
   (db.extractedClaims ?? []).push(...claims);
 
   const consensusStatus = updateConsensusForPacket(db, packet.id);
@@ -510,7 +487,7 @@ export function submitResult(
     }
   });
 
-  return { record, facts, claims, workPacket: packet };
+  return { record, claims, workPacket: packet };
 }
 
 export function seedDemoData(db: DatabaseState): { project: Project; packetsCreated: number } {
@@ -586,7 +563,7 @@ export function getOrCreateProject(
 
 export function createWorkPacketsFromSources(
   db: DatabaseState,
-  input: { projectId: string; sources: IngestSource[]; extractor?: 'local-llm-v1' | 'local-llm-v2' | 'mock-extractor-v1' }
+  input: { projectId: string; sources: IngestSource[]; extractor?: 'local-llm-v2' }
 ): { packetsCreated: number; packetsSkipped: number } {
   const now = new Date().toISOString();
   let packetsCreated = 0;
@@ -642,11 +619,10 @@ export function listWorkPackets(
   }));
 }
 
-export function listResults(db: DatabaseState): Array<ExtractionResult & { facts: ExtractedFactRecord[]; claims: ExtractedClaimRecord[] }> {
+export function listResults(db: DatabaseState): Array<ExtractionResult & { claims: ExtractedClaimRecord[] }> {
   reconcileCoordinatorState(db);
   return db.results.map((result) => ({
     ...result,
-    facts: db.facts.filter((f) => f.resultId === result.id),
     claims: (db.extractedClaims ?? []).filter((claim) => claim.resultId === result.id)
   }));
 }

@@ -5,7 +5,7 @@ import { issueProfileSetupToken, readProfileSetup, updateProfileSetup } from './
 function db(): DatabaseState {
   const now = '2026-01-01T00:00:00.000Z';
   return {
-    projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [],
+    projects: [], workPackets: [], nodes: [], claims: [], results: [], ingestionRuns: [], auditEvents: [], volunteerEnrollments: [],
     volunteerProfiles: [{ id: '00000000-0000-0000-0000-000000000001', displayName: 'Volunteer 0001', slug: 'volunteer-0001', privacyMode: 'private', publicProfileEnabled: false, avatarColor: '#fff', joinedAt: now, lastActiveAt: now, statsUpdatedAt: null, createdAt: now, updatedAt: now }],
     volunteerProfileNodes: [], teams: [{ id: '00000000-0000-0000-0000-000000000002', name: 'Public Team', slug: 'public-team', description: '', visibility: 'public', createdAt: now, updatedAt: now, statsUpdatedAt: null }], teamMemberships: [], badgeDefinitions: [], volunteerBadges: [], volunteerStatsSnapshots: [], teamStatsSnapshots: [], impactDigests: [], impactCards: [], projectCorpusEstimates: [], publicReports: [],
     workerControl: { paused: false, idleMode: 'user-and-cpu', minIdleSeconds: 120, maxCpuPercent: 35, runNowToken: 0, updatedAt: now }

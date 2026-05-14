@@ -7,7 +7,7 @@ OpenCause Compute is a modern volunteer-compute platform for AI-assisted open sc
 Volunteers run a desktop/worker app while idle. Their machines process vetted science work packets and return structured results.
 
 V1 initial project:
-- Cancer Knowledge Miner: process open-access cancer/biomedical text into structured, citation-backed facts via local/mock extraction.
+- Cancer Knowledge Miner: process open-access cancer/biomedical text into structured, citation-backed candidate evidence via local/mock extraction.
 
 Positioning constraints:
 - Do not frame as curing cancer with an LLM.
@@ -24,7 +24,7 @@ Positioning constraints:
 5. Worker runs approved mock extractor.
 6. Worker submits structured results.
 7. Coordinator validates result.
-8. Dashboard displays projects, packets, nodes, results, facts, validation status.
+8. Dashboard displays projects, packets, nodes, results, evidence records, validation status.
 
 ## Core entities
 
@@ -33,10 +33,10 @@ Positioning constraints:
 - VolunteerNode
 - WorkClaim
 - ExtractionResult
-- ExtractedFact
+- ExtractedClaim
 
 V1 result JSON:
-- `{ facts: [{ cancerType?, geneOrBiomarker?, drugOrCompound?, relationshipType, evidenceSentence, confidence }], summary, warnings }`
+- `{ schemaVersion: "claims-v2", claims: [{ claimType, exactEvidenceSentence, confidence, ... }], summary, warnings }`
 
 Allowed relationship types:
 - `associated_with_response`

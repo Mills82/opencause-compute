@@ -32,7 +32,7 @@ Use:
 
 - paper sections processed
 - format-validated submissions
-- consensus-passed candidate facts
+- consensus-passed candidate evidence
 - reviewed contributions
 - idle minutes donated
 
@@ -40,7 +40,7 @@ Avoid:
 
 - discoveries
 - cures
-- proven cancer facts
+- validated cancer evidence
 - clinical findings
 
 ## Privacy

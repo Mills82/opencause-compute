@@ -22,7 +22,7 @@ It clears:
 - nodes
 - claims
 - results
-- extracted facts
+- candidate evidence records
 - ingestion runs
 - volunteer enrollments
 - worker-control state back to defaults

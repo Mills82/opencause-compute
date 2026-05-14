@@ -31,7 +31,6 @@ function dbWithClaim(): { db: DatabaseState; packet: WorkPacket; claimId: string
     nodes: [{ id: nodeId, nodeName: 'n', platform: 'win32', version: '0.1.0', capabilities: ['local-llm-v2'], status: 'online', registeredAt: now, lastHeartbeatAt: now }],
     claims: [{ id: claimId, nodeId, workPacketId: packet.id, status: 'claimed' as const, claimedAt: now, leaseExpiresAt: new Date(Date.now() + 600_000).toISOString(), completedAt: null }],
     results: [],
-    facts: [],
     extractedClaims: [],
     auditEvents: [],
     volunteerEnrollments: [],

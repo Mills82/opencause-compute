@@ -14,7 +14,6 @@ const EMPTY_DB: DatabaseState = {
   nodes: [],
   claims: [],
   results: [],
-  facts: [],
   extractedClaims: [],
   ingestionRuns: [],
   auditEvents: [],
@@ -147,13 +146,12 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
   const c = client ?? (await getPool().connect());
   try {
     await ensureRelationalAddonSchema(c);
-    const [projects, packets, nodes, claims, results, facts, extractedClaims, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests, impactCards, projectCorpusEstimates, publicReports] = await Promise.all([
+    const [projects, packets, nodes, claims, results, extractedClaims, workerControl, ingestionRuns, auditEvents, volunteerEnrollments, volunteerProfiles, volunteerProfileNodes, teams, teamMemberships, badgeDefinitions, volunteerBadges, volunteerStatsSnapshots, teamStatsSnapshots, impactDigests, impactCards, projectCorpusEstimates, publicReports] = await Promise.all([
       c.query('SELECT * FROM projects ORDER BY created_at'),
       c.query('SELECT * FROM work_packets ORDER BY created_at'),
       c.query('SELECT * FROM volunteer_nodes ORDER BY registered_at'),
       c.query('SELECT * FROM work_claims ORDER BY claimed_at'),
       c.query('SELECT * FROM extraction_results ORDER BY submitted_at'),
-      c.query('SELECT * FROM extracted_facts ORDER BY id'),
       c.query('SELECT * FROM extracted_claims ORDER BY id'),
       c.query('SELECT * FROM worker_control WHERE id = 1'),
       c.query('SELECT * FROM ingestion_runs ORDER BY started_at DESC'),
@@ -248,18 +246,6 @@ async function loadDbFromRelational(client?: PoolClient): Promise<DatabaseState>
         summary: row.summary,
         submittedAt: iso(row.submitted_at)!,
         provenance: row.provenance ?? undefined
-      })),
-      facts: facts.rows.map((row) => ({
-        id: row.id,
-        resultId: row.result_id,
-        cancerType: row.cancer_type ?? undefined,
-        geneOrBiomarker: row.gene_or_biomarker ?? undefined,
-        drugOrCompound: row.drug_or_compound ?? undefined,
-        relationshipType: row.relationship_type,
-        evidenceSentence: row.evidence_sentence,
-        confidence: Number(row.confidence),
-        sourceCitation: row.source_citation,
-        sourceUrl: row.source_url
       })),
       ingestionRuns: ingestionRuns.rows.map((row) => ({
         id: row.id,
@@ -484,7 +470,6 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
   try {
     if (ownClient) await c.query('BEGIN');
     await c.query('DELETE FROM extracted_claims');
-    await c.query('DELETE FROM extracted_facts');
     await c.query('DELETE FROM extraction_results');
     await c.query('DELETE FROM work_claims');
     await c.query('DELETE FROM work_packets');
@@ -525,9 +510,6 @@ async function saveDbToRelational(db: DatabaseState, client?: PoolClient): Promi
     }
     for (const claim of parsed.extractedClaims ?? []) {
       await c.query('INSERT INTO extracted_claims(id,result_id,claim_type,evidence_origin,evidence_type,study_context,polarity,direction,cancer_type,biomarker_mention,biomarker_normalized_guess,drug_or_intervention_mention,drug_normalized_guess,variant_mention,pathway_mention,cell_line_mention,species_or_model_mention,outcome_mention,outcome_measure_mention,statistical_evidence_mention,sample_size_mention,pmid,pmcid,section_title,section_type,paragraph_index,sentence_index,char_start,char_end,exact_evidence_sentence,evidence_context,review_priority,confidence,source_citation,source_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)', [claim.id, claim.resultId, claim.claimType, claim.evidenceOrigin, claim.evidenceType, claim.studyContext, claim.polarity, claim.direction, claim.cancerType, claim.biomarkerMention, claim.biomarkerNormalizedGuess, claim.drugOrInterventionMention, claim.drugNormalizedGuess, claim.variantMention, claim.pathwayMention, claim.cellLineMention, claim.speciesOrModelMention, claim.outcomeMention, claim.outcomeMeasureMention, claim.statisticalEvidenceMention, claim.sampleSizeMention, claim.pmid, claim.pmcid, claim.sectionTitle, claim.sectionType, claim.paragraphIndex, claim.sentenceIndex, claim.charStart, claim.charEnd, claim.exactEvidenceSentence, claim.evidenceContext, claim.reviewPriority, claim.confidence, claim.sourceCitation, claim.sourceUrl]);
-    }
-    for (const fact of parsed.facts) {
-      await c.query('INSERT INTO extracted_facts(id,result_id,cancer_type,gene_or_biomarker,drug_or_compound,relationship_type,evidence_sentence,confidence,source_citation,source_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [fact.id, fact.resultId, fact.cancerType, fact.geneOrBiomarker, fact.drugOrCompound, fact.relationshipType, fact.evidenceSentence, fact.confidence, fact.sourceCitation, fact.sourceUrl]);
     }
     const wc = parsed.workerControl;
     await c.query('INSERT INTO worker_control(id,paused,idle_mode,min_idle_seconds,max_cpu_percent,run_now_token,updated_at) VALUES(1,$1,$2,$3,$4,$5,$6)', [wc.paused, wc.idleMode, wc.minIdleSeconds, wc.maxCpuPercent, wc.runNowToken, wc.updatedAt]);

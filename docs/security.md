@@ -12,7 +12,7 @@
   - schema and enum conformance
   - confidence bounds (0..1)
   - evidence sentence inclusion in source text
-  - citation/source metadata preservation on extracted facts
+  - citation/source metadata preservation on candidate evidence records
 - Claim leases are time-limited and expired claims are reclaimed/requeued.
 - Duplicate claim attempts from one node are idempotent and do not create concurrent active claims.
 - Nodes are marked offline when heartbeat is stale, and offline-node claims are reclaimed.

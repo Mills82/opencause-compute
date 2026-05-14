@@ -16,7 +16,7 @@ function request(headers: Record<string, string> = {}): Request {
 
 function emptyDb(): DatabaseState {
   return {
-    projects: [], workPackets: [], nodes: [], claims: [], results: [], facts: [], ingestionRuns: [],
+    projects: [], workPackets: [], nodes: [], claims: [], results: [], ingestionRuns: [],
     auditEvents: [],
     volunteerEnrollments: [],
     workerControl: { paused: false, idleMode: 'user-and-cpu', minIdleSeconds: 120, maxCpuPercent: 35, runNowToken: 0, updatedAt: new Date().toISOString() }

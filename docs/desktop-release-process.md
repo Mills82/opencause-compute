@@ -50,7 +50,7 @@ Use `NEXT_PUBLIC_WORKER_DOWNLOAD_STAGE=public` only after signing and public-rel
 
 ## Signing gate
 
-The current workflow intentionally builds unsigned prototype artifacts. Before `stage=public`, add signing steps that:
+The current workflow intentionally builds unsigned prototype artievidence records. Before `stage=public`, add signing steps that:
 
 - sign the installer
 - sign the main executable

@@ -103,7 +103,7 @@ Indexes:
 - `(node_id, submitted_at)`
 - `(format_validated, consensus_status, review_status)`
 
-### `extracted_facts`
+### `extracted_claims`
 
 - `id uuid primary key`
 - `result_id uuid not null references extraction_results(id)`
@@ -200,7 +200,7 @@ Use a single Postgres transaction:
 2. Lock claim row and packet row.
 3. Reject expired/completed/wrong-node claims.
 4. Validate result schema/evidence.
-5. Insert extraction result and extracted facts.
+5. Insert extraction result and candidate evidence records.
 6. Mark claim completed.
 7. Mark packet completed or ready for consensus depending on validation policy.
 8. Commit.

@@ -100,58 +100,6 @@ CREATE INDEX IF NOT EXISTS extraction_results_node_submitted_idx
 CREATE INDEX IF NOT EXISTS extraction_results_validation_idx
   ON extraction_results(format_validated, consensus_status, review_status);
 
-CREATE TABLE IF NOT EXISTS extracted_facts (
-  id UUID PRIMARY KEY,
-  result_id UUID NOT NULL REFERENCES extraction_results(id) ON DELETE CASCADE,
-  cancer_type TEXT,
-  gene_or_biomarker TEXT,
-  drug_or_compound TEXT,
-  relationship_type TEXT NOT NULL,
-  evidence_sentence TEXT NOT NULL,
-  confidence NUMERIC NOT NULL,
-  source_citation TEXT NOT NULL,
-  source_url TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS extracted_facts_relationship_idx ON extracted_facts(relationship_type);
-CREATE INDEX IF NOT EXISTS extracted_facts_cancer_type_idx ON extracted_facts(cancer_type);
-CREATE INDEX IF NOT EXISTS extracted_facts_gene_idx ON extracted_facts(gene_or_biomarker);
-CREATE INDEX IF NOT EXISTS extracted_facts_drug_idx ON extracted_facts(drug_or_compound);
-CREATE INDEX IF NOT EXISTS extracted_facts_source_url_idx ON extracted_facts(source_url);
-
-CREATE TABLE IF NOT EXISTS worker_control (
-  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  paused BOOLEAN NOT NULL,
-  idle_mode TEXT NOT NULL,
-  min_idle_seconds INTEGER NOT NULL,
-  max_cpu_percent NUMERIC NOT NULL,
-  run_now_token INTEGER NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS ingestion_runs (
-  id UUID PRIMARY KEY,
-  source_type TEXT NOT NULL,
-  mode TEXT NOT NULL,
-  status TEXT NOT NULL,
-  query TEXT NOT NULL,
-  retmax INTEGER NOT NULL,
-  started_at TIMESTAMPTZ NOT NULL,
-  completed_at TIMESTAMPTZ,
-  fetched_count INTEGER NOT NULL,
-  skipped_count INTEGER NOT NULL,
-  failed_count INTEGER NOT NULL,
-  failure_reasons JSONB NOT NULL DEFAULT '[]'::jsonb,
-  packets_created INTEGER NOT NULL,
-  packets_skipped INTEGER NOT NULL,
-  used_ncbi_email BOOLEAN NOT NULL,
-  used_ncbi_api_key BOOLEAN NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS ingestion_runs_started_idx ON ingestion_runs(started_at DESC);
-CREATE INDEX IF NOT EXISTS ingestion_runs_status_started_idx ON ingestion_runs(status, started_at DESC);
-CREATE INDEX IF NOT EXISTS ingestion_runs_source_started_idx ON ingestion_runs(source_type, started_at DESC);
-
 CREATE TABLE IF NOT EXISTS audit_events (
   id UUID PRIMARY KEY,
   actor_type TEXT NOT NULL,

@@ -10,8 +10,7 @@ import {
   triggerRunNow,
   updateWorkerControl
 } from '../lib/coordinator';
-import type { DatabaseState } from '@opencause/shared';
-import { runMockExtractorV1 } from '@opencause/shared';
+import type { DatabaseState, ResultPayload } from '@opencause/shared';
 import { signWorkPacketPayload } from '../lib/signing';
 
 function emptyDb(): DatabaseState {
@@ -21,7 +20,6 @@ function emptyDb(): DatabaseState {
     nodes: [],
     claims: [],
     results: [],
-    facts: [],
     extractedClaims: [],
     ingestionRuns: [],
     auditEvents: [],
@@ -37,9 +35,9 @@ function emptyDb(): DatabaseState {
   };
 }
 
-function forceLegacyLocalPackets(db: DatabaseState): void {
+function resignPackets(db: DatabaseState): void {
   for (const packet of db.workPackets) {
-    packet.extractor = 'local-llm-v1';
+    packet.extractor = 'local-llm-v2';
     const payload = {
       id: packet.id,
       projectId: packet.projectId,
@@ -59,13 +57,33 @@ function forceLegacyLocalPackets(db: DatabaseState): void {
   }
 }
 
+
+function resultFor(text: string): ResultPayload {
+  const sentence = text.split(/(?<=\.)\s+/).find((part) => part.trim().endsWith('.'))?.trim() ?? text;
+  return {
+    schemaVersion: 'claims-v2',
+    claims: [{
+      claimType: 'treatment_response',
+      evidenceOrigin: 'this_study_result',
+      evidenceType: 'clinical',
+      studyContext: 'human_cohort',
+      polarity: 'affirmed',
+      direction: 'associated',
+      exactEvidenceSentence: sentence,
+      confidence: 0.8
+    }],
+    summary: 'one candidate evidence record',
+    warnings: []
+  };
+}
+
 describe('claim/submit flow', () => {
 
   it('quarantines invalid packet signatures instead of serving them', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
-    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    resignPackets(db);
+    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
     const firstQueued = db.workPackets.find((packet) => packet.status === 'queued');
     expect(firstQueued).toBeTruthy();
     if (!firstQueued) throw new Error('Expected packet');
@@ -81,12 +99,12 @@ describe('claim/submit flow', () => {
   it('claims packet and submits validated result', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const claim = claimWork(db, node.id);
@@ -96,29 +114,29 @@ describe('claim/submit flow', () => {
       throw new Error('Expected claim');
     }
 
-    const result = runMockExtractorV1(claim.packet.sourceText);
+    const result = resultFor(claim.packet.sourceText);
     const submitted = submitResult(db, {
       nodeId: node.id,
       claimId: claim.claimId,
       workPacketId: claim.packet.id,
-      extractorVersion: 'Local LLM v1',
+      extractorVersion: 'Local LLM v2',
       result
     });
 
     expect(submitted.record.validated).toBe(true);
     expect(db.results).toHaveLength(1);
-    expect(db.facts.length).toBeGreaterThan(0);
+    expect(db.extractedClaims.length).toBeGreaterThan(0);
   });
 
   it('returns same active claim for repeated claims by the same node', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const firstClaim = claimWork(db, node.id);
@@ -134,8 +152,8 @@ describe('claim/submit flow', () => {
   it('releases a claimed packet without recording worker failure semantics', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
-    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    resignPackets(db);
+    const node = registerNode(db, { nodeName: 'test-node', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
     const claim = claimWork(db, node.id);
     expect(claim).not.toBeNull();
     if (!claim) throw new Error('Expected claim');
@@ -150,18 +168,18 @@ describe('claim/submit flow', () => {
   it('reclaims expired claims and requeues packet', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const nodeA = registerNode(db, {
       nodeName: 'node-a',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
     const nodeB = registerNode(db, {
       nodeName: 'node-b',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const firstClaim = claimWork(db, nodeA.id);
@@ -187,12 +205,12 @@ describe('claim/submit flow', () => {
   it('rejects submit for an expired claim', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const claim = claimWork(db, node.id);
@@ -207,13 +225,13 @@ describe('claim/submit flow', () => {
     }
     claimRecord.leaseExpiresAt = new Date(Date.now() - 60_000).toISOString();
 
-    const result = runMockExtractorV1(claim.packet.sourceText);
+    const result = resultFor(claim.packet.sourceText);
     expect(() =>
       submitResult(db, {
         nodeId: node.id,
         claimId: claim.claimId,
         workPacketId: claim.packet.id,
-        extractorVersion: 'Local LLM v1',
+        extractorVersion: 'Local LLM v2',
         result
       })
     ).toThrowError('claim_expired');
@@ -222,12 +240,12 @@ describe('claim/submit flow', () => {
   it('extends active lease on heartbeat', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const node = registerNode(db, {
       nodeName: 'test-node',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const claim = claimWork(db, node.id);
@@ -252,18 +270,18 @@ describe('claim/submit flow', () => {
   it('marks stale node offline and reclaims its claim', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
+    resignPackets(db);
     const nodeA = registerNode(db, {
       nodeName: 'node-a',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
     const nodeB = registerNode(db, {
       nodeName: 'node-b',
       platform: 'linux',
       version: '0.1.0',
-      capabilities: ['local-llm-v1', 'mock-extractor-v1']
+      capabilities: ['local-llm-v2']
     });
 
     const firstClaim = claimWork(db, nodeA.id);
@@ -311,9 +329,9 @@ describe('claim/submit flow', () => {
   it('keeps first valid submission consensus pending and requeues for independent duplicate work', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
-    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
-    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    resignPackets(db);
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
 
     const firstClaim = claimWork(db, nodeA.id);
     if (!firstClaim) throw new Error('Expected first claim');
@@ -321,8 +339,8 @@ describe('claim/submit flow', () => {
       nodeId: nodeA.id,
       claimId: firstClaim.claimId,
       workPacketId: firstClaim.packet.id,
-      extractorVersion: 'Local LLM v1',
-      result: runMockExtractorV1(firstClaim.packet.sourceText)
+      extractorVersion: 'Local LLM v2',
+      result: resultFor(firstClaim.packet.sourceText)
     });
 
     expect(firstResult.record.consensusStatus).toBe('consensus_pending');
@@ -338,9 +356,9 @@ describe('claim/submit flow', () => {
   it('marks matching independent duplicate submissions consensus passed', () => {
     const db = emptyDb();
     seedDemoData(db);
-    forceLegacyLocalPackets(db);
-    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
-    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v1', 'mock-extractor-v1'] });
+    resignPackets(db);
+    const nodeA = registerNode(db, { nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
+    const nodeB = registerNode(db, { nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'] });
 
     const firstClaim = claimWork(db, nodeA.id);
     if (!firstClaim) throw new Error('Expected first claim');
@@ -348,8 +366,8 @@ describe('claim/submit flow', () => {
       nodeId: nodeA.id,
       claimId: firstClaim.claimId,
       workPacketId: firstClaim.packet.id,
-      extractorVersion: 'Local LLM v1',
-      result: runMockExtractorV1(firstClaim.packet.sourceText)
+      extractorVersion: 'Local LLM v2',
+      result: resultFor(firstClaim.packet.sourceText)
     });
 
     const secondClaim = claimWork(db, nodeB.id);
@@ -358,8 +376,8 @@ describe('claim/submit flow', () => {
       nodeId: nodeB.id,
       claimId: secondClaim.claimId,
       workPacketId: secondClaim.packet.id,
-      extractorVersion: 'Local LLM v1',
-      result: runMockExtractorV1(secondClaim.packet.sourceText)
+      extractorVersion: 'Local LLM v2',
+      result: resultFor(secondClaim.packet.sourceText)
     });
 
     expect(secondResult.workPacket.status).toBe('completed');

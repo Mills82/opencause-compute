@@ -9,7 +9,6 @@ function dbWithEvents(actions: string[]): DatabaseState {
     nodes: [],
     claims: [],
     results: [],
-    facts: [],
     ingestionRuns: [],
     volunteerEnrollments: [],
     auditEvents: actions.map((action, index) => ({
