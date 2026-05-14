@@ -11,7 +11,8 @@ import {
   type WorkPacket,
   type WorkPacketPayload
 } from '@opencause/shared';
-import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT } from './consensus-scoring';
+import { consensusClaimKey } from './consensus';
+import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT, resultConsensusWeight } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
 import { verifyWorkPacketSignature } from './signing';
 import { packetSigningDiagnostics } from './signing-diagnostics';
@@ -93,31 +94,56 @@ function packetFromRow(row: any): WorkPacket {
   };
 }
 
-function sqlConsensusClaimKey(): string {
-  return `lower(trim('claims-v2|' || coalesce(claim_type,'') || '|' || coalesce(cancer_type,'') || '|' || coalesce(biomarker_mention,'') || '|' || coalesce(drug_or_intervention_mention,'') || '|' || coalesce(outcome_mention,'') || '|' || coalesce(exact_evidence_sentence,'') || '|' || coalesce(evidence_origin,'') || '|' || coalesce(polarity,'') || '|' || coalesce(direction,'')))`;
-}
-
 async function updateConsensusForPacket(client: PoolClient, packetId: string): Promise<'consensus_pending' | 'consensus_passed' | 'consensus_failed'> {
-  const count = await client.query('SELECT COUNT(DISTINCT node_id)::int AS count FROM extraction_results WHERE work_packet_id = $1 AND format_validated = true', [packetId]);
-  if (Number(count.rows[0]?.count ?? 0) < REQUIRED_CONSENSUS_SUBMISSIONS) {
+  const resultRows = (await client.query('SELECT * FROM extraction_results WHERE work_packet_id = $1 AND format_validated = true', [packetId])).rows;
+  const resultById = new Map<string, ExtractionResult>();
+  for (const row of resultRows) {
+    resultById.set(row.id, {
+      id: row.id,
+      workPacketId: row.work_packet_id,
+      nodeId: row.node_id,
+      claimId: row.claim_id,
+      extractorVersion: row.extractor_version,
+      resultHash: row.result_hash,
+      validated: row.validated,
+      formatValidated: row.format_validated,
+      consensusStatus: row.consensus_status,
+      reviewStatus: row.review_status,
+      validationErrors: row.validation_errors ?? [],
+      warnings: row.warnings ?? [],
+      summary: row.summary,
+      submittedAt: iso(row.submitted_at)!,
+      provenance: row.provenance ?? undefined
+    });
+  }
+  const distinctNodes = new Set([...resultById.values()].map((result) => result.nodeId));
+  if (distinctNodes.size < REQUIRED_CONSENSUS_SUBMISSIONS) {
     await client.query("UPDATE extraction_results SET consensus_status = 'consensus_pending' WHERE work_packet_id = $1", [packetId]);
     return 'consensus_pending';
   }
 
-  const agreement = await client.query(
-    `SELECT COUNT(*)::int AS count FROM (
-      SELECT ${sqlConsensusClaimKey()} AS claim_key,
-        COUNT(DISTINCT r.node_id)::int AS node_count,
-        SUM(${sqlModelConsensusWeight()} )::float AS agreement_weight
-      FROM extracted_claims c
-      JOIN extraction_results r ON r.id = c.result_id
-      WHERE r.work_packet_id = $1 AND r.format_validated = true AND c.evidence_origin <> 'methods_only'
-      GROUP BY claim_key
-      HAVING COUNT(DISTINCT r.node_id) >= $2 AND SUM(${sqlModelConsensusWeight()} ) >= $3
-    ) agreed`,
-    [packetId, REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT]
-  );
-  const status = Number(agreement.rows[0]?.count ?? 0) > 0 ? 'consensus_passed' : 'consensus_failed';
+  const claimRows = (await client.query('SELECT * FROM extracted_claims WHERE result_id = ANY($1::uuid[]) AND evidence_origin <> $2', [[...resultById.keys()], 'methods_only'])).rows;
+  const nodesByKey = new Map<string, Map<string, number>>();
+  for (const row of claimRows) {
+    const result = resultById.get(row.result_id);
+    if (!result) continue;
+    const claimKey = consensusClaimKey({
+      claimType: row.claim_type,
+      cancerType: row.cancer_type ?? undefined,
+      biomarkerMention: row.biomarker_mention ?? undefined,
+      drugOrInterventionMention: row.drug_or_intervention_mention ?? undefined,
+      outcomeMention: row.outcome_mention ?? undefined,
+      exactEvidenceSentence: row.exact_evidence_sentence,
+      evidenceOrigin: row.evidence_origin,
+      polarity: row.polarity,
+      direction: row.direction
+    });
+    const nodes = nodesByKey.get(claimKey) ?? new Map<string, number>();
+    nodes.set(result.nodeId, Math.max(nodes.get(result.nodeId) ?? 0, resultConsensusWeight(result)));
+    nodesByKey.set(claimKey, nodes);
+  }
+  const passed = [...nodesByKey.values()].some((nodes) => nodes.size >= REQUIRED_CONSENSUS_SUBMISSIONS && [...nodes.values()].reduce((sum, weight) => sum + weight, 0) >= REQUIRED_CONSENSUS_WEIGHT);
+  const status = passed ? 'consensus_passed' : 'consensus_failed';
   await client.query('UPDATE extraction_results SET consensus_status = $2, review_status = CASE WHEN $2 = \'consensus_failed\' THEN \'needs_human_review\' ELSE review_status END WHERE work_packet_id = $1', [packetId, status]);
   return status;
 }
