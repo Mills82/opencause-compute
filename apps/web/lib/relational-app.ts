@@ -213,6 +213,53 @@ export async function heartbeatNodeRelational(nodeId: string, token: string | nu
   }
 }
 
+export async function issueNodeProfileSetupTokenRelational(nodeId: string, token: string | null): Promise<string | undefined> {
+  if (!enabled()) return undefined;
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const node = await assertNodeAuthorized(client, nodeId, token);
+    let profile = (await client.query(
+      `SELECT p.* FROM volunteer_profiles p
+       JOIN volunteer_profile_nodes vpn ON vpn.volunteer_profile_id = p.id
+       WHERE vpn.node_id = $1 AND vpn.detached_at IS NULL
+       ORDER BY vpn.attached_at DESC
+       LIMIT 1
+       FOR UPDATE OF p`,
+      [nodeId]
+    )).rows[0];
+
+    if (!profile) {
+      const now = new Date().toISOString();
+      const profileId = randomUUID();
+      const profileCount = Number((await client.query('SELECT COUNT(*)::int AS count FROM volunteer_profiles')).rows[0]?.count ?? 0) + 1;
+      const displayName = `Volunteer ${String(profileCount).padStart(4, '0')}`;
+      const baseSlug = `volunteer-${String(profileCount).padStart(4, '0')}`;
+      profile = (await client.query(
+        `INSERT INTO volunteer_profiles(id,display_name,slug,privacy_mode,public_profile_enabled,moderation_status,avatar_color,bio,joined_at,last_active_at,stats_updated_at,created_at,updated_at,setup_token_hash,setup_token_expires_at)
+         VALUES($1,$2,$3,'private',false,'ok','#38bdf8',NULL,$4,$4,NULL,$4,$4,NULL,NULL)
+         RETURNING *`,
+        [profileId, displayName, baseSlug, now]
+      )).rows[0];
+      await client.query('INSERT INTO volunteer_profile_nodes(id,volunteer_profile_id,node_id,attached_at,detached_at) VALUES($1,$2,$3,$4,NULL)', [randomUUID(), profileId, node.id, now]);
+    }
+
+    const profileSetupToken = `ocp_${randomBytes(24).toString('base64url')}`;
+    await client.query(
+      `UPDATE volunteer_profiles
+       SET setup_token_hash = $2, setup_token_expires_at = $3, updated_at = NOW()
+       WHERE id = $1`,
+      [profile.id, hashProfileSetupToken(profileSetupToken), new Date(Date.now() + 30 * 86_400_000).toISOString()]
+    );
+    await appendAuditEventRelational({ actorType: 'node', actorId: nodeId, action: 'volunteer_profile.setup_link.issued', targetType: 'volunteer_profile', targetId: profile.id, metadata: {} }, client);
+    await client.query('COMMIT');
+    return profileSetupToken;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
+
 export async function issueVolunteerEnrollmentRelational(email: string, enrollmentCodeHash: string): Promise<VolunteerEnrollment | null | undefined> {
   if (!enabled()) return undefined;
   const client = await getPool().connect();

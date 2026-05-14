@@ -403,6 +403,7 @@ ipcMain.handle('desktop:get-state', async (event) => {
     : rawActivity;
   const timeline = runtime.running ? await sup.activityTimeline() : [];
   const credentials = await sup.readCredentials();
+  const registrationStatus = await sup.registrationStatus();
   const modelRuntime = await modelRuntimeStatus(settings.modelRuntime.model);
   const resources = await resourceStatus(settings);
   const modelRecommendation = recommendedModelConfig(settings);
@@ -417,6 +418,7 @@ ipcMain.handle('desktop:get-state', async (event) => {
       checks: { ollama: modelRuntime.available, modelInstalled: modelRuntime.selectedModelInstalled, resources: resources.eligible, paused: settings.localPaused }
     },
     profileSetupUrl: credentials?.profileSetupUrl,
+    registrationStatus,
     modelRuntime,
     resources,
     modelRecommendation,
@@ -483,6 +485,10 @@ ipcMain.handle('desktop:diagnostics', async (event) => {
 ipcMain.handle('desktop:register-worker', async (event, enrollmentCode: unknown) => {
   assertTrustedIpc(event);
   return (await supervisor()).register(validateEnrollmentCode(enrollmentCode));
+});
+ipcMain.handle('desktop:fresh-profile-setup-url', async (event) => {
+  assertTrustedIpc(event);
+  return (await supervisor()).freshProfileSetupUrl();
 });
 ipcMain.handle('desktop:pull-model', async (event, model: unknown) => {
   assertTrustedIpc(event);

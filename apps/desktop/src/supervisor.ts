@@ -54,6 +54,11 @@ export type WorkerRuntimeStatus = {
   stats: WorkerSessionStats;
 };
 
+export type RegistrationStatus =
+  | { registered: false; stale: false; message: string }
+  | { registered: true; stale: false; message: string }
+  | { registered: true; stale: true; message: string; error?: string };
+
 export type WorkerTimelineEvent = { at?: string; kind: string; label: string; detail: string; severity: 'ready' | 'warning' | 'blocked'; packetId?: string };
 
 export type WorkerActivitySummary = {
@@ -224,6 +229,55 @@ export class WorkerSupervisor {
   async saveCredentials(credentials: { nodeId: string; nodeToken: string; profileSetupToken?: string; profileSetupUrl?: string }): Promise<void> {
     await mkdir(this.config.appDir, { recursive: true });
     await writeFile(path.join(this.config.appDir, 'node.json'), JSON.stringify(credentials, null, 2), { encoding: 'utf8', mode: 0o600 });
+  }
+
+  async registrationStatus(): Promise<RegistrationStatus> {
+    const credentials = await this.readCredentials();
+    if (!credentials?.nodeId || !credentials.nodeToken) return { registered: false, stale: false, message: 'Worker is not registered.' };
+    try {
+      const response = await fetch(`${this.config.coordinatorUrl.replace(/\/$/, '')}/api/nodes/heartbeat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-node-token': credentials.nodeToken },
+        body: JSON.stringify({ nodeId: credentials.nodeId, capabilities: ['local-llm-v2', 'local-llm-v1'] })
+      });
+      if (response.ok) return { registered: true, stale: false, message: 'Worker registration is recognized by the coordinator.' };
+      const text = await response.text();
+      let body: { error?: string; message?: string } = {};
+      try { body = JSON.parse(text); } catch {}
+      const error = body.error || body.message || `http_${response.status}`;
+      const stale = response.status === 401 || error === 'node_unauthorized' || error === 'node_not_found' || error === 'node_revoked' || error === 'node_suspended';
+      return stale
+        ? { registered: true, stale: true, error, message: 'This worker is linked to an older coordinator registration that no longer exists. Register again to continue contributing. Your local model installation is unaffected.' }
+        : { registered: true, stale: false, message: `Worker registration check returned ${error}.` };
+    } catch (error) {
+      return { registered: true, stale: false, message: `Could not verify worker registration: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async freshProfileSetupUrl(): Promise<{ code: number; message: string; profileSetupUrl?: string; stale?: boolean }> {
+    const credentials = await this.readCredentials();
+    if (!credentials?.nodeId || !credentials.nodeToken) return { code: 404, message: 'Register this worker before opening profile setup.', stale: false };
+    try {
+      const response = await fetch(`${this.config.coordinatorUrl.replace(/\/$/, '')}/api/nodes/profile-setup-link`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-node-token': credentials.nodeToken },
+        body: JSON.stringify({ nodeId: credentials.nodeId })
+      });
+      const text = await response.text();
+      let body: { profileSetupToken?: string; error?: string; message?: string } = {};
+      try { body = JSON.parse(text); } catch {}
+      if (!response.ok || !body.profileSetupToken) {
+        const error = body.error || body.message || `http_${response.status}`;
+        const stale = response.status === 401 || error === 'node_unauthorized' || error === 'node_not_found' || error === 'node_revoked' || error === 'node_suspended';
+        return { code: response.status, message: stale ? 'This worker registration is no longer recognized. Re-register this worker to get a fresh profile setup link.' : `Could not create profile setup link: ${error}`, stale };
+      }
+      const profileSetupUrl = `${this.config.coordinatorUrl.replace(/\/$/, '')}/volunteer/profile?token=${encodeURIComponent(body.profileSetupToken)}`;
+      await this.saveCredentials({ ...credentials, nodeId: credentials.nodeId, nodeToken: credentials.nodeToken, profileSetupToken: body.profileSetupToken, profileSetupUrl });
+      await this.appendWorkerLog('fresh profile setup link issued');
+      return { code: 0, message: 'Profile setup link refreshed.', profileSetupUrl };
+    } catch (error) {
+      return { code: 1, message: `Could not create profile setup link: ${error instanceof Error ? error.message : String(error)}` };
+    }
   }
 
   async appendWorkerLog(message: string): Promise<void> {

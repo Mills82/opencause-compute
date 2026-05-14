@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('opencauseDesktop', {
   tailLog: () => ipcRenderer.invoke('desktop:tail-log'),
   diagnostics: () => ipcRenderer.invoke('desktop:diagnostics'),
   registerWorker: (enrollmentCode) => ipcRenderer.invoke('desktop:register-worker', enrollmentCode),
+  freshProfileSetupUrl: () => ipcRenderer.invoke('desktop:fresh-profile-setup-url'),
   startModelDownload: (model) => ipcRenderer.invoke('desktop:start-model-download', model),
   modelDownloadStatus: (id) => ipcRenderer.invoke('desktop:model-download-status', id),
   checkForUpdates: () => ipcRenderer.invoke('desktop:check-for-updates'),

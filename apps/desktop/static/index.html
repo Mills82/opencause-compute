@@ -622,9 +622,13 @@
           const log = await api.tailLog();
           latestLog.textContent = log || 'No log lines yet.';
           profileSetupUrl = latestState.profileSetupUrl || profileSetupUrl;
-          openProfile.disabled = !profileSetupUrl;
-          profileMessage.textContent = profileSetupUrl ? 'Profile setup link is available for this registered worker.' : (registered() ? 'No profile setup link found. Re-register or request a fresh profile setup link.' : 'Register this worker to receive a profile setup link.');
+          const staleRegistration = Boolean(latestState.registrationStatus?.stale);
+          openProfile.disabled = !registered() || staleRegistration;
+          profileMessage.textContent = staleRegistration
+            ? latestState.registrationStatus.message
+            : (registered() ? 'Open profile setup will request a fresh secure link before opening.' : 'Register this worker to receive a profile setup link.');
           registrationStep.classList.toggle('hidden', registered());
+          if (staleRegistration) registrationStep.classList.remove('hidden');
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
           renderModels(latestState.modelRuntime);
@@ -700,7 +704,19 @@
 
       document.getElementById('refresh').onclick = refresh;
       document.getElementById('install-ollama').onclick = async () => { await api.openExternal('https://ollama.com/download'); startOllamaPolling('Waiting for Ollama installation...'); };
-      openProfile.onclick = async () => { if (profileSetupUrl) await api.openExternal(profileSetupUrl); };
+      openProfile.onclick = async () => {
+        profileMessage.textContent = 'Requesting a fresh profile setup link...';
+        const result = await api.freshProfileSetupUrl();
+        if (result.profileSetupUrl) {
+          profileSetupUrl = result.profileSetupUrl;
+          profileMessage.textContent = result.message || 'Opening profile setup...';
+          await api.openExternal(profileSetupUrl);
+        } else {
+          profileMessage.textContent = result.message || 'Could not open profile setup.';
+          if (result.stale) registrationStep.classList.remove('hidden');
+        }
+        output.textContent = JSON.stringify(result, null, 2);
+      };
       document.getElementById('start').onclick = async () => { if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('pause').onclick = async () => { output.textContent = JSON.stringify(await api.pauseWorker(), null, 2); await refresh(); };
       document.getElementById('stop').onclick = async () => { output.textContent = JSON.stringify(await api.stopWorker(), null, 2); await refresh(); };
@@ -739,7 +755,7 @@
           if (result.code === 0) {
             registrationMessage.innerHTML = `Worker registered. Your code is hidden now.${profileSetupUrl ? '<br><button id="open-profile-setup" type="button">Open profile setup</button> <span class="small">Choose display name, privacy, team, and impact sharing.</span>' : ''}`;
             const profileButton = document.getElementById('open-profile-setup');
-            if (profileButton && profileSetupUrl) profileButton.onclick = () => api.openExternal(profileSetupUrl);
+            if (profileButton && profileSetupUrl) profileButton.onclick = () => openProfile.click();
           } else {
             registrationMessage.textContent = `Registration failed: ${result.message || result.stderr || result.stdout || result.code}`;
           }
