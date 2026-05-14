@@ -55,11 +55,6 @@ function digestPreview(input: Pick<ImpactDigest, 'sectionsProcessed' | 'formatVa
   return `${parts.join(', ')}.`;
 }
 
-function isWorkerTriageSkip(result: { provenance?: { packetTriage?: { decision?: string } } }): boolean {
-  const decision = result.provenance?.packetTriage?.decision;
-  return Boolean(decision && decision !== 'extract_now' && decision !== 'unclear');
-}
-
 function cardSlug(kind: string, id: string, weekStart: Date): string {
   return `${kind}-${id.slice(0, 8)}-${weekStart.toISOString().slice(0, 10)}`;
 }
@@ -107,7 +102,7 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
   for (const profile of db.volunteerProfiles) {
     const results = submittedByProfile.get(profile.id) ?? [];
     const dates = distinctDays(results.map((result) => result.submittedAt));
-    const formatValidatedSubmissions = results.filter((result) => (result.formatValidated ?? result.validated) && !isWorkerTriageSkip(result)).length;
+    const formatValidatedSubmissions = results.filter((result) => result.formatValidated ?? result.validated).length;
     const formatRejectedSubmissions = results.filter((result) => !(result.formatValidated ?? result.validated)).length;
     const consensusPassedContributions = results.filter((result) => result.consensusStatus === 'consensus_passed').length;
     const consensusFailedContributions = results.filter((result) => result.consensusStatus === 'consensus_failed').length;
@@ -161,7 +156,7 @@ export function recomputeGamification(db: DatabaseState, now = new Date()): { pr
       periodStart: weekStart.toISOString(),
       periodEnd: weekEnd.toISOString(),
       sectionsProcessed: weeklyResults.length,
-      formatValidatedSubmissions: weeklyResults.filter((result) => (result.formatValidated ?? result.validated) && !isWorkerTriageSkip(result)).length,
+      formatValidatedSubmissions: weeklyResults.filter((result) => result.formatValidated ?? result.validated).length,
       consensusPassedContributions: weeklyResults.filter((result) => result.consensusStatus === 'consensus_passed').length,
       idleMinutesDonated: 0,
       badgesAwarded: weeklyBadges,

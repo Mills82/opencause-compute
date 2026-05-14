@@ -28,6 +28,21 @@ describe('recomputeGamification', () => {
     expect(buildVolunteerLeaderboard(db)).toEqual([]);
   });
 
+  it('counts all format-valid triage outcomes as structure-validated submissions', () => {
+    const db = emptyDb();
+    db.volunteerProfiles.push({ id: 'profile-1', displayName: 'Volunteer', slug: 'volunteer', privacyMode: 'private', publicProfileEnabled: false, avatarColor: '#fff', joinedAt: '2026-01-01T00:00:00.000Z', lastActiveAt: null, statsUpdatedAt: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' });
+    db.volunteerProfileNodes.push({ id: 'link-1', volunteerProfileId: 'profile-1', nodeId: 'node-1', attachedAt: '2026-01-01T00:00:00.000Z', detachedAt: null });
+    db.nodes.push({ id: 'node-1', nodeName: 'Node', platform: 'linux', version: '0.1.0', capabilities: [], status: 'online', registeredAt: '2026-01-01T00:00:00.000Z', lastHeartbeatAt: null });
+    for (const [index, decision] of ['extract_now', 'skip_non_cancer', 'low_opportunity'].entries()) {
+      db.results.push({ id: `result-${index}`, workPacketId: `packet-${index}`, nodeId: 'node-1', claimId: `claim-${index}`, extractorVersion: 'Local LLM v1', resultHash: `hash-${index}`, validated: true, formatValidated: true, consensusStatus: 'consensus_pending', reviewStatus: 'not_reviewed', validationErrors: [], warnings: [], summary: 'ok', submittedAt: `2026-01-01T00:0${index}:00.000Z`, provenance: { packetTriage: { decision } } });
+    }
+
+    recomputeGamification(db, new Date('2026-01-02T00:00:00.000Z'));
+
+    expect(db.volunteerStatsSnapshots[0].formatValidatedSubmissions).toBe(3);
+    expect(db.impactDigests[0].formatValidatedSubmissions).toBe(3);
+  });
+
   it('estimates Cancer Knowledge Miner packet progress from eligible documents and ingestion averages', () => {
     const db = emptyDb();
     db.projects.push({ id: 'project-1', slug: 'cancer-knowledge-miner', name: 'Cancer Knowledge Miner', description: '', status: 'active', createdAt: '2026-01-01T00:00:00.000Z' });
