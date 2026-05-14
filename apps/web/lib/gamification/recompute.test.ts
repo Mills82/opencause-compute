@@ -34,7 +34,7 @@ describe('recomputeGamification', () => {
     db.volunteerProfileNodes.push({ id: 'link-1', volunteerProfileId: 'profile-1', nodeId: 'node-1', attachedAt: '2026-01-01T00:00:00.000Z', detachedAt: null });
     db.nodes.push({ id: 'node-1', nodeName: 'Node', platform: 'linux', version: '0.1.0', capabilities: [], status: 'online', registeredAt: '2026-01-01T00:00:00.000Z', lastHeartbeatAt: null });
     for (const [index, decision] of ['extract_now', 'skip_non_cancer', 'low_opportunity'].entries()) {
-      db.results.push({ id: `result-${index}`, workPacketId: `packet-${index}`, nodeId: 'node-1', claimId: `claim-${index}`, extractorVersion: 'Local LLM v1', resultHash: `hash-${index}`, validated: true, formatValidated: true, consensusStatus: 'consensus_pending', reviewStatus: 'not_reviewed', validationErrors: [], warnings: [], summary: 'ok', submittedAt: `2026-01-01T00:0${index}:00.000Z`, provenance: { packetTriage: { decision } } });
+      db.results.push({ id: `result-${index}`, workPacketId: `packet-${index}`, nodeId: 'node-1', claimId: `claim-${index}`, extractorVersion: 'Local LLM v2', resultHash: `hash-${index}`, validated: true, formatValidated: true, consensusStatus: 'consensus_pending', reviewStatus: 'not_reviewed', validationErrors: [], warnings: [], summary: 'ok', submittedAt: `2026-01-01T00:0${index}:00.000Z`, provenance: { packetTriage: { decision } } });
     }
 
     recomputeGamification(db, new Date('2026-01-02T00:00:00.000Z'));

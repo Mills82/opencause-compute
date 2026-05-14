@@ -3,7 +3,7 @@
 ## Current protections
 
 - Work packets are treated as data, not executable code.
-- Worker executes only approved built-in extraction paths (`Local LLM v1` by default, mock path by explicit opt-in only).
+- Worker executes only approved built-in extraction paths (`Local LLM v2` by default; legacy/mock extraction paths are not active).
 - Server signs packet payloads with HMAC-SHA256.
 - Worker verifies packet signatures before extraction.
 - Input source text hash recorded on packet creation.

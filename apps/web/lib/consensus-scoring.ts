@@ -4,7 +4,7 @@ export const REQUIRED_CONSENSUS_SUBMISSIONS = 2;
 export const REQUIRED_CONSENSUS_WEIGHT = 2;
 
 export function provenanceWeight(provenance: ResultProvenance | undefined): number {
-  const tier = provenance?.generationQualityTier ?? (provenance?.extractorVersion === 'Mock Extractor v1' ? 'mock' : 'balanced');
+  const tier = provenance?.generationQualityTier ?? 'balanced';
   const base = tier === 'ultra' ? 1.25 : tier === 'high' ? 1.15 : tier === 'balanced' ? 1 : tier === 'low' ? 0.85 : 0.75;
   const options = provenance?.generationOptions ?? {};
   const ctx = typeof options.num_ctx === 'number' ? options.num_ctx : typeof options.numCtx === 'number' ? options.numCtx : 0;

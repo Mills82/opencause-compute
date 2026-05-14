@@ -410,6 +410,7 @@ export async function submitResultRelational(input: {
     }
     await client.query("UPDATE work_claims SET status = 'completed', completed_at = $2 WHERE id = $1", [input.claimId, submittedAt]);
     const consensusStatus = await updateConsensusForPacket(client, packet.id);
+    record.consensusStatus = consensusStatus;
     const packetStatus = consensusStatus === 'consensus_passed' || consensusStatus === 'consensus_failed' ? 'completed' : 'queued';
     await client.query('UPDATE work_packets SET status = $2, updated_at = $3 WHERE id = $1', [packet.id, packetStatus, submittedAt]);
     packet.status = packetStatus;
