@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const desktopDir = resolve(import.meta.dirname, '..');
 const repoRoot = resolve(desktopDir, '../..');
@@ -23,6 +24,18 @@ function walk(dir, out = []) {
 
 for (const file of requiredFiles) {
   if (!existsSync(file)) throw new Error(`release_smoke_missing_required_file:${file}`);
+}
+
+const packagedManifest = await import(pathToFileURL(resolve(desktopDir, 'release/win-unpacked/resources/worker/dist/extractor-manifest.js')).href);
+const winAppDir = 'C:\\Users\\Smoke\\.opencause-compute';
+for (const child of ['worker.log', 'node.json', 'packet-failures.json']) {
+  packagedManifest.assertPathInside(winAppDir, `${winAppDir}\\${child}`);
+}
+try {
+  packagedManifest.assertPathInside(winAppDir, 'C:\\Users\\Smoke\\.opencause-compute-evil\\worker.log');
+  throw new Error('release_smoke_windows_path_guard_failed');
+} catch (error) {
+  if (!(error instanceof Error) || error.message !== 'unsafe_path_outside_app_dir') throw error;
 }
 
 const scanRoots = [

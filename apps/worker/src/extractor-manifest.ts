@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export type ExtractorManifest = {
   id: 'local-llm-v2';
   label: string;
@@ -27,7 +29,14 @@ export function assertLocalhostEndpoint(endpoint: string): void {
   }
 }
 
+function pathFlavor(value: string): typeof path.win32 | typeof path.posix {
+  return /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith('\\\\') || value.includes('\\') ? path.win32 : path.posix;
+}
+
 export function assertPathInside(parent: string, child: string): void {
-  const normalizedParent = parent.endsWith('/') ? parent : `${parent}/`;
-  if (!child.startsWith(normalizedParent)) throw new Error('unsafe_path_outside_app_dir');
+  const flavor = pathFlavor(parent) === path.win32 || pathFlavor(child) === path.win32 ? path.win32 : path.posix;
+  const resolvedParent = flavor.resolve(parent);
+  const resolvedChild = flavor.resolve(child);
+  const relative = flavor.relative(resolvedParent, resolvedChild);
+  if (!relative || relative.startsWith('..') || flavor.isAbsolute(relative)) throw new Error('unsafe_path_outside_app_dir');
 }
