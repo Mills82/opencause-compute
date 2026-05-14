@@ -232,4 +232,80 @@ describePg('real Postgres relational storage integration', () => {
     }
   });
 
+
+  it('relational submit path accepts two independent claims-v2 results, passes consensus, and exports evidence cards', async () => {
+    const pool = await freshDb();
+    try {
+      const app = await import('../lib/relational-app');
+      const worker = await import('../lib/relational-worker');
+      const db = await import('../lib/db');
+      const cards = await import('../lib/evidence-cards');
+      process.env.OPENCAUSE_HOSTED = 'true';
+      delete process.env.NODE_ENROLLMENT_CODE;
+      delete process.env.NODE_ENROLLMENT_CODES;
+
+      const sentence = 'Radiotherapy significantly improved local control in lung cancer patients.';
+      await app.ingestSourcesRelational({
+        projectSlug: 'cancer-knowledge-miner',
+        projectName: 'Cancer Knowledge Miner',
+        projectDescription: 'AI-readable oncology evidence index',
+        sources: [{ title: 'PMC oncology smoke chunk', sourceText: sentence, sourceCitation: 'PMC smoke citation', sourceUrl: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC-relational-smoke/' }],
+        extractor: 'local-llm-v2'
+      });
+
+      const nodeAEnrollment = await app.issueVolunteerEnrollmentRelational('node-a@example.com', hashEnrollmentCode('node-a-code'));
+      const nodeBEnrollment = await app.issueVolunteerEnrollmentRelational('node-b@example.com', hashEnrollmentCode('node-b-code'));
+      expect(nodeAEnrollment?.status).toBe('issued');
+      expect(nodeBEnrollment?.status).toBe('issued');
+      const nodeA = await app.registerNodeRelational({ nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'], enrollmentCode: 'node-a-code' });
+      const nodeB = await app.registerNodeRelational({ nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'], enrollmentCode: 'node-b-code' });
+      expect(nodeA?.nodeToken).toBeTruthy();
+      expect(nodeB?.nodeToken).toBeTruthy();
+
+      const result = {
+        schemaVersion: 'claims-v2' as const,
+        claims: [{
+          claimType: 'local_control' as const,
+          evidenceOrigin: 'this_study_result' as const,
+          evidenceType: 'clinical' as const,
+          studyContext: 'human_cohort' as const,
+          polarity: 'affirmed' as const,
+          direction: 'increased' as const,
+          cancerType: 'lung cancer',
+          outcomeMention: 'local control',
+          exactEvidenceSentence: sentence,
+          confidence: 0.82
+        }],
+        summary: 'one candidate evidence record',
+        warnings: []
+      };
+
+      const firstClaim = await worker.claimWorkRelational(nodeA!.node.id, nodeA!.nodeToken);
+      expect(firstClaim?.packet.title).toBe('PMC oncology smoke chunk');
+      const firstSubmit = await worker.submitResultRelational({ nodeId: nodeA!.node.id, token: nodeA!.nodeToken, claimId: firstClaim!.claimId, workPacketId: firstClaim!.packet.id, extractorVersion: 'Local LLM v2', result });
+      expect(firstSubmit?.claims[0]?.claimType).toBe('local_control');
+      expect(firstSubmit?.record.consensusStatus).toBe('consensus_pending');
+      expect(firstSubmit?.workPacket.status).toBe('queued');
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extracted_claims')).rows[0].count)).toBe(1);
+
+      const secondClaim = await worker.claimWorkRelational(nodeB!.node.id, nodeB!.nodeToken);
+      expect(secondClaim?.packet.id).toBe(firstClaim?.packet.id);
+      const secondSubmit = await worker.submitResultRelational({ nodeId: nodeB!.node.id, token: nodeB!.nodeToken, claimId: secondClaim!.claimId, workPacketId: secondClaim!.packet.id, extractorVersion: 'Local LLM v2', result });
+      expect(secondSubmit?.record.consensusStatus).toBe('consensus_passed');
+      expect(secondSubmit?.workPacket.status).toBe('completed');
+      expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extracted_claims')).rows[0].count)).toBe(2);
+      expect((await pool.query('SELECT DISTINCT consensus_status FROM extraction_results')).rows.map((row) => row.consensus_status)).toEqual(['consensus_passed']);
+
+      const state = await db.loadDb();
+      const evidenceCards = cards.listEvidenceCards(state);
+      expect(evidenceCards).toHaveLength(2);
+      expect(evidenceCards[0]?.claim.type).toBe('local_control');
+      expect(evidenceCards[0]?.source.url).toContain('PMC-relational-smoke');
+      expect(evidenceCards[0]?.fingerprints.normalizedClaimFingerprint).toHaveLength(64);
+    } finally {
+      await pool.end();
+      delete process.env.OPENCAUSE_HOSTED;
+    }
+  });
+
 });
