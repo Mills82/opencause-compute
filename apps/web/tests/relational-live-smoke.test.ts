@@ -83,6 +83,10 @@ describeLive('non-destructive live relational submit smoke', () => {
       expect(evidenceCards[0]?.claim.type).toBe('local_control');
       expect(evidenceCards[0]?.fingerprints.normalizedClaimFingerprint).toHaveLength(64);
     } finally {
+      const smokeProfileIds = (await pool.query(
+        'SELECT volunteer_profile_id FROM volunteer_profile_nodes WHERE node_id IN (SELECT id FROM volunteer_nodes WHERE node_name IN ($1,$2))',
+        [nodeAName, nodeBName]
+      )).rows.map((row) => row.volunteer_profile_id);
       await pool.query("UPDATE work_packets SET status = 'queued' WHERE status = 'smoke_hold'");
       await pool.query('DELETE FROM audit_events WHERE target_id IN (SELECT id::text FROM work_packets WHERE source_url = $1) OR actor_id IN (SELECT id::text FROM volunteer_nodes WHERE node_name IN ($2,$3))', [sourceUrl, nodeAName, nodeBName]);
       await pool.query('DELETE FROM extracted_claims WHERE result_id IN (SELECT r.id FROM extraction_results r JOIN work_packets p ON p.id = r.work_packet_id WHERE p.source_url = $1)', [sourceUrl]);
@@ -91,7 +95,9 @@ describeLive('non-destructive live relational submit smoke', () => {
       await pool.query('DELETE FROM work_packets WHERE source_url = $1', [sourceUrl]);
       await pool.query('DELETE FROM volunteer_profile_nodes WHERE node_id IN (SELECT id FROM volunteer_nodes WHERE node_name IN ($1,$2))', [nodeAName, nodeBName]);
       await pool.query('DELETE FROM volunteer_nodes WHERE node_name IN ($1,$2)', [nodeAName, nodeBName]);
-      await pool.query("DELETE FROM volunteer_profiles WHERE display_name LIKE 'Volunteer %' AND NOT EXISTS (SELECT 1 FROM volunteer_profile_nodes vpn WHERE vpn.volunteer_profile_id = volunteer_profiles.id)");
+      if (smokeProfileIds.length) {
+        await pool.query('DELETE FROM volunteer_profiles WHERE id = ANY($1::uuid[])', [smokeProfileIds]);
+      }
       await pool.query('DELETE FROM projects WHERE slug = $1', [projectSlug]);
       await pool.end();
       delete process.env.OPENCAUSE_HOSTED;
