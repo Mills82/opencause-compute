@@ -10,9 +10,9 @@ const ALLOWED_RELATIONSHIPS = new Set([
 ]);
 
 export const LOCAL_LLM_PROMPT_VERSION = 'local-llm-v1-prompt-2026-05-08';
-export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite-prompt-2026-05-12c';
+export const LOCAL_LLM_V2_PROMPT_VERSION = 'local-llm-v2-lite.1-prompt-2026-05-14a';
 
-const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','studied_with','unclear'] as const;
+const CLAIM_TYPES = ['treatment_response','resistance','prognosis','risk','progression','diagnosis','biology','toxicity','local_control','studied_with','unclear'] as const;
 const EVIDENCE_ORIGINS = ['this_study_result','cited_prior_work','background','methods_only','hypothesis_or_speculation','review_summary','unclear'] as const;
 const EVIDENCE_TYPES = ['clinical','preclinical','computational','review','case_report','unclear'] as const;
 const STUDY_CONTEXTS = ['human_cohort','clinical_trial','cell_line','animal','organoid','mixed','unclear'] as const;
@@ -108,35 +108,25 @@ export function extractionPrompt(sourceText: string): string {
 
 export function extractionPromptV2(sourceText: string): string {
   return [
-    'You extract candidate cancer-literature claims from source text.',
-    'Important: these are NOT accepted scientific facts. They are candidate claims for later validation.',
+    'You extract AI-readable candidate oncology evidence from source text.',
+    'Important: these are NOT accepted scientific facts. They are candidate evidence records for later validation.',
     'Return ONLY valid JSON. No markdown. No commentary.',
-    'JSON shape: {"schemaVersion":"claims-v2-lite","claims":[],"noClaimReason":"","summary":"","warnings":[]}',
-    'Each claim: {"claimType":"","evidenceOrigin":"","evidenceType":"","studyContext":"","polarity":"","direction":"","cancerType":"","biomarkerMention":"","drugOrInterventionMention":"","outcomeMention":"","statisticalEvidenceMention":"","sampleSizeMention":"","exactEvidenceSentence":"","reviewPriority":"","confidence":0}',
+    'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
+    'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
     'Allowed values:',
-    'claimType = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, studied_with, unclear',
-    'evidenceOrigin = this_study_result, cited_prior_work, background, methods_only, hypothesis_or_speculation, review_summary, unclear',
-    'evidenceType = clinical, preclinical, computational, review, case_report, unclear',
-    'studyContext = human_cohort, clinical_trial, cell_line, animal, organoid, mixed, unclear',
-    'polarity = affirmed, negated, speculative, uncertain',
-    'direction = increased, decreased, associated, no_association, mixed, unclear',
-    'reviewPriority = high, medium, low',
+    'claimLabel = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity, local_control, biomarker_association, studied_with, other',
+    'evidenceRole = this_study_result, prior_work, background, review_summary, method_or_design, hypothesis, unclear',
+    'evidenceModality = clinical, preclinical, computational, review, case_report, epidemiology, unclear',
+    'effect = increased, decreased, associated, no_association, mixed, unclear',
     'Rules:',
     '- Return 0 to 2 claims.',
-    '- Only extract cancer-related claims supported by one exact source sentence.',
-    '- Copy exactEvidenceSentence exactly from the source text.',
-    '- exactEvidenceSentence should be a complete source sentence that can stand alone. Do not use sentence fragments such as "strongly correlated with poor prognosis" unless the full source sentence is copied.',
-    '- Extract a claim when one exact sentence directly states a cancer-related finding or cited finding. Prefer zero claims only when the sentence is weak, vague, methods-only, duplicated, or requires inference.',
-    '- If one exact sentence directly states a cancer-related treatment response, survival, recurrence, toxicity, local control, diagnosis, prognosis, resistance, biomarker, or biology finding, return one claim.',
-    '- Background or review-style claims may be extracted when one exact sentence clearly states a specific cancer-related association, diagnosis, prognosis, risk, treatment, biology, toxicity, local control, survival, recurrence, progression, resistance, response, or outcome claim. Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" unless the sentence reports this study\'s own result.',
-    '- Do not treat bibliometric counts, keyword frequencies, author/country/journal rankings, literature-search methods, citation cluster descriptions, study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, or general study characteristics as biomedical cancer claims unless the exact sentence ties them to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, or another outcome.',
-    '- Do not write a claim-like summary while returning claims: []. If the summary would state a specific cancer-related claim, include that claim in claims using one exact supporting sentence. If no claim is included, keep the summary neutral and explain that no grounded claim was extracted.',
-    '- Do not extract methods-only mentions as findings.',
-    '- Do not expand broad lists of genes, drugs, compounds, pathways, or candidates into many claims.',
+    '- evidenceSentence must be one complete sentence copied exactly from the source text.',
+    '- Extract cancer-related evidence about response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity/adverse events, local control, survival, recurrence, biomarker association, or treatment outcome.',
+    '- Do not extract methods-only text, eligibility criteria, dose schedules, bibliometrics, author/country/journal rankings, search methods, generic background, or broad entity lists unless the exact sentence states an outcome or relationship.',
     '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
     '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
-    '- summary must be one short sentence. warnings must be an array of short strings or [].',
-    '- Output JSON only. No markdown or commentary.',
+    '- Do not include a summary. warnings must be an array of short strings or [].',
+    '- Output JSON only.',
     'Source text follows:',
     sourceText
   ].join('\n');
@@ -149,46 +139,28 @@ export function candidateSentencePromptV2(candidateSentences: string[], context:
     context.sourceCitation ? `Citation: ${context.sourceCitation}` : undefined
   ].filter(Boolean);
   return [
-    'You classify candidate cancer-literature evidence sentences.',
+    'You classify candidate oncology evidence sentences for an AI-readable citation-grounded evidence index.',
+    'Important: these are candidate evidence records, not accepted scientific facts.',
     'Return ONLY valid JSON. No markdown. No commentary.',
-    'JSON shape: {"schemaVersion":"claims-v2-lite","claims":[],"noClaimReason":"","summary":"","warnings":[]}',
-    'Each claim: {"claimType":"","evidenceOrigin":"","evidenceType":"","studyContext":"","polarity":"","direction":"","cancerType":"","biomarkerMention":"","drugOrInterventionMention":"","outcomeMention":"","statisticalEvidenceMention":"","sampleSizeMention":"","exactEvidenceSentence":"","reviewPriority":"","confidence":0}',
+    'JSON shape: {"schemaVersion":"claims-v2-lite.1","claims":[],"noClaimReason":"","warnings":[]}',
+    'Each claim: {"evidenceSentence":"","claimLabel":"","evidenceRole":"","evidenceModality":"","populationOrModel":"","cancer":"","intervention":"","biomarker":"","variant":"","outcome":"","effect":"","negated":false,"speculative":false,"quantitativeSupport":"","whyUseful":"","confidence":0}',
     'Allowed values:',
-    'claimType = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, studied_with, unclear',
-    'evidenceOrigin = this_study_result, cited_prior_work, background, methods_only, hypothesis_or_speculation, review_summary, unclear',
-    'evidenceType = clinical, preclinical, computational, review, case_report, unclear',
-    'studyContext = human_cohort, clinical_trial, cell_line, animal, organoid, mixed, unclear',
-    'polarity = affirmed, negated, speculative, uncertain',
-    'direction = increased, decreased, associated, no_association, mixed, unclear',
-    'reviewPriority = high, medium, low',
+    'claimLabel = treatment_response, resistance, prognosis, risk, progression, diagnosis, biology, toxicity, local_control, biomarker_association, studied_with, other',
+    'evidenceRole = this_study_result, prior_work, background, review_summary, method_or_design, hypothesis, unclear',
+    'evidenceModality = clinical, preclinical, computational, review, case_report, epidemiology, unclear',
+    'effect = increased, decreased, associated, no_association, mixed, unclear',
     'Rules:',
     '- Return 0 to 2 claims total.',
-    '- Each claim must use one complete candidate sentence copied exactly as exactEvidenceSentence.',
-    '- Extract a claim when the candidate sentence directly states a cancer-related finding, outcome, or cited finding. Do not require the sentence to name a biomarker. Clinical outcome sentences are valid claims.',
-    '- Clinical outcomes are strong claim signals: ORR, objective response rate, response rate, PFS, progression-free survival, OS, overall survival, median survival, survival rate, hazard ratio, remission, recurrence, local control, toxicity, adverse events, grade 3/4 events, complete response, partial response, disease control, and progression.',
-    '- If a sentence reports numeric clinical outcomes such as percentages, months, HR, ORR, PFS, OS, survival rates, response rates, or adverse-event rates in cancer patients, return one claim unless it is clearly only eligibility/methods/dosing.',
-    '- Phrases such as "our study", "we found", "we observed", "in this cohort", "among patients in our study", "patients in C1 of our study", or direct result reporting usually mean evidenceOrigin="this_study_result".',
-    '- Phrases naming another trial/study or prior report, such as "In the Phase III ... study", "previous studies", "prior reports", or a cited named trial, usually mean evidenceOrigin="cited_prior_work" or "background".',
-    '- Map ORR/objective response/response-rate and toxicity/adverse-event result sentences to claimType="treatment_response". Map PFS/OS/survival/prognosis sentences to claimType="prognosis" unless response is the main endpoint. Use outcomeMention for ORR/PFS/OS/toxicity text and statisticalEvidenceMention for percentages, months, HR, p-values, or rates.',
-    '- If a candidate sentence states an association, response, resistance, survival, prognosis, progression, diagnosis, biomarker, tumor-growth, proliferation, apoptosis, invasion, migration, or metastasis finding in the cancer context, return a claim.',
-    '- Prefer zero claims only when all candidate sentences are methods-only, dataset-description-only, bibliometric-only, generic disease background, vague, duplicated, or require inference. Do not return zero claims for a sentence that explicitly reports ORR, PFS, OS, survival, toxicity, response, or biomarker association outcomes.',
-    '- Do not extract study objectives, eligibility criteria, treatment regimens, dose ranges, follow-up duration, search methods, citation clusters, or general study characteristics unless tied to response, survival, recurrence, toxicity, local control, progression, diagnosis, risk, resistance, or another outcome.',
-    '- Use evidenceOrigin="background", "cited_prior_work", or "review_summary" and reviewPriority="low" for cited or review-style claims unless the sentence reports this study\'s own result.',
-    '- Use evidenceOrigin="this_study_result" only for the authors\' own reported results. Use "cited_prior_work", "background", or "review_summary" for prior studies, general knowledge, or review synthesis.',
-    '- For a direct exact-sentence claim, confidence should usually be 0.6 to 0.9. Use confidence below 0.5 only if the sentence is ambiguous. A sentence with exact ORR/PFS/OS/toxicity numbers should usually be at least 0.7 confidence.',
-    '- Do not write a claim-like summary while returning claims: [].',
-    '- Omit unknown optional fields. Never use null or placeholder values like N/A, unknown, or not mentioned.',
-    '- Use the context below to resolve abbreviations such as GBM, TNBC, LUAD, STAD, and GC and to fill cancerType when obvious. exactEvidenceSentence must still be copied from a candidate sentence.',
-    '- Avoid generic disease-definition claims such as \"glioblastoma is aggressive\" unless the sentence also gives a specific biomarker, treatment, resistance, survival, diagnostic, risk, or outcome relation.',
+    '- Each claim must use one complete candidate sentence copied exactly as evidenceSentence.',
+    '- Clinical outcome signals are strong: ORR, PFS, OS, survival, hazard ratio, recurrence, local control, complete/partial response, disease control, toxicity, adverse events, and grade 3/4 events.',
+    '- Map adverse-event/toxicity result sentences to claimLabel="toxicity". Map local-control result sentences to claimLabel="local_control".',
+    '- Use evidenceRole="this_study_result" only for the authors own results; use prior_work/background/review_summary for cited or review-style statements.',
+    '- Use method_or_design for methods-only sentences and normally return zero claims for them.',
+    '- Omit unknown optional fields. Never use null or placeholder values.',
+    '- If claims is empty, set noClaimReason to no_cancer_claim, methods_only, background_only, insufficient_context, extraction_uncertain, or other.',
+    '- Do not include a summary.',
     ...(contextLines.length ? ['Context:', ...contextLines] : []),
-    'Examples of valid extraction decisions:',
-    'Sentence: The 53% ORR, median PFS of 22.1 months and 1- and 2-year OS rates of 78% and 69% respectively amongst patients in C1 of our study are comparable with prior reports.',
-    'Decision: return one this_study_result clinical claim; claimType treatment_response or prognosis; exactEvidenceSentence equals the sentence.',
-    'Sentence: In the Phase III JAVELIN Renal 101 study, axitinib plus avelumab was associated with a significant improvement in progression-free survival (PFS) and overall response rate (ORR) in comparison to sunitinib.',
-    'Decision: return one cited_prior_work/background clinical claim; claimType treatment_response or prognosis; exactEvidenceSentence equals the sentence.',
-    'Sentence: The dose regimen ranged from 50.4 to 66.6 Gy for Grade I, while 54–70.2 Gy for Grade II/III.',
-    'Decision: return zero claims because this is dose-only without an outcome.',
-    'Candidate sentences are listed below. exactEvidenceSentence must equal one candidate sentence exactly; do not include numbering, bullets, quotes, or extra text.',
+    'Candidate sentences are listed below. evidenceSentence must equal one candidate sentence exactly; do not include numbering, bullets, quotes, or extra text.',
     ...candidateSentences.map((sentence) => `<sentence>${sentence}</sentence>`)
   ].join('\n');
 }
@@ -367,31 +339,39 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
   const source = rawPayload && typeof rawPayload === 'object' ? rawPayload as Record<string, unknown> : {};
   const schemaVersion = source.schemaVersion;
   const claimsSourceRaw = Array.isArray(source.claims) ? source.claims : [];
-  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' ? claimsSourceRaw : [];
+  const claimsSource = schemaVersion === 'claims-v2' || schemaVersion === 'claims-v2-lite' || schemaVersion === 'claims-v2-lite.1' ? claimsSourceRaw : [];
   const warnings = Array.isArray(source.warnings) ? source.warnings.map((warning) => optionalString(warning)).filter((warning): warning is string => Boolean(warning)) : ['local_model_missing_warnings_array'];
+  const diagnostics: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message?: string; claimIndex?: number; evidenceSentence?: string }> = [];
   const seenEvidenceSentences = new Set<string>();
   const rejectionCounts = new Map<string, number>();
-  const reject = (reason: string): null => { rejectionCounts.set(reason, (rejectionCounts.get(reason) ?? 0) + 1); return null; };
-  const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim) => {
-    const exactEvidenceSentence = requiredString(claim.exactEvidenceSentence, '');
+  const reject = (reason: string, claimIndex?: number, evidenceSentence?: string): null => { rejectionCounts.set(reason, (rejectionCounts.get(reason) ?? 0) + 1); diagnostics.push({ code: `claim_rejected:${reason}`, severity: 'warning', claimIndex, evidenceSentence }); return null; };
+  const claims = claimsSource.filter((claim): claim is Record<string, unknown> => Boolean(claim && typeof claim === 'object')).map((claim, claimIndex) => {
+    const isLite1 = schemaVersion === 'claims-v2-lite.1';
+    const exactEvidenceSentence = requiredString(isLite1 ? claim.evidenceSentence : claim.exactEvidenceSentence, '');
     const claimContextText = [context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join('\n');
     const cancerSupport = evidenceCancerSupport(exactEvidenceSentence, claimContextText);
-    if (isBadEvidenceSentence(exactEvidenceSentence, claimContextText)) return reject('bad_evidence_sentence');
+    if (isBadEvidenceSentence(exactEvidenceSentence, claimContextText)) return reject('bad_evidence_sentence', claimIndex, exactEvidenceSentence);
     if (cancerSupport.warning) warnings.push(`claim_flagged:${cancerSupport.warning}`);
-    if (isNonResultClaimSentence(exactEvidenceSentence, claim)) return reject('non_result_sentence');
-    if (isLowValueClaimSentence(exactEvidenceSentence, claim)) return reject('low_value_sentence');
-    if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return reject('evidence_not_in_source');
+    if (isNonResultClaimSentence(exactEvidenceSentence, claim)) return reject('non_result_sentence', claimIndex, exactEvidenceSentence);
+    if (isLowValueClaimSentence(exactEvidenceSentence, claim)) return reject('low_value_sentence', claimIndex, exactEvidenceSentence);
+    if (!exactEvidenceSentence || (sourceText && !sourceText.includes(exactEvidenceSentence))) return reject('evidence_not_in_source', claimIndex, exactEvidenceSentence);
     const evidenceKey = exactEvidenceSentence.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (seenEvidenceSentences.has(evidenceKey)) return reject('duplicate_evidence_sentence');
+    if (seenEvidenceSentences.has(evidenceKey)) return reject('duplicate_evidence_sentence', claimIndex, exactEvidenceSentence);
     seenEvidenceSentences.add(evidenceKey);
-    const claimType = strictEnum(claim.claimType, CLAIM_TYPES);
-    const evidenceOrigin = strictEnum(claim.evidenceOrigin, EVIDENCE_ORIGINS);
-    const evidenceType = strictEnum(claim.evidenceType, EVIDENCE_TYPES);
-    const studyContext = strictEnum(claim.studyContext, STUDY_CONTEXTS);
-    const polarity = strictEnum(claim.polarity, POLARITIES);
-    const direction = strictEnum(claim.direction, DIRECTIONS);
+    const claimTypeRaw = isLite1 ? ({ biomarker_association: 'biology', other: 'unclear' } as Record<string, string>)[String(claim.claimLabel)] ?? claim.claimLabel : claim.claimType;
+    const evidenceOriginRaw = isLite1 ? ({ prior_work: 'cited_prior_work', method_or_design: 'methods_only', hypothesis: 'hypothesis_or_speculation' } as Record<string, string>)[String(claim.evidenceRole)] ?? claim.evidenceRole : claim.evidenceOrigin;
+    const evidenceTypeRaw = isLite1 ? ({ epidemiology: 'clinical' } as Record<string, string>)[String(claim.evidenceModality)] ?? claim.evidenceModality : claim.evidenceType;
+    const directionRaw = isLite1 ? claim.effect : claim.direction;
+    const polarityRaw = isLite1 ? (claim.negated === true ? 'negated' : claim.speculative === true ? 'speculative' : 'affirmed') : claim.polarity;
+    const studyContextRaw = isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'cell_line' : 'unclear') : claim.studyContext;
+    const claimType = strictEnum(claimTypeRaw, CLAIM_TYPES);
+    const evidenceOrigin = strictEnum(evidenceOriginRaw, EVIDENCE_ORIGINS);
+    const evidenceType = strictEnum(evidenceTypeRaw, EVIDENCE_TYPES);
+    const studyContext = strictEnum(studyContextRaw, STUDY_CONTEXTS);
+    const polarity = strictEnum(polarityRaw, POLARITIES);
+    const direction = strictEnum(directionRaw, DIRECTIONS);
     const confidenceValue = strictConfidence(claim.confidence);
-    if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return reject('invalid_required_field');
+    if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return reject('invalid_required_field', claimIndex, exactEvidenceSentence);
     const charStart = sourceText ? sourceText.indexOf(exactEvidenceSentence) : -1;
     const charEnd = charStart >= 0 ? charStart + exactEvidenceSentence.length : undefined;
     const normalized: ExtractedClaim = {
@@ -401,11 +381,13 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
       studyContext,
       polarity,
       direction,
-      cancerType: optionalString(claim.cancerType) ?? inferCancerTypeFromText([exactEvidenceSentence, context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join(' \n')),
-      biomarkerMention: optionalString(claim.biomarkerMention),
-      drugOrInterventionMention: optionalString(claim.drugOrInterventionMention),
-      outcomeMention: optionalString(claim.outcomeMention),
-      statisticalEvidenceMention: optionalString(claim.statisticalEvidenceMention),
+      cancerType: optionalString(isLite1 ? claim.cancer : claim.cancerType) ?? inferCancerTypeFromText([exactEvidenceSentence, context.title, context.sectionTitle, context.sourceCitation, sourceText.slice(0, 500)].filter(Boolean).join(' \n')),
+      biomarkerMention: optionalString(isLite1 ? claim.biomarker : claim.biomarkerMention),
+      drugOrInterventionMention: optionalString(isLite1 ? claim.intervention : claim.drugOrInterventionMention),
+      variantMention: optionalString(isLite1 ? claim.variant : claim.variantMention),
+      speciesOrModelMention: optionalString(isLite1 ? claim.populationOrModel : claim.speciesOrModelMention),
+      outcomeMention: optionalString(isLite1 ? claim.outcome : claim.outcomeMention),
+      statisticalEvidenceMention: optionalString(isLite1 ? claim.quantitativeSupport : claim.statisticalEvidenceMention),
       sampleSizeMention: optionalString(claim.sampleSizeMention),
       charStart: charStart >= 0 ? charStart : undefined,
       charEnd,
@@ -421,7 +403,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
   if (claimsSourceRaw.length > 2 || claims.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
   if (!cappedClaims.length) warnings.push('local_model_returned_no_claims');
   const noClaimReason = cappedClaims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
-  return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: cappedClaims, noClaimReason, summary: requiredString(source.summary, cappedClaims.length ? `Extracted ${cappedClaims.length} candidate claim${cappedClaims.length === 1 ? '' : 's'} from local model output.` : 'No candidate claims extracted from local model output.'), warnings });
+  return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: cappedClaims, noClaimReason, summary: cappedClaims.length ? `Extracted ${cappedClaims.length} candidate evidence record${cappedClaims.length === 1 ? '' : 's'} from local model output.` : 'No candidate evidence extracted from local model output.', warnings, diagnostics });
 }
 
 export function normalizeLocalLlmPayload(rawPayload: unknown, sourceText = ''): ResultPayload {

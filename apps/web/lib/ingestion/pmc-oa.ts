@@ -151,6 +151,24 @@ export function chunkArticleText(text: string, maxChars = 3500): string[] {
   return chunks;
 }
 
+
+const ONCOLOGY_ARTICLE_TERMS = /\b(cancer|tumou?r|oncolog|carcinoma|sarcoma|melanoma|leukemia|leukaemia|lymphoma|glioma|glioblastoma|neoplasm|malignan|metasta|chemotherapy|radiotherapy|immunotherapy|checkpoint inhibitor|egfr|alk|brca|pd-?l1|her2|kras|braf|nsclc|tnbc|hcc|crc)\b/i;
+const CLAIM_BEARING_SECTION_TYPES = new Set<PmcSectionText['type']>(['abstract', 'results', 'discussion', 'conclusion', 'figure_table']);
+const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|progression|diagnos|associated|correlat|predict|biomarker|mutation|variant|expression|therapy|treatment|drug|inhibitor|immunotherapy|chemotherapy|radiotherapy|toxicit|local\s+control|recurrence|metasta|overall survival|progression-free survival|objective response|response rate|pfs|os|orr|adverse events?|disease control|hazard ratio|clinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4))\b/i;
+
+function isOncologyArticle(record: PmcSearchRecord, sections: PmcSectionText[]): boolean {
+  const articleText = [record.title, record.sourceCitation, ...sections.flatMap((section) => section.paragraphs.slice(0, 2))].join(' ');
+  return ONCOLOGY_ARTICLE_TERMS.test(articleText);
+}
+
+function isClaimBearingOncologyChunk(section: PmcSectionText, chunk: string, record: PmcSearchRecord): boolean {
+  const context = `${record.title} ${section.title ?? ''} ${chunk}`;
+  if (!ONCOLOGY_ARTICLE_TERMS.test(context)) return false;
+  if (!CLAIM_BEARING_SECTION_TYPES.has(section.type) && !CLAIM_OPPORTUNITY_TERMS.test(chunk)) return false;
+  if (/^(?:references|acknowledg|funding|author contribution|conflict|competing interest|ethics|availability|supplementary material|abbreviation|statistical analysis)$/i.test(section.title ?? '')) return false;
+  return CLAIM_OPPORTUNITY_TERMS.test(context);
+}
+
 async function extractNxmlFromTgz(buffer: Buffer): Promise<string> {
   const extract = tar.extract();
   const xmlChunks: Buffer[] = [];
@@ -258,9 +276,14 @@ export async function ingestPmcOaFullTextWithReport(options: {
 
     try {
       const sections = await fetchPmcOaFullText(pmcid, options);
+      if (!isOncologyArticle(record, sections)) {
+        failures.push({ pmid: record.pmid, pmcid, reason: 'skipped_non_oncology_article' });
+        await sleep(delayMs);
+        continue;
+      }
       const sectionChunks = sections.flatMap((section) => {
         const chunks = chunkArticleText(section.paragraphs.join('\n\n'), 3500);
-        return chunks.map((chunk, index) => ({ section, chunk, index }));
+        return chunks.map((chunk, index) => ({ section, chunk, index })).filter((item) => isClaimBearingOncologyChunk(item.section, item.chunk, record));
       });
       if (sectionChunks.length > 0) documentsIngested += 1;
 

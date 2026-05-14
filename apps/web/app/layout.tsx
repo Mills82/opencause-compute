@@ -7,7 +7,7 @@ import { requireProductionEnv } from '../lib/runtime-config';
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://opencause.appassist.ai';
 const siteName = 'OpenCause Compute';
 const description =
-  'Volunteer compute for AI-assisted open science. Help process open literature into citation-backed candidate research facts.';
+  'Volunteer compute for AI-assisted open science. Help process open literature into citation-backed candidate research evidence.';
 
 const footerLinks = [
   ['Privacy', '/privacy'],

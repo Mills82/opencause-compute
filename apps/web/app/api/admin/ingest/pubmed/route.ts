@@ -13,7 +13,7 @@ const requestSchema = z.object({
   retmax: z.number().int().min(1).max(100).default(20),
   projectSlug: z.string().min(3).default('cancer-knowledge-miner'),
   projectName: z.string().min(3).default('Cancer Knowledge Miner'),
-  projectDescription: z.string().default('Processes open-access oncology and biomedical literature into structured, citation-backed facts.')
+  projectDescription: z.string().default('Processes open-access oncology and biomedical literature into structured, citation-backed candidate evidence.')
 });
 
 export async function POST(request: Request) {

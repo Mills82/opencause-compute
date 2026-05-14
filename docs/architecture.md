@@ -57,9 +57,9 @@
 2. Coordinator can ingest PubMed abstracts into signed queued work packets.
 3. Node registers and heartbeats.
 4. Worker claims a queued packet.
-5. Worker verifies packet signature and extracts facts.
+5. Worker verifies packet signature and extracts candidate evidence.
 6. Worker submits structured result.
-7. Coordinator validates and stores result/facts.
+7. Coordinator validates and stores result/evidence records.
 8. Dashboard renders state from coordinator DB.
 
 ## Claim leasing behavior

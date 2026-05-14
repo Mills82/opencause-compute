@@ -7,7 +7,7 @@ import { upsertProjectCorpusEstimateRelational } from '../../../../../lib/relati
 import { buildPmcCorpusEstimateInput, CKM_PROJECT_SLUG, DEFAULT_CKM_QUERY, upsertProjectCorpusEstimate } from '../../../../../lib/project-progress/refresh';
 
 const PROJECT_NAME = 'Cancer Knowledge Miner';
-const PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed facts.';
+const PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed candidate evidence.';
 
 function queryFromEnv() {
   return process.env.CKM_CORPUS_QUERY ?? DEFAULT_CKM_QUERY;

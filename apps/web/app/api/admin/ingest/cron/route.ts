@@ -13,7 +13,7 @@ const DEFAULT_QUERY = 'cancer biomarker response resistance';
 const DEFAULT_PMC_OA_QUERY = 'cancer AND open access[filter]';
 const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
 const DEFAULT_PROJECT_NAME = 'Cancer Knowledge Miner';
-const DEFAULT_PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed facts.';
+const DEFAULT_PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed candidate evidence.';
 
 function parseEnvInt(value: string | undefined, fallback: number, min: number, max: number): number {
   if (!value) return fallback;

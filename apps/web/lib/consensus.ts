@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { DatabaseState, ExtractedClaimRecord, ExtractedFactRecord } from '@opencause/shared';
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT, resultConsensusWeight } from './consensus-scoring';
 
@@ -9,11 +10,15 @@ export function consensusFactKey(fact: Pick<ExtractedFactRecord, 'relationshipTy
   return ['facts-v1', fact.relationshipType, fact.cancerType, fact.geneOrBiomarker, fact.drugOrCompound].map(norm).join('|');
 }
 
+function hash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 export function consensusClaimKey(claim: Pick<ExtractedClaimRecord, 'claimType' | 'cancerType' | 'biomarkerMention' | 'drugOrInterventionMention' | 'outcomeMention' | 'exactEvidenceSentence' | 'evidenceOrigin' | 'polarity' | 'direction'>): string {
-  // V2 consensus identity intentionally excludes normalized guesses. They are non-authoritative annotations.
-  // Methods-only claims are not promoted into consensus-passed scientific-output status by default.
-  if (claim.evidenceOrigin === 'methods_only') return ['claims-v2', 'methods_only', norm(claim.exactEvidenceSentence)].join('|');
-  return ['claims-v2', claim.claimType, claim.cancerType, claim.biomarkerMention, claim.drugOrInterventionMention, claim.outcomeMention, claim.exactEvidenceSentence, claim.evidenceOrigin, claim.polarity, claim.direction].map(norm).join('|');
+  // V2 consensus uses a normalized fingerprint so semantically matching workers are not split by punctuation/case/noisy raw strings.
+  // Exact source evidence still anchors identity through a normalized sentence hash.
+  if (claim.evidenceOrigin === 'methods_only') return ['claims-v2', 'methods_only', hash(norm(claim.exactEvidenceSentence))].join('|');
+  return ['claims-v2', claim.claimType, hash(norm(claim.exactEvidenceSentence)), claim.cancerType, claim.biomarkerMention, claim.drugOrInterventionMention, claim.outcomeMention, claim.polarity, claim.direction].map(norm).join('|');
 }
 
 export function updateConsensusForPacket(db: DatabaseState, packetId: string): 'consensus_pending' | 'consensus_passed' | 'consensus_failed' {

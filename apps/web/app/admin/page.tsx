@@ -40,7 +40,7 @@ export default async function AdminDashboardPage() {
       <div>
         <h2 className="text-3xl font-semibold">Coordinator Dashboard</h2>
         <p className="text-slate-300">
-          Private-alpha operations for OpenCause Compute. Candidate facts are format validated only until consensus and/or human
+          Private-alpha operations for OpenCause Compute. Candidate evidence are format validated only until consensus and/or human
           review is complete; this dashboard is not public-facing.
         </p>
       </div>

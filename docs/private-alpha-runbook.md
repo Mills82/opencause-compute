@@ -1,10 +1,10 @@
 # OpenCause Compute private-alpha runbook
 
-OpenCause Compute is private-alpha infrastructure for AI-assisted open science. Cancer Knowledge Miner creates citation-backed candidate facts from open-access biomedical literature. The current system performs schema/format validation and evidence-sentence matching; it does **not** scientifically validate biomedical claims and is not medical advice.
+OpenCause Compute is private-alpha infrastructure for AI-assisted open science. Cancer Knowledge Miner creates citation-backed candidate evidence from open-access biomedical literature. The current system performs schema/format validation and evidence-sentence matching; it does **not** scientifically validate biomedical claims and is not medical advice.
 
 ## What private alpha means
 
-Trusted testers may run a coordinator and worker, ingest public/open-access literature, and inspect candidate facts. This is not a public volunteer launch.
+Trusted testers may run a coordinator and worker, ingest public/open-access literature, and inspect candidate evidence. This is not a public volunteer launch.
 
 ## Safe to test
 
@@ -78,7 +78,7 @@ npm run start:worker:once -- --server http://localhost:3000 --force-now true
 
 ## Monitor results
 
-Use the dashboard and Results page. Treat entries as citation-backed candidate facts with format validation only.
+Use the dashboard and Results page. Treat entries as citation-backed candidate evidence with format validation only.
 
 ## Pause workers / run now
 

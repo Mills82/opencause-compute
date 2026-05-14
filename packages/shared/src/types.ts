@@ -27,6 +27,8 @@ export const claimTypeSchema = z.enum([
   'progression',
   'diagnosis',
   'biology',
+  'toxicity',
+  'local_control',
   'studied_with',
   'unclear'
 ]);
@@ -100,15 +102,56 @@ export const resultPayloadV1Schema = z.object({
   warnings: z.array(z.string())
 });
 
+export const extractionDiagnosticSchema = z.object({
+  code: z.string().min(1),
+  severity: z.enum(['info', 'warning', 'error']).default('warning'),
+  message: z.string().min(1).optional(),
+  claimIndex: z.number().int().min(0).optional(),
+  evidenceSentence: z.string().min(1).optional()
+});
+
 export const resultPayloadV2Schema = z.object({
   schemaVersion: z.literal('claims-v2'),
   claims: z.array(extractedClaimSchema).max(8),
   noClaimReason: noClaimReasonSchema.optional(),
   summary: z.string().min(1),
-  warnings: z.array(z.string())
+  warnings: z.array(z.string()),
+  diagnostics: z.array(extractionDiagnosticSchema).optional()
 });
 
 export const resultPayloadSchema = z.union([resultPayloadV1Schema, resultPayloadV2Schema]);
+
+
+export const liteClaimLabelSchema = z.enum(['treatment_response', 'resistance', 'prognosis', 'risk', 'progression', 'diagnosis', 'biology', 'toxicity', 'local_control', 'biomarker_association', 'studied_with', 'other']);
+export const liteEvidenceRoleSchema = z.enum(['this_study_result', 'prior_work', 'background', 'review_summary', 'method_or_design', 'hypothesis', 'unclear']);
+export const liteEvidenceModalitySchema = z.enum(['clinical', 'preclinical', 'computational', 'review', 'case_report', 'epidemiology', 'unclear']);
+export const liteEffectSchema = z.enum(['increased', 'decreased', 'associated', 'no_association', 'mixed', 'unclear']);
+
+export const resultPayloadV2Lite1ClaimSchema = z.object({
+  evidenceSentence: z.string().min(1),
+  claimLabel: liteClaimLabelSchema,
+  evidenceRole: liteEvidenceRoleSchema,
+  evidenceModality: liteEvidenceModalitySchema,
+  populationOrModel: z.string().min(1).optional(),
+  cancer: z.string().min(1).optional(),
+  intervention: z.string().min(1).optional(),
+  biomarker: z.string().min(1).optional(),
+  variant: z.string().min(1).optional(),
+  outcome: z.string().min(1).optional(),
+  effect: liteEffectSchema,
+  negated: z.boolean().optional(),
+  speculative: z.boolean().optional(),
+  quantitativeSupport: z.string().min(1).optional(),
+  whyUseful: z.string().min(1).optional(),
+  confidence: z.number().min(0).max(1)
+});
+
+export const resultPayloadV2Lite1Schema = z.object({
+  schemaVersion: z.literal('claims-v2-lite.1'),
+  claims: z.array(resultPayloadV2Lite1ClaimSchema).max(4),
+  noClaimReason: noClaimReasonSchema.optional(),
+  warnings: z.array(z.string())
+});
 
 export const projectSchema = z.object({
   id: z.string(),

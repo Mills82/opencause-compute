@@ -2,7 +2,7 @@
 
 OpenCause Compute lets volunteers contribute spare compute to AI-assisted open science.
 
-The project coordinates small, signed work packets from open/public scientific literature. Volunteer workers verify each packet, run an approved local extraction workflow, and return citation-backed **candidate facts** with provenance for review and consensus.
+The project coordinates small, signed work packets from open/public scientific literature. Volunteer workers verify each packet, run an approved local extraction workflow, and return citation-backed **candidate evidence** with provenance for review and consensus.
 
 OpenCause Compute is **not medical advice** and does not make clinical claims. Output is research-support evidence only.
 
@@ -38,7 +38,7 @@ Prototype builds are for selected testers only. They may show Windows warnings u
 - Processes open/public literature work packets from the coordinator.
 - Verifies packet signatures before extraction.
 - Runs approved local model workflows only.
-- Sends back candidate facts, summary text, validation status, and provenance.
+- Sends back candidate evidence, summary text, validation status, and provenance.
 - Stores local worker credentials and logs in the app data directory.
 - Lets you pause/resume work and control resource use.
 
@@ -47,7 +47,7 @@ Prototype builds are for selected testers only. They may show Windows warnings u
 - It should not process your private files.
 - It should not hide background activity.
 - It should not provide medical advice.
-- It should not be treated as scientific acceptance of any extracted fact. Consensus and review are still required.
+- It should not be treated as scientific acceptance of any candidate evidence record. Consensus and review are still required.
 
 ## Public web surfaces
 
@@ -146,4 +146,4 @@ Current prototype releases are unsigned. Public release requires signed installe
 
 ## Scientific posture
 
-OpenCause Compute extracts structured candidate facts from literature. Format/schema validation means the output is parseable and citation-backed; it does **not** mean the fact is scientifically accepted. No extracted fact should be considered accepted solely because one worker produced valid JSON.
+OpenCause Compute extracts structured candidate evidence from literature. Format/schema validation means the output is parseable and citation-backed; it does **not** mean the evidence record is scientifically accepted. No candidate evidence record should be considered accepted solely because one worker produced valid JSON.
