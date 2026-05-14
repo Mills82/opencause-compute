@@ -121,7 +121,8 @@ describePg('real Postgres relational storage integration', () => {
       const repo = await import('../lib/relational-app');
       await repo.ingestSourcesRelational({ projectSlug: 'full', projectName: 'Full', projectDescription: 'Desc', sources: [{ title: 'A', sourceText: 'alpha', sourceCitation: 'cite', sourceUrl: 'https://example.com/full' }], extractor: 'local-llm-v1' });
       const snapshot = await repo.queueSnapshotRelational();
-      const queueDeficit = Math.max(0, 1 - snapshot.totalPackets);
+      const activeBacklog = snapshot.queuedPackets + snapshot.claimedPackets;
+      const queueDeficit = Math.max(0, 1 - activeBacklog);
       expect(queueDeficit).toBe(0);
       expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM ingestion_runs')).rows[0].count)).toBe(0);
       expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM work_packets')).rows[0].count)).toBe(1);

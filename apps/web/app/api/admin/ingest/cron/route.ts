@@ -62,11 +62,12 @@ async function queueSnapshot() {
 async function runIngestion() {
   const config = getCronConfig();
   const beforeQueue = await queueSnapshot();
-  const queueDeficit = Math.max(0, config.queueTarget - beforeQueue.totalPackets);
+  const activeBacklog = beforeQueue.queuedPackets + beforeQueue.claimedPackets;
+  const queueDeficit = Math.max(0, config.queueTarget - activeBacklog);
   const pmcRetmax = config.enablePmcOa ? Math.min(config.pmcRetmax, config.maxPacketsPerRun, queueDeficit) : 0;
   const pubmedRetmax = config.enablePubMedFallback ? Math.min(config.pubmedRetmax, config.maxPacketsPerRun - pmcRetmax, queueDeficit - pmcRetmax) : 0;
 
-  if (queueDeficit <= 0) return { skipped: true, reason: 'queue_target_met', queueTarget: config.queueTarget, beforeQueue };
+  if (queueDeficit <= 0) return { skipped: true, reason: 'queue_target_met', queueTarget: config.queueTarget, activeBacklog, beforeQueue };
 
   const sourceType = pmcRetmax > 0 && pubmedRetmax === 0 ? 'pmc_oa_full_text' : pubmedRetmax > 0 && pmcRetmax === 0 ? 'pubmed_abstract' : 'combined';
   const runQuery = sourceType === 'pmc_oa_full_text' ? config.pmcQuery : sourceType === 'pubmed_abstract' ? config.pubmedQuery : `${config.pubmedQuery} | ${config.pmcQuery}`;
@@ -86,13 +87,13 @@ async function runIngestion() {
       if (!pmcOa) throw new Error('relational_ingest_unavailable');
       const runSummary = await completeIngestionRunRelational(run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped });
       await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: config.pmcQuery, retmax: pmcRetmax, recordsFetched: pmcReport.recordsFetched, runId: run.id });
-      return { project: relationalPubmed.project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
+      return { project: relationalPubmed.project, queueTarget: config.queueTarget, activeBacklog, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
     })() : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: config.projectSlug, name: config.projectName, description: config.projectDescription });
       const pubmed = createWorkPacketsFromSources(db, { projectId: project.id, sources: pubmedSources, extractor: 'local-llm-v2' });
       const pmcOa = createWorkPacketsFromSources(db, { projectId: project.id, sources: pmcReport.sources, extractor: 'local-llm-v2' });
       const completedRun = completeIngestionRun(db, run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped });
-      return { project, queueTarget: config.queueTarget, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed, pmcOa, pmcFailures: pmcReport.failures, run: completedRun };
+      return { project, queueTarget: config.queueTarget, activeBacklog, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: pubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: pubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed, pmcOa, pmcFailures: pmcReport.failures, run: completedRun };
     });
     if (!relationalPubmed) await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: config.pmcQuery, retmax: pmcRetmax, recordsFetched: pmcReport.recordsFetched, runId: run.id });
     return { ...output, afterQueue: await queueSnapshot() };
