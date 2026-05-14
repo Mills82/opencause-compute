@@ -65,6 +65,37 @@ describe('local llm helpers', () => {
     expect(normalized.warnings.some((warning) => warning.startsWith('claim_rejected:'))).toBe(true);
   });
 
+  it('rejects low-confidence and methods/action-only lite claims', () => {
+    const result = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.1',
+      claims: [
+        { evidenceSentence: 'To further validate its functionality during cancer cachexia, we injected MyoRep-AAV9 into the TA muscle of Apc Min/+ and WT mice of both sexes at 8 weeks of age.', claimLabel: 'biology', evidenceRole: 'this_study_result', evidenceModality: 'preclinical', populationOrModel: 'Apc Min/+ mice', effect: 'associated', confidence: 0.8 },
+        { evidenceSentence: 'Radiotherapy significantly improved local control in lung cancer patients.', claimLabel: 'local_control', evidenceRole: 'this_study_result', evidenceModality: 'clinical', effect: 'increased', confidence: 0.2 }
+      ],
+      warnings: []
+    }, 'To further validate its functionality during cancer cachexia, we injected MyoRep-AAV9 into the TA muscle of Apc Min/+ and WT mice of both sexes at 8 weeks of age. Radiotherapy significantly improved local control in lung cancer patients.');
+    expect(result.claims).toHaveLength(0);
+    expect(result.diagnostics?.map((d) => d.code)).toContain('claim_rejected:non_result_sentence');
+    expect(result.diagnostics?.map((d) => d.code)).toContain('claim_rejected:low_confidence');
+  });
+
+  it('infers study context from sentence and model hints', () => {
+    const preclinical = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.1',
+      claims: [
+        { evidenceSentence: 'Tumor-bearing mice showed reduced tumor growth after treatment.', claimLabel: 'treatment_response', evidenceRole: 'this_study_result', evidenceModality: 'preclinical', effect: 'decreased', confidence: 0.8 },
+        { evidenceSentence: 'MDA-MB-231 cells showed increased apoptosis after treatment.', claimLabel: 'biology', evidenceRole: 'this_study_result', evidenceModality: 'preclinical', effect: 'increased', confidence: 0.8 }
+      ],
+      warnings: []
+    }, 'Tumor-bearing mice showed reduced tumor growth after treatment. MDA-MB-231 cells showed increased apoptosis after treatment.');
+    const clinical = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.1',
+      claims: [{ evidenceSentence: 'Patients with lung cancer in the phase II trial achieved improved progression-free survival.', claimLabel: 'treatment_response', evidenceRole: 'this_study_result', evidenceModality: 'clinical', effect: 'increased', confidence: 0.8 }],
+      warnings: []
+    }, 'Patients with lung cancer in the phase II trial achieved improved progression-free survival.');
+    expect([...preclinical.claims, ...clinical.claims].map((claim) => claim.studyContext)).toEqual(['animal', 'cell_line', 'clinical_trial']);
+  });
+
   it('requires approved installed Ollama model before claiming work', async () => {
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200 })) as typeof fetch;
     await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'qwen3:14b', timeoutMs: 1000, options: {} })).resolves.toBeUndefined();

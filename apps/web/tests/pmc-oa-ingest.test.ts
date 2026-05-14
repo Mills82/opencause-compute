@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chunkArticleText, extractPmcSections, parseOaTgzHref, stripXmlToText } from '../lib/ingestion/pmc-oa';
+import { chunkArticleText, extractPmcSections, parseOaTgzHref, scoreArticleCentrality, stripXmlToText } from '../lib/ingestion/pmc-oa';
 
 describe('pmc oa ingestion helpers', () => {
   it('parses tgz link from oa response', () => {
@@ -18,6 +18,14 @@ describe('pmc oa ingestion helpers', () => {
     expect(text).toContain('First sentence');
     expect(text).toContain('Second paragraph');
     expect(text).not.toContain('Boilerplate reference');
+  });
+
+  it('scores primary oncology articles above incidental/non-oncology articles', () => {
+    const sections = [{ type: 'abstract' as const, paragraphs: ['Patients with lung cancer had improved progression-free survival and overall survival after immunotherapy treatment.'] }];
+    const primary = scoreArticleCentrality({ pmid: '1', pmcid: 'PMC1', title: 'Immunotherapy improves survival in lung cancer', sourceCitation: 'x' }, sections);
+    const incidental = scoreArticleCentrality({ pmid: '2', pmcid: 'PMC2', title: 'A general bioinformatics software pipeline', sourceCitation: 'x' }, sections);
+    expect(primary.centrality).toBe('primary_oncology');
+    expect(primary.score).toBeGreaterThan(incidental.score);
   });
 
   it('chunks long text for packetization', () => {

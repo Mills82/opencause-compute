@@ -16,6 +16,10 @@ const CLAIM_OPPORTUNITY_TERMS = /\b(response|resistan|survival|prognos|risk|prog
 const STRONG_ONCOLOGY_OUTCOME_TERMS = /\b(ORR|objective response rate|overall response rate|response rate|PFS|progression-free survival|OS|overall survival|median survival|survival rates?|hazard ratio|\bHR\b|disease control|complete response|partial response|grade\s+[34]|adverse events?|toxicit|clinical trial|Phase\s+(?:I|II|III|IV|1|2|3|4)|sunitinib|axitinib|avelumab|pembrolizumab|nivolumab|ipilimumab|atezolizumab|durvalumab|trastuzumab|bevacizumab|osimertinib|erlotinib|gefitinib|cetuximab|rituximab|olaparib|imatinib)\b/i;
 
 const NON_RESULT_SENTENCE_TERMS = /\b((?:aim|objective|purpose)\s+of\s+(?:this\s+)?study\s+was|(?:objective|purpose)\s+was|designed\s+to\s+evaluate|we\s+hypothesized|hypothesized\s+that|may\s+predict|warrants?\s+further\s+investigation|future\s+(?:studies|research)|eligible\s+patients|patients\s+(?:with|who|that)\b.*\b(?:were\s+included|were\s+eligible|were\s+enrolled|were\s+selected)|inclusion\s+criteria|exclusion\s+criteria|baseline\b|at\s+baseline|median\s+age|follow-up\s+duration|median\s+follow-up|was\s+estimated\s+using|were\s+estimated\s+using|kaplan[- ]meier|log-rank|cox\s+(?:proportional\s+hazards\s+)?model|we\s+searched\s+(?:pubmed|embase|web\s+of\s+science)|database\s+search)\b/i;
+const METHODS_ACTION_TERMS = /\b(?:we\s+)?(?:injected|generated|transfected|cultured|isolated|seeded|plated|cloned|constructed|prepared|collected|obtained|purchased|stained|fixed|embedded|sectioned|washed|incubated|euthanized|housed|administered)\b/i;
+const STUDY_CONTEXT_ANIMAL_TERMS = /\b(mice|mouse|murine|rat|rats|xenograft|tumou?r-bearing|in\s+vivo|aav9|apc\s*min|kpc|orthotopic|syngeneic|animal model)\b/i;
+const STUDY_CONTEXT_CELL_TERMS = /\b(cell lines?|cells?\b|in\s+vitro|organoid|spheroid|mda-mb-231|c2c12|mcf10a|kpc;|4t1|c26|hek293|hela)\b/i;
+const STUDY_CONTEXT_HUMAN_TERMS = /\b(patients?|cohort|clinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4)|randomi[sz]ed|retrospective|prospective|enrolled|median age|human)\b/i;
 const RESULT_ASSERTION_TERMS = /\b(was|were)\s+(?:significantly\s+)?(?:associated\s+with|higher|lower|more\s+frequent|less\s+frequent|improved|reduced|increased|decreased)|\b(?:improved|reduced|increased|decreased|occurred\s+in|resulted\s+in|demonstrated|showed|achieved|identified|revealed|distinguished)\b|\b(?:ORR|objective response rate|response rate|PFS|progression-free survival|OS|overall survival|median overall survival|hazard ratio|\bHR\b|AUC)\s+(?:was|of|=)|\b(?:P\s*[<=>]|p\s*[<=>])\b/i;
 const CANDIDATE_SENTENCE_TERMS = new RegExp(String.raw`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
 
@@ -278,9 +282,21 @@ function inferCancerTypeFromText(text: string): string | undefined {
 function isNonResultClaimSentence(sentence: string, claim: Record<string, unknown>): boolean {
   const normalized = sentence.replace(/\s+/g, ' ').trim();
   const evidenceOrigin = typeof claim.evidenceOrigin === 'string' ? claim.evidenceOrigin : '';
-  if (evidenceOrigin === 'methods_only' || evidenceOrigin === 'hypothesis_or_speculation') return true;
+  const evidenceRole = typeof claim.evidenceRole === 'string' ? claim.evidenceRole : '';
+  if (evidenceOrigin === 'methods_only' || evidenceOrigin === 'hypothesis_or_speculation' || evidenceRole === 'method_or_design' || evidenceRole === 'hypothesis') return true;
+  if (METHODS_ACTION_TERMS.test(normalized) && !RESULT_ASSERTION_TERMS.test(normalized)) return true;
   if (!NON_RESULT_SENTENCE_TERMS.test(normalized)) return false;
   return !RESULT_ASSERTION_TERMS.test(normalized);
+}
+
+function inferStudyContext(claim: Record<string, unknown>, sentence: string, fallback: unknown): unknown {
+  const text = [sentence, optionalString(claim.populationOrModel), optionalString(claim.speciesOrModelMention)].filter(Boolean).join(' ');
+  if (/\bclinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4)|randomi[sz]ed\b/i.test(text)) return 'clinical_trial';
+  if (STUDY_CONTEXT_HUMAN_TERMS.test(text)) return 'human_cohort';
+  if (/\borganoid|spheroid\b/i.test(text)) return 'organoid';
+  if (STUDY_CONTEXT_ANIMAL_TERMS.test(text)) return 'animal';
+  if (STUDY_CONTEXT_CELL_TERMS.test(text)) return 'cell_line';
+  return fallback;
 }
 
 function isLowValueClaimSentence(sentence: string, claim: Record<string, unknown>): boolean {
@@ -333,7 +349,8 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
     const evidenceTypeRaw = isLite1 ? ({ epidemiology: 'clinical' } as Record<string, string>)[String(claim.evidenceModality)] ?? claim.evidenceModality : claim.evidenceType;
     const directionRaw = isLite1 ? claim.effect : claim.direction;
     const polarityRaw = isLite1 ? (claim.negated === true ? 'negated' : claim.speculative === true ? 'speculative' : 'affirmed') : claim.polarity;
-    const studyContextRaw = isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'cell_line' : 'unclear') : claim.studyContext;
+    const studyContextFallback = isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'unclear' : 'unclear') : claim.studyContext;
+    const studyContextRaw = inferStudyContext(claim, exactEvidenceSentence, studyContextFallback);
     const claimType = strictEnum(claimTypeRaw, CLAIM_TYPES);
     const evidenceOrigin = strictEnum(evidenceOriginRaw, EVIDENCE_ORIGINS);
     const evidenceType = strictEnum(evidenceTypeRaw, EVIDENCE_TYPES);
@@ -342,6 +359,7 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
     const direction = strictEnum(directionRaw, DIRECTIONS);
     const confidenceValue = strictConfidence(claim.confidence);
     if (!claimType || !evidenceOrigin || !evidenceType || !studyContext || !polarity || !direction || confidenceValue === undefined) return reject('invalid_required_field', claimIndex, exactEvidenceSentence);
+    if (confidenceValue < 0.35) return reject('low_confidence', claimIndex, exactEvidenceSentence);
     const charStart = sourceText ? sourceText.indexOf(exactEvidenceSentence) : -1;
     const charEnd = charStart >= 0 ? charStart + exactEvidenceSentence.length : undefined;
     const normalized: ExtractedClaim = {

@@ -10,7 +10,13 @@ import { checkNamedRateLimitAsync, rateLimitResponse } from '../../../../../lib/
 import { completeIngestionRunRelational, ingestSourcesRelational, queueSnapshotRelational, startIngestionRunRelational } from '../../../../../lib/relational-app';
 
 const DEFAULT_QUERY = 'cancer biomarker response resistance';
-const DEFAULT_PMC_OA_QUERY = 'cancer AND open access[filter]';
+const HIGH_YIELD_PMC_OA_QUERIES = [
+  '(cancer OR carcinoma OR melanoma OR leukemia OR lymphoma) AND (overall survival OR progression-free survival OR objective response rate OR hazard ratio OR clinical trial) AND open access[filter]',
+  '(cancer OR carcinoma OR melanoma OR leukemia OR lymphoma) AND (biomarker OR mutation OR expression) AND (response OR resistance OR survival OR prognosis) AND open access[filter]',
+  '(cancer OR carcinoma OR melanoma OR leukemia OR lymphoma) AND (toxicity OR adverse events OR grade 3 OR dose-limiting toxicity) AND open access[filter]',
+  '(cancer OR carcinoma OR melanoma OR sarcoma) AND (radiotherapy OR radiation therapy) AND (local control OR recurrence OR survival) AND open access[filter]'
+];
+const DEFAULT_PMC_OA_QUERY = HIGH_YIELD_PMC_OA_QUERIES[Math.floor(Date.now() / (60 * 60 * 1000)) % HIGH_YIELD_PMC_OA_QUERIES.length] ?? HIGH_YIELD_PMC_OA_QUERIES[0];
 const DEFAULT_PROJECT_SLUG = 'cancer-knowledge-miner';
 const DEFAULT_PROJECT_NAME = 'Cancer Knowledge Miner';
 const DEFAULT_PROJECT_DESCRIPTION = 'Processes open-access oncology and biomedical literature into structured, citation-backed candidate evidence.';
@@ -78,7 +84,7 @@ async function runIngestion() {
     const pmcRetstart = pmcCursor?.nextRetstart ?? 0;
     const [pubmedRecords, pmcReport] = await Promise.all([
       fetchPubMedRecords({ query: config.pubmedQuery, retmax: pubmedRetmax, retstart: beforeQueue.totalPackets, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }),
-      pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({ query: config.pmcQuery, retmax: pmcRetmax, retstart: pmcRetstart, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, documentsIngested: 0, sources: [], failures: [], skippedCount: 0 })
+      pmcRetmax > 0 ? ingestPmcOaFullTextWithReport({ query: config.pmcQuery, retmax: pmcRetmax, retstart: pmcRetstart, email: process.env.NCBI_EMAIL, apiKey: process.env.NCBI_API_KEY }) : Promise.resolve({ recordsFetched: 0, pmcRecords: 0, documentsIngested: 0, sources: [], failures: [], skippedCount: 0, diagnostics: { articlesSkipped: {}, sectionsSkipped: {}, candidateSentencesScored: 0, candidatePacketsCreated: 0, rejectReasons: {} } })
     ]);
     const pubmedSources = pubmedRecords.map((record) => ({ title: record.title, sourceText: record.abstractText, sourceCitation: record.sourceCitation, sourceUrl: record.sourceUrl, sourcePublishedAt: record.sourcePublishedAt }));
     const relationalPubmed = await ingestSourcesRelational({ projectSlug: config.projectSlug, projectName: config.projectName, projectDescription: config.projectDescription, sources: pubmedSources, extractor: 'local-llm-v2' });
@@ -87,7 +93,7 @@ async function runIngestion() {
       if (!pmcOa) throw new Error('relational_ingest_unavailable');
       const runSummary = await completeIngestionRunRelational(run.id, { fetchedCount: pubmedRecords.length + pmcReport.documentsIngested, skippedCount: Math.max(pubmedRetmax - pubmedRecords.length, 0) + pmcReport.skippedCount, failedCount: pmcReport.failures.length, failureReasons: pmcReport.failures.map((failure) => `${failure.pmcid ?? failure.pmid}:${failure.reason}`), packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped });
       await advanceIngestionCursor({ sourceType: 'pmc_oa_full_text', query: config.pmcQuery, retmax: pmcRetmax, recordsFetched: pmcReport.recordsFetched, runId: run.id });
-      return { project: relationalPubmed.project, queueTarget: config.queueTarget, activeBacklog, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped }, pmcFailures: pmcReport.failures, run: runSummary };
+      return { project: relationalPubmed.project, queueTarget: config.queueTarget, activeBacklog, beforeQueue, pubmedFetched: pubmedRecords.length, pmcRetstart, pmcChunksFetched: pmcReport.sources.length, packetsCreated: relationalPubmed.packetsCreated + pmcOa.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped + pmcOa.packetsSkipped, pubmed: { packetsCreated: relationalPubmed.packetsCreated, packetsSkipped: relationalPubmed.packetsSkipped }, pmcOa: { packetsCreated: pmcOa.packetsCreated, packetsSkipped: pmcOa.packetsSkipped, diagnostics: pmcReport.diagnostics }, pmcFailures: pmcReport.failures, run: runSummary };
     })() : await withDb((db) => {
       const project = getOrCreateProject(db, { slug: config.projectSlug, name: config.projectName, description: config.projectDescription });
       const pubmed = createWorkPacketsFromSources(db, { projectId: project.id, sources: pubmedSources, extractor: 'local-llm-v2' });
