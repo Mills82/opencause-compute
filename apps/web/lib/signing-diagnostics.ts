@@ -16,8 +16,8 @@ export type SigningDiagnostics = {
   error?: string;
 };
 
-function fingerprint(value: string): string {
-  return createHash('sha256').update(value).digest('hex').slice(0, 16);
+function publicKeyFingerprintFromKey(key: ReturnType<typeof createPublicKey>): string {
+  return createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex').slice(0, 16);
 }
 
 export function packetSigningDiagnostics(): SigningDiagnostics {
@@ -41,8 +41,8 @@ export function packetSigningDiagnostics(): SigningDiagnostics {
     base.privateKeyParseOk = true;
     const publicKey = createPublicKey(normalizeSigningKey(rawPublic));
     base.publicKeyParseOk = true;
-    base.publicKeyFingerprint = fingerprint(publicKey.export({ type: 'spki', format: 'pem' }).toString());
-    base.derivedPublicKeyFingerprint = fingerprint(createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString());
+    base.publicKeyFingerprint = publicKeyFingerprintFromKey(publicKey);
+    base.derivedPublicKeyFingerprint = publicKeyFingerprintFromKey(createPublicKey(privateKey));
     const payload = Buffer.from('opencause-signing-healthcheck');
     const signature = sign(null, payload, privateKey);
     base.keyPairVerifyOk = verify(null, payload, publicKey, signature);
