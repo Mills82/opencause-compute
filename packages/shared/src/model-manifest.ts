@@ -85,17 +85,6 @@ export const CANDIDATE_LOCAL_MODELS: CandidateLocalModel[] = [
     notes: 'Ollama library tag found as qwen3.6:27b. Treat as experimental until bakeoff proves it.'
   },
   {
-    id: 'medgemma:4b',
-    provider: 'ollama',
-    tier: 'laptop',
-    label: 'MedGemma 4B',
-    role: 'benchmark',
-    verificationStatus: 'verify_locally',
-    pullCommand: 'ollama pull medgemma:4b',
-    memoryGuidance: 'Small medical-domain retest candidate for laptops. Not recommended for production unless claims-v2 testing shows a real improvement over prior MedGemma runs.',
-    notes: 'Previously weak in early bakeoff, but worth a cheap retest after claims-v2-lite prompt and normalization changes.'
-  },
-  {
     id: 'medgemma:27b',
     provider: 'ollama',
     tier: 'high_end',

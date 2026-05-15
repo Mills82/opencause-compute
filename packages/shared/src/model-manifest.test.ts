@@ -13,7 +13,7 @@ describe('model manifest', () => {
   });
 
   it('lists local-test candidates without approving them', () => {
-    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).toContain('medgemma:4b');
+    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('medgemma:4b');
     expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('qwen3:4b');
     expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('gemma3:4b-it-qat');
     const candidateIds = CANDIDATE_LOCAL_MODELS.map((model) => model.id);
