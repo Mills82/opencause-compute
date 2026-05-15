@@ -759,8 +759,9 @@
         if (nextTab === activeTab) return;
         if (activeTab === 'settings' && settingsDirty) {
           if (!confirm('Save model/resource changes before leaving this tab?')) return;
-          const saved = await saveSettings({ refreshAfterSave: false });
-          if (!saved || settingsDirty) return;
+          const saved = await saveSettings();
+          if (saved) settingsMessage.textContent = 'Settings saved. Click the tab again to leave Models & resources.';
+          return;
         }
         activeTab = nextTab;
         if (activeTab === 'settings' && latestState && !settingsDirty) {

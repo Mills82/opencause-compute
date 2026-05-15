@@ -64,7 +64,8 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Save model/resource changes before leaving this tab?');
     expect(html).toContain("activeTab !== 'settings' && !settingsDirty");
     expect(html).toContain('populateSettingsFormFromState');
-    expect(html).toContain('refreshAfterSave: false');
+    expect(html).toContain('Click the tab again to leave Models & resources.');
+    expect(html).not.toContain('refreshAfterSave: false');
     expect(html).toContain("finalStatus?.status === 'succeeded'");
   });
 
