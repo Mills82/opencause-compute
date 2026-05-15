@@ -62,6 +62,8 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Test this model before saving it for worker processing.');
     expect(html).toContain('Use it anyway for experimental testing?');
     expect(html).toContain('Discard unsaved changes');
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('Unsaved model/resource changes');
     expect(html).toContain('Stay');
     expect(html).toContain('Discard changes and leave');
     expect(html).toContain('You have unsaved model/resource changes.');

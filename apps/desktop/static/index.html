@@ -45,6 +45,10 @@
       .progress { height: 10px; border-radius: 999px; background: #070b14; overflow: hidden; margin: 12px 0; border: 1px solid #25314d; }
       .progress > div { height: 100%; width: 0%; background: #7dd3fc; transition: width .25s ease; }
       .dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(2, 6, 23, .72); padding: 20px; }
+      .modal-card { width: min(460px, calc(100vw - 40px)); border: 1px solid #38527c; border-radius: 16px; background: #11182a; box-shadow: 0 24px 80px rgba(0,0,0,.45); padding: 20px; }
+      .modal-card h3 { margin-bottom: 8px; }
+      .modal-card .dashboard-actions { justify-content: flex-end; margin-top: 16px; }
       .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 18px; }
       .tab { border-color: #334466; background: #11182a; }
       .tab.active { background: #7dd3fc; border-color: #7dd3fc; color: #07111f; font-weight: 700; }
@@ -218,10 +222,6 @@
             <button id="discard-settings" type="button">Discard unsaved changes</button>
             <button id="save-start" class="primary">Save and start worker</button>
             <p id="settings-message" class="small">Defaults are conservative: idle-only, limited CPU, and no battery work.</p>
-            <div id="unsaved-settings-actions" class="dashboard-actions hidden">
-              <button id="stay-settings" type="button">Stay</button>
-              <button id="discard-leave-settings" type="button">Discard changes and leave</button>
-            </div>
           </section>
 
           <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
@@ -285,6 +285,16 @@
           </section>
         </div>
       </div>
+      <div id="unsaved-settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="unsaved-settings-title">
+        <div class="modal-card">
+          <h3 id="unsaved-settings-title">Unsaved model/resource changes</h3>
+          <p>You have unsaved changes on Models & resources. Save them before leaving, or discard them and continue?</p>
+          <div class="dashboard-actions">
+            <button id="stay-settings" type="button">Stay</button>
+            <button id="discard-leave-settings" type="button" class="danger">Discard changes and leave</button>
+          </div>
+        </div>
+      </div>
     </main>
     <script>
       const api = window.opencauseDesktop;
@@ -308,7 +318,7 @@
       const versionMessage = document.getElementById('version-message');
       const updateMessage = document.getElementById('update-message');
       const settingsMessage = document.getElementById('settings-message');
-      const unsavedSettingsActions = document.getElementById('unsaved-settings-actions');
+      const unsavedSettingsModal = document.getElementById('unsaved-settings-modal');
       const coordinatorUrl = document.getElementById('coordinator-url');
       const maxCpu = document.getElementById('max-cpu');
       const minIdle = document.getElementById('min-idle');
@@ -762,22 +772,22 @@
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;
       };
-      function showUnsavedSettingsActions(nextTab) {
+      function showUnsavedSettingsModal(nextTab) {
         pendingSettingsTab = nextTab;
         settingsMessage.textContent = 'You have unsaved model/resource changes.';
-        unsavedSettingsActions.classList.remove('hidden');
+        unsavedSettingsModal.classList.remove('hidden');
         document.getElementById('stay-settings').focus();
       }
 
       async function switchTab(nextTab) {
         if (nextTab === activeTab) return;
         if (activeTab === 'settings' && settingsDirty) {
-          showUnsavedSettingsActions(nextTab);
+          showUnsavedSettingsModal(nextTab);
           return;
         }
         activeTab = nextTab;
         pendingSettingsTab = null;
-        unsavedSettingsActions.classList.add('hidden');
+        unsavedSettingsModal.classList.add('hidden');
         if (activeTab === 'settings' && latestState && !settingsDirty) {
           renderModels(latestState.modelRuntime);
           populateSettingsFormFromState();
@@ -815,7 +825,7 @@
         const saved = await saveSettings();
         if (saved) {
           pendingSettingsTab = null;
-          unsavedSettingsActions.classList.add('hidden');
+          unsavedSettingsModal.classList.add('hidden');
         }
       };
       function discardSettingsChanges() {
@@ -827,19 +837,19 @@
       }
       document.getElementById('discard-settings').onclick = async () => {
         pendingSettingsTab = null;
-        unsavedSettingsActions.classList.add('hidden');
+        unsavedSettingsModal.classList.add('hidden');
         discardSettingsChanges();
         settingsMessage.textContent = 'Unsaved changes discarded.';
       };
       document.getElementById('stay-settings').onclick = () => {
         pendingSettingsTab = null;
-        unsavedSettingsActions.classList.add('hidden');
+        unsavedSettingsModal.classList.add('hidden');
         settingsMessage.textContent = 'Unsaved changes are still here. Save or discard when ready.';
       };
       document.getElementById('discard-leave-settings').onclick = async () => {
         const nextTab = pendingSettingsTab;
         pendingSettingsTab = null;
-        unsavedSettingsActions.classList.add('hidden');
+        unsavedSettingsModal.classList.add('hidden');
         discardSettingsChanges();
         settingsMessage.textContent = 'Unsaved changes discarded.';
         if (nextTab) await switchTab(nextTab);
