@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Pool } from 'pg';
@@ -22,6 +22,14 @@ async function expectRequiredRelationalTables(pool: Pool) {
   expect(new Set(rows.rows.map((row) => row.table_name))).toEqual(new Set(required));
 }
 
+function ensureTestSigningEnv() {
+  if (process.env.PACKET_SIGNING_KEY_ID && process.env.PACKET_SIGNING_PRIVATE_KEY && process.env.PACKET_SIGNING_PUBLIC_KEY) return;
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  process.env.PACKET_SIGNING_KEY_ID = 'test-postgres-integration-key';
+  process.env.PACKET_SIGNING_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.PACKET_SIGNING_PUBLIC_KEY = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+}
+
 async function freshDb() {
   const pool = new Pool({ connectionString: url });
   await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
@@ -30,6 +38,7 @@ async function freshDb() {
   await expectRequiredRelationalTables(pool);
   process.env.DATABASE_URL = url;
   process.env.OPENCAUSE_RELATIONAL_STORAGE = 'true';
+  ensureTestSigningEnv();
   return pool;
 }
 
