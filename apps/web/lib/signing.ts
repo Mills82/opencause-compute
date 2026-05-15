@@ -57,3 +57,8 @@ export function getPacketSigningKeypair(): { keyId: string; publicKeyPem: string
     privateKeyPem: privateKeyPem.replace(/\\n/g, '\n').trim()
   };
 }
+
+export function publicKeyFingerprint(publicKeyPem: string): string {
+  const key = createPublicKey(publicKeyPem.replace(/\\n/g, '\n').trim());
+  return createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex').slice(0, 16);
+}
