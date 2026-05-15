@@ -60,6 +60,7 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');
     expect(html).toContain('Test this model before saving it for worker processing.');
+    expect(html).toContain('Use it anyway for experimental testing?');
     expect(html).toContain("finalStatus?.status === 'succeeded'");
   });
 

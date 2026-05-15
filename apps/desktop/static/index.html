@@ -537,6 +537,11 @@
         return Boolean(readiness && (readiness.status === 'passed' || readiness.status === 'slow'));
       }
 
+      function selectedModelIsCandidate() {
+        const { candidates } = allLocalModelChoices();
+        return candidates.some(candidate => candidate.id === modelSelect.value);
+      }
+
       function renderModels(modelRuntime) {
         const currentChoice = modelSelect.value;
         const preserveUserChoice = Boolean(currentChoice) && settingsDirty && (activeTab === 'settings' || document.activeElement === modelSelect);
@@ -668,11 +673,16 @@
         settingsMessage.textContent = 'Saving settings...';
         const installedSelection = selectedDropdownModelInstalled();
         const readinessOk = selectedModelReady();
-        if (installedSelection && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk) {
+        const candidateBypass = installedSelection && selectedModelIsCandidate() && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk;
+        if (installedSelection && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk && !candidateBypass) {
           settingsMessage.textContent = 'Test this model before saving it for worker processing.';
           return;
         }
-        const selectedModel = installedSelection && readinessOk ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
+        if (candidateBypass && !confirm(`${modelSelect.value} did not pass readiness. Use it anyway for experimental testing? It may fail, be slow, or produce unusable output.`)) {
+          settingsMessage.textContent = 'Model selection was not applied.';
+          return;
+        }
+        const selectedModel = installedSelection && (readinessOk || candidateBypass) ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
         const saved = await api.updateSettings({
 
           startupOnLogin: startup.checked,
