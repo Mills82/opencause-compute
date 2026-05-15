@@ -328,7 +328,10 @@ async function extractFromPacket(
     title: packet.title,
     sourceCitation: packet.sourceCitation,
     sourceUrl: packet.sourceUrl,
-    sourcePublishedAt: packet.sourcePublishedAt
+    sourcePublishedAt: packet.sourcePublishedAt,
+    sectionTitle: packet.sectionTitle,
+    sectionType: packet.sectionType,
+    paragraphIndex: packet.paragraphIndex
   });
   return {
     extractorVersion: 'Local LLM v2',

@@ -19,7 +19,7 @@ const NON_RESULT_SENTENCE_TERMS = /\b((?:aim|objective|purpose)\s+of\s+(?:this\s
 const METHODS_ACTION_TERMS = /\b(?:we\s+)?(?:injected|generated|transfected|cultured|isolated|seeded|plated|cloned|constructed|prepared|collected|obtained|purchased|stained|fixed|embedded|sectioned|washed|incubated|euthanized|housed|administered)\b/i;
 const STUDY_CONTEXT_ANIMAL_TERMS = /\b(mice|mouse|murine|rat|rats|xenograft|tumou?r-bearing|in\s+vivo|aav9|apc\s*min|kpc|orthotopic|syngeneic|animal model)\b/i;
 const STUDY_CONTEXT_CELL_TERMS = /\b(cell lines?|cells?\b|in\s+vitro|organoid|spheroid|mda-mb-231|c2c12|mcf10a|kpc;|4t1|c26|hek293|hela)\b/i;
-const STUDY_CONTEXT_HUMAN_TERMS = /\b(patients?|cohort|clinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4)|randomi[sz]ed|retrospective|prospective|enrolled|median age|human)\b/i;
+const STUDY_CONTEXT_HUMAN_TERMS = /\b(patients?|cohort|clinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4)|randomi[sz]ed|retrospective|prospective|enrolled|median age|human|overall survival|\bOS\b|progression-free survival|\bPFS\b|Kaplan-Meier)\b/i;
 const RESULT_ASSERTION_TERMS = /\b(was|were)\s+(?:significantly\s+)?(?:associated\s+with|higher|lower|more\s+frequent|less\s+frequent|improved|reduced|increased|decreased)|\b(?:improved|reduced|increased|decreased|occurred\s+in|resulted\s+in|demonstrated|showed|achieved|identified|revealed|distinguished)\b|\b(?:ORR|objective response rate|response rate|PFS|progression-free survival|OS|overall survival|median overall survival|hazard ratio|\bHR\b|AUC)\s+(?:was|of|=)|\b(?:P\s*[<=>]|p\s*[<=>])\b/i;
 const CANDIDATE_SENTENCE_TERMS = new RegExp(String.raw`${CANCER_TERMS.source}|${CLAIM_OPPORTUNITY_TERMS.source}|\b(IC50|ORR|PFS|OS|hazard ratio|HR|AUC|sensitivity|specificity|apoptosis|proliferation|migration|invasion|tumor growth|tumour growth|antitumor|anti-tumor|chemoresistance|radiosensiti[sz]ation)\b`, 'i');
 
@@ -133,7 +133,7 @@ export function candidateSentencePromptV2(candidateSentences: string[], context:
   ].join('\n');
 }
 
-export type PacketContext = { title?: string; sectionTitle?: string; sourceCitation?: string; sourceUrl?: string; sourcePublishedAt?: string };
+export type PacketContext = { title?: string; sectionTitle?: string; sectionType?: string; paragraphIndex?: number; sourceCitation?: string; sourceUrl?: string; sourcePublishedAt?: string };
 
 export function selectCandidateEvidenceSentences(sourceText: string, limit = 8, contextText = ''): string[] {
   const sentences = sourceText
@@ -283,8 +283,38 @@ function isNonResultClaimSentence(sentence: string, claim: Record<string, unknow
   return !RESULT_ASSERTION_TERMS.test(normalized);
 }
 
+
+function inferEvidenceOrigin(sentence: string, context: PacketContext, fallback: unknown): unknown {
+  const text = [context.sectionTitle, context.sectionType, sentence].filter(Boolean).join(' ');
+  if (/\b(our study|we found|we demonstrate|we demonstrated|we show|we showed|our results|results showed|this study (shows|showed|demonstrates)|we identified|we observed)\b/i.test(text)) return 'this_study_result';
+  if (/\b(systematic review|review|meta-analysis)\b/i.test(text) || /\b(review|introduction|background)\b/i.test(String(context.sectionTitle ?? ''))) return 'review_summary';
+  if (/\b(previous studies|previously reported|prior studies|recent study|in vitro study indicated|has been shown|is known to|reported that|demonstrated that)\b/i.test(text)) return 'cited_prior_work';
+  if (/\[\s*[,;]?\s*\]|\([^)]*et al\.?[^)]*\)/i.test(sentence)) return 'cited_prior_work';
+  return fallback;
+}
+
+function inferEvidenceType(sentence: string, context: PacketContext, fallback: unknown): unknown {
+  const text = [context.title, context.sectionTitle, sentence].filter(Boolean).join(' ');
+  if (/\b(computational|network-based|model|prediction model|algorithm|in silico|bioinformatic|transcriptomic|RNA-seq|miRNA|pathway analysis|benchmark)\b/i.test(text) && !STUDY_CONTEXT_HUMAN_TERMS.test(text) && !STUDY_CONTEXT_CELL_TERMS.test(text) && !STUDY_CONTEXT_ANIMAL_TERMS.test(text)) return 'computational';
+  if (STUDY_CONTEXT_HUMAN_TERMS.test(text)) return 'clinical';
+  if (STUDY_CONTEXT_CELL_TERMS.test(text) || STUDY_CONTEXT_ANIMAL_TERMS.test(text)) return 'preclinical';
+  if (/\b(review|meta-analysis)\b/i.test(text)) return 'review';
+  return fallback;
+}
+
+function inferClaimType(claim: Record<string, unknown>, sentence: string, fallback: unknown): unknown {
+  const text = [sentence, optionalString(claim.outcome), optionalString(claim.outcomeMention), optionalString(claim.effectText)].filter(Boolean).join(' ');
+  if (/\bresistan(?:ce|t)|MEK inhibitors?|immunotherapy resistance\b/i.test(text)) return 'resistance';
+  if (/\b(prognos|overall survival|\bOS\b|progression-free survival|\bPFS\b|survival|metastatic potential)\b/i.test(text)) return 'prognosis';
+  if (/\b(toxicit|adverse events?|grade\s+[34])\b/i.test(text)) return 'toxicity';
+  if (/\blocal control\b/i.test(text)) return 'local_control';
+  if (/\b(reduced tumou?r growth|tumou?r cell death|prolonged survival|response rate|objective response|reversed body weight loss|restored fat mass)\b/i.test(text)) return 'treatment_response';
+  if (/\b(apoptosis|miRNA|pathway|signaling|expression|mediator|regulat(?:es|ion|ory)|mutation|biomarker)\b/i.test(text)) return 'biology';
+  return fallback;
+}
+
 function inferStudyContext(claim: Record<string, unknown>, sentence: string, fallback: unknown): unknown {
-  const text = [sentence, optionalString(claim.populationOrModel), optionalString(claim.speciesOrModelMention)].filter(Boolean).join(' ');
+  const text = [sentence, optionalString(claim.populationOrModel), optionalString(claim.speciesOrModelMention), optionalString(claim.evidenceLevel)].filter(Boolean).join(' ');
   if (/\bclinical trial|phase\s+(?:i|ii|iii|iv|1|2|3|4)|randomi[sz]ed\b/i.test(text)) return 'clinical_trial';
   if (STUDY_CONTEXT_HUMAN_TERMS.test(text)) return 'human_cohort';
   if (/\borganoid|spheroid\b/i.test(text)) return 'organoid';
@@ -349,9 +379,9 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
     const polarityRaw = isLite2 ? 'affirmed' : isLite1 ? (claim.negated === true ? 'negated' : claim.speculative === true ? 'speculative' : 'affirmed') : claim.polarity;
     const studyContextFallback = isLite2 ? ({ human: 'human_cohort', animal: 'animal', cell: 'cell_line', computational: 'unclear', review: 'unclear', unclear: 'unclear' } as Record<string, string>)[String(claim.evidenceLevel)] ?? 'unclear' : isLite1 ? (String(claim.evidenceModality) === 'clinical' || String(claim.evidenceModality) === 'epidemiology' ? 'human_cohort' : String(claim.evidenceModality) === 'preclinical' ? 'unclear' : 'unclear') : claim.studyContext;
     const studyContextRaw = inferStudyContext(claim, exactEvidenceSentence, studyContextFallback);
-    const claimType = strictEnum(claimTypeRaw, CLAIM_TYPES);
-    const evidenceOrigin = strictEnum(evidenceOriginRaw, EVIDENCE_ORIGINS);
-    const evidenceType = strictEnum(evidenceTypeRaw, EVIDENCE_TYPES);
+    const claimType = strictEnum(inferClaimType(claim, exactEvidenceSentence, claimTypeRaw), CLAIM_TYPES);
+    const evidenceOrigin = strictEnum(inferEvidenceOrigin(exactEvidenceSentence, context, evidenceOriginRaw), EVIDENCE_ORIGINS);
+    const evidenceType = strictEnum(inferEvidenceType(exactEvidenceSentence, context, evidenceTypeRaw), EVIDENCE_TYPES);
     const studyContext = strictEnum(studyContextRaw, STUDY_CONTEXTS);
     const polarity = strictEnum(polarityRaw, POLARITIES);
     const direction = strictEnum(directionRaw, DIRECTIONS);
@@ -375,6 +405,9 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
       outcomeMention: optionalString(isLite2 ? claim.outcome : isLite1 ? claim.outcome : claim.outcomeMention),
       statisticalEvidenceMention: optionalString(isLite2 ? claim.effectText : isLite1 ? claim.quantitativeSupport : claim.statisticalEvidenceMention),
       sampleSizeMention: optionalString(claim.sampleSizeMention),
+      sectionTitle: context.sectionTitle,
+      sectionType: context.sectionType as ExtractedClaim['sectionType'],
+      paragraphIndex: context.paragraphIndex,
       charStart: charStart >= 0 ? charStart : undefined,
       charEnd,
       exactEvidenceSentence,
@@ -384,9 +417,9 @@ export function normalizeLocalLlmV2Payload(rawPayload: unknown, sourceText = '',
     normalized.reviewPriority = normalized.evidenceOrigin === 'this_study_result' ? suggestedPriority : 'low';
     return normalized;
   }).filter((claim): claim is ExtractedClaim => Boolean(claim));
-  const cappedClaims = claims.slice(0, 2);
+  const cappedClaims = claims.slice(0, 3);
   for (const [reason, count] of rejectionCounts) warnings.push(`claim_rejected:${reason}:${count}`);
-  if (claimsSourceRaw.length > 2 || claims.length > 2) warnings.push('local_model_returned_too_many_claims_truncated_to_2');
+  if (claimsSourceRaw.length > 3 || claims.length > 3) warnings.push('local_model_returned_too_many_claims_truncated_to_3');
   if (!cappedClaims.length) warnings.push('local_model_returned_no_claims');
   const noClaimReason = cappedClaims.length ? undefined : optionalEnum(source.noClaimReason, NO_CLAIM_REASONS, 'extraction_uncertain');
   return resultPayloadV2Schema.parse({ schemaVersion: 'claims-v2', claims: cappedClaims, noClaimReason, summary: cappedClaims.length ? `Extracted ${cappedClaims.length} candidate evidence record${cappedClaims.length === 1 ? '' : 's'} from local model output.` : 'No candidate evidence extracted from local model output.', warnings, diagnostics });

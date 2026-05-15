@@ -96,6 +96,36 @@ describe('local llm helpers', () => {
     expect([...preclinical.claims, ...clinical.claims].map((claim) => claim.studyContext)).toEqual(['animal', 'cell_line', 'clinical_trial']);
   });
 
+  it('normalizes lite.2 metadata origin/type/context from accepted and obvious missed examples', () => {
+    const priorWork = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.2',
+      claims: [
+        { evidenceSentence: 'Its downregulation, particularly in response to HGF/cMET signaling, is a major mechanism by which UM cells acquire resistance to MEK inhibitors [ ].', claimKind: 'resistance', cancer: 'uveal melanoma', interventionOrExposure: 'MEK inhibitors', outcome: 'resistance', effectText: 'acquire resistance', evidenceLevel: 'human', confidence: 0.82 },
+        { evidenceSentence: 'Somatic mutations in FOXO1 are associated with increased metastatic potential and poorer prognosis in UM patients [ ], and the gene is known to regulate multiple miRNAs in the context of cancer [ ].', claimKind: 'prognosis', cancer: 'uveal melanoma', subject: 'FOXO1', outcome: 'poorer prognosis', effectText: 'associated with poorer prognosis', evidenceLevel: 'human', confidence: 0.82 }
+      ],
+      warnings: []
+    }, 'Its downregulation, particularly in response to HGF/cMET signaling, is a major mechanism by which UM cells acquire resistance to MEK inhibitors [ ]. Somatic mutations in FOXO1 are associated with increased metastatic potential and poorer prognosis in UM patients [ ], and the gene is known to regulate multiple miRNAs in the context of cancer [ ].', { title: 'Uveal melanoma', sectionTitle: 'Discussion', sectionType: 'discussion' });
+    const treatment = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.2',
+      claims: [{ evidenceSentence: 'Neutralization of GDF-15 with the anti-GDF-15 antibody significantly reversed body weight loss in tumour-bearing mice.', claimKind: 'treatment', cancer: 'cancer cachexia', interventionOrExposure: 'anti-GDF-15 antibody', outcome: 'body weight loss', effectText: 'significantly reversed', evidenceLevel: 'animal', confidence: 0.86 }],
+      warnings: []
+    }, 'Neutralization of GDF-15 with the anti-GDF-15 antibody significantly reversed body weight loss in tumour-bearing mice.', { title: 'Cancer cachexia', sectionTitle: 'Results', sectionType: 'results' });
+    const clinical = normalizeLocalLlmV2Payload({
+      schemaVersion: 'claims-v2-lite.2',
+      claims: [{ evidenceSentence: 'An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS.', claimKind: 'prognosis', cancer: 'metastatic melanoma', subject: 'severe sunburns during childhood', outcome: 'overall survival', effectText: 'associated with longer OS', evidenceLevel: 'human', confidence: 0.78 }],
+      warnings: []
+    }, 'An increasing number of reported severe sunburns during childhood was significantly associated with a longer OS.', { title: 'Metastatic melanoma', sectionTitle: 'Results', sectionType: 'results' });
+    const claims = [...priorWork.claims, ...treatment.claims, ...clinical.claims];
+    expect(claims.map((claim) => claim.claimType)).toEqual(['resistance', 'prognosis', 'treatment_response', 'prognosis']);
+    expect(claims[0]?.evidenceOrigin).toBe('cited_prior_work');
+    expect(claims[1]?.evidenceOrigin).toBe('cited_prior_work');
+    expect(claims[2]?.evidenceType).toBe('preclinical');
+    expect(claims[2]?.studyContext).toBe('animal');
+    expect(claims[3]?.evidenceType).toBe('clinical');
+    expect(claims[3]?.studyContext).toBe('human_cohort');
+    expect(claims.every((claim) => claim.sectionTitle)).toBe(true);
+  });
+
   it('requires approved installed Ollama model before claiming work', async () => {
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200 })) as typeof fetch;
     await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'qwen3:14b', timeoutMs: 1000, options: {} })).resolves.toBeUndefined();
