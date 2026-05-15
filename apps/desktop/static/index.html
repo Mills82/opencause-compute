@@ -637,7 +637,7 @@
           if (staleRegistration) registrationStep.classList.remove('hidden');
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
-          renderModels(latestState.modelRuntime);
+          if (!(document.activeElement === modelSelect || settingsDirty)) renderModels(latestState.modelRuntime);
           if (!settingsDirty && !editableFocused()) {
             coordinatorUrl.value = latestState.settings.coordinatorUrl;
             maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
