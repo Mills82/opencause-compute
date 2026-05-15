@@ -750,8 +750,19 @@
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;
       };
+      async function switchTab(nextTab) {
+        if (nextTab === activeTab) return;
+        if (activeTab === 'settings' && settingsDirty) {
+          if (!confirm('Save model/resource changes before leaving this tab?')) return;
+          await saveSettings();
+          if (settingsDirty) return;
+        }
+        activeTab = nextTab;
+        updateProgress();
+      }
+
       document.querySelectorAll('.tab').forEach((tab) => {
-        tab.onclick = () => { activeTab = tab.dataset.tab || 'overview'; updateProgress(); };
+        tab.onclick = () => switchTab(tab.dataset.tab || 'overview');
       });
       document.getElementById('toggle-enrollment-code').onclick = () => {
         const showing = enrollmentCode.type === 'text';
