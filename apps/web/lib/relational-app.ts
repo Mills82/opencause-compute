@@ -5,6 +5,7 @@ import { createNodeToken, hashNodeToken } from './node-auth';
 import { hashEnrollmentCode } from './coordinator';
 import { hashProfileSetupToken } from './gamification/profile-setup';
 import { assertSignedWorkPacketPayload, signWorkPacketPayload } from './signing';
+import { ensureActivePacketSigningKey } from './packet-signing-keys';
 import { packetSigningDiagnostics } from './signing-diagnostics';
 import { isHostedMode } from './runtime-config';
 import { loadDb } from './db';
@@ -435,6 +436,7 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
     let packetsCreated = 0;
     let packetsSkipped = 0;
     const extractor = input.extractor ?? 'local-llm-v2';
+    const signingKey = await ensureActivePacketSigningKey(client);
     for (const source of input.sources) {
       const inputHash = sourceInputHash(source);
       const exists = (await client.query('SELECT 1 FROM work_packets WHERE project_id = $1 AND input_hash = $2 LIMIT 1', [project.id, inputHash])).rowCount;
@@ -443,7 +445,7 @@ export async function ingestSourcesRelational(input: { projectSlug: string; proj
       const payload: WorkPacketPayload = { id: randomUUID(), projectId: project.id, title: source.title, sourceText: source.sourceText, sourceCitation: source.sourceCitation, sourceUrl: source.sourceUrl, sourcePublishedAt: source.sourcePublishedAt, sectionTitle: source.sectionTitle, sectionType: source.sectionType as WorkPacketPayload['sectionType'], paragraphIndex: source.paragraphIndex, inputHash, extractor, createdAt: now };
       const signature = signWorkPacketPayload(payload);
       assertSignedWorkPacketPayload(payload, signature);
-      await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,'queued',$12,$12)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, JSON.stringify(payload), now]);
+      await client.query("INSERT INTO work_packets(id,project_id,title,source_text,source_citation,source_url,source_published_at,input_hash,extractor,signature,signed_payload,status,created_at,updated_at,signature_key_id,signature_public_key_fingerprint,signature_created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,'queued',$12,$12,$13,$14,$12)", [payload.id, payload.projectId, payload.title, payload.sourceText, payload.sourceCitation, payload.sourceUrl, payload.sourcePublishedAt ?? null, payload.inputHash, payload.extractor, signature, JSON.stringify(payload), now, signingKey.keyId, signingKey.publicKeyFingerprint]);
       packetsCreated += 1;
     }
     await client.query('COMMIT');

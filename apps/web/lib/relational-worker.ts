@@ -3,6 +3,7 @@ import { Pool, type PoolClient } from 'pg';
 import {
   hashJson,
   validateResultForPacket,
+  verifyPayloadEd25519,
   workPacketPayloadSchema,
   type ExtractedClaimRecord,
   type ExtractionResult,
@@ -14,6 +15,7 @@ import {
 import { consensusClaimKey } from './consensus';
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT, resultConsensusWeight } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
+import { getPacketVerificationKey } from './packet-signing-keys';
 import { verifyWorkPacketSignature } from './signing';
 import { packetSigningDiagnostics } from './signing-diagnostics';
 
@@ -92,6 +94,27 @@ function packetFromRow(row: any): WorkPacket {
     status: row.status,
     updatedAt: iso(row.updated_at)!
   };
+}
+
+function signatureEnvelopeKeyId(signature: string): string | null {
+  try {
+    const envelope = JSON.parse(signature) as { algorithm?: string; keyId?: unknown };
+    if (envelope.algorithm === 'ed25519' && typeof envelope.keyId === 'string') return envelope.keyId;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function verifyPacketSignatureForRow(client: PoolClient, row: any, payload: WorkPacketPayload): Promise<boolean> {
+  const keyId = row.signature_key_id ?? signatureEnvelopeKeyId(row.signature);
+  const fingerprint = row.signature_public_key_fingerprint ?? null;
+  if (keyId || fingerprint) {
+    const verificationKey = await getPacketVerificationKey(client, keyId, fingerprint);
+    if (!verificationKey) return false;
+    return verifyPayloadEd25519(payload, row.signature, verificationKey.publicKeyPem, verificationKey.keyId);
+  }
+  return verifyWorkPacketSignature(payload, row.signature);
 }
 
 async function updateConsensusForPacket(client: PoolClient, packetId: string): Promise<'consensus_pending' | 'consensus_passed' | 'consensus_failed'> {
@@ -263,7 +286,7 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
       return null;
     }
     const packetPayload = packetPayloadFromRow(packet);
-    if (!verifyWorkPacketSignature(packetPayload, packet.signature)) {
+    if (!(await verifyPacketSignatureForRow(client, packet, packetPayload))) {
       const signing = packetSigningDiagnostics();
       await client.query("UPDATE work_packets SET status = 'invalid_signature', updated_at = NOW() WHERE id = $1", [packet.id]);
       await recordAuditEvent(client, { actorType: 'system', action: 'work.packet.invalid_signature_quarantined', targetType: 'work_packet', targetId: packet.id, metadata: { reason: 'claim_preflight_signature_verification_failed', signing: { mode: signing.signingMode, keyId: signing.keyId, publicKeyFingerprint: signing.publicKeyFingerprint, derivedPublicKeyFingerprint: signing.derivedPublicKeyFingerprint, keyPairVerifyOk: signing.keyPairVerifyOk } } });
