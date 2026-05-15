@@ -519,8 +519,8 @@
       }
 
       function modelTier(model) {
-        if (model.id === 'gemma4:e4b') return 'low';
-        if (model.id === 'qwen3.6:27b' || model.id === 'gemma4:26b') return 'high';
+        if (model.tier === 'laptop' || model.id === 'gemma4:e4b') return 'low';
+        if (model.tier === 'high_end' || model.tier === 'large' || model.tier === 'experimental') return 'high';
         return 'balanced';
       }
 
