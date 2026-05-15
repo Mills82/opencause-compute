@@ -13,6 +13,7 @@ import {
   type WorkPacketPayload
 } from '@opencause/shared';
 import { consensusClaimKey } from './consensus';
+import { consensusCollectOnly } from './consensus-mode';
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT, resultConsensusWeight } from './consensus-scoring';
 import { hashNodeToken } from './node-auth';
 import { getPacketVerificationKey } from './packet-signing-keys';
@@ -118,6 +119,10 @@ async function verifyPacketSignatureForRow(client: PoolClient, row: any, payload
 }
 
 async function updateConsensusForPacket(client: PoolClient, packetId: string): Promise<'consensus_pending' | 'consensus_passed' | 'consensus_failed'> {
+  if (consensusCollectOnly()) {
+    await client.query("UPDATE extraction_results SET consensus_status = 'consensus_pending' WHERE work_packet_id = $1", [packetId]);
+    return 'consensus_pending';
+  }
   const resultRows = (await client.query('SELECT * FROM extraction_results WHERE work_packet_id = $1 AND format_validated = true', [packetId])).rows;
   const resultById = new Map<string, ExtractionResult>();
   for (const row of resultRows) {

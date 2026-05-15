@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseState, ExtractedClaimRecord } from '@opencause/shared';
+import { consensusCollectOnly } from './consensus-mode';
 import { REQUIRED_CONSENSUS_SUBMISSIONS, REQUIRED_CONSENSUS_WEIGHT, resultConsensusWeight } from './consensus-scoring';
 
 function norm(value: string | undefined): string {
@@ -17,6 +18,10 @@ export function consensusClaimKey(claim: Pick<ExtractedClaimRecord, 'claimType' 
 
 export function updateConsensusForPacket(db: DatabaseState, packetId: string): 'consensus_pending' | 'consensus_passed' | 'consensus_failed' {
   const results = db.results.filter((result) => result.workPacketId === packetId && result.formatValidated);
+  if (consensusCollectOnly()) {
+    for (const result of db.results.filter((candidate) => candidate.workPacketId === packetId)) result.consensusStatus = 'consensus_pending';
+    return 'consensus_pending';
+  }
   const distinctNodes = new Set(results.map((result) => result.nodeId));
   if (distinctNodes.size < REQUIRED_CONSENSUS_SUBMISSIONS) {
     for (const result of db.results.filter((candidate) => candidate.workPacketId === packetId)) result.consensusStatus = 'consensus_pending';
