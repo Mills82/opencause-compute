@@ -60,7 +60,9 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('startModelDownload');
     expect(html).toContain('modelDownloadStatus');
     expect(html).toContain('Test this model before saving it for worker processing.');
-    expect(html).toContain('Use it anyway for experimental testing?');
+    expect(html).toContain('Model readiness not passed');
+    expect(html).toContain('Use anyway');
+    expect(html).toContain('Experimental model approved. Click Save settings again to apply it.');
     expect(html).toContain('Discard unsaved changes');
     expect(html).toContain('role="dialog"');
     expect(html).toContain('Unsaved model/resource changes');

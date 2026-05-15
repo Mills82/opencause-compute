@@ -295,6 +295,16 @@
           </div>
         </div>
       </div>
+      <div id="readiness-bypass-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="readiness-bypass-title">
+        <div class="modal-card">
+          <h3 id="readiness-bypass-title">Model readiness not passed</h3>
+          <p id="readiness-bypass-message">This candidate model has not passed readiness. You can approve it for experimental testing, then click Save settings again.</p>
+          <div class="dashboard-actions">
+            <button id="cancel-readiness-bypass" type="button">Cancel</button>
+            <button id="approve-readiness-bypass" type="button" class="danger">Use anyway</button>
+          </div>
+        </div>
+      </div>
     </main>
     <script>
       const api = window.opencauseDesktop;
@@ -319,6 +329,8 @@
       const updateMessage = document.getElementById('update-message');
       const settingsMessage = document.getElementById('settings-message');
       const unsavedSettingsModal = document.getElementById('unsaved-settings-modal');
+      const readinessBypassModal = document.getElementById('readiness-bypass-modal');
+      const readinessBypassMessage = document.getElementById('readiness-bypass-message');
       const coordinatorUrl = document.getElementById('coordinator-url');
       const maxCpu = document.getElementById('max-cpu');
       const minIdle = document.getElementById('min-idle');
@@ -363,6 +375,7 @@
       let activeTab = 'overview';
       let settingsDirty = false;
       let pendingSettingsTab = null;
+      let readinessBypassModel = null;
       const resourcePresets = {
         budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 4000 },
         balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 5000 },
@@ -694,16 +707,20 @@
         settingsMessage.textContent = 'Saving settings...';
         const installedSelection = selectedDropdownModelInstalled();
         const readinessOk = selectedModelReady();
-        const candidateBypass = installedSelection && selectedModelIsCandidate() && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk;
-        if (installedSelection && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk && !candidateBypass) {
+        const candidateNeedsBypass = installedSelection && selectedModelIsCandidate() && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk;
+        const candidateBypassApproved = candidateNeedsBypass && readinessBypassModel === modelSelect.value;
+        if (installedSelection && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk && !candidateNeedsBypass) {
           settingsMessage.textContent = 'Test this model before saving it for worker processing.';
           return false;
         }
-        if (candidateBypass && !confirm(`${modelSelect.value} did not pass readiness. Use it anyway for experimental testing? It may fail, be slow, or produce unusable output.`)) {
-          settingsMessage.textContent = 'Model selection was not applied.';
+        if (candidateNeedsBypass && !candidateBypassApproved) {
+          readinessBypassMessage.textContent = `${modelSelect.value} did not pass readiness. Approve it for experimental testing, then click Save settings again.`;
+          readinessBypassModal.classList.remove('hidden');
+          document.getElementById('cancel-readiness-bypass').focus();
+          settingsMessage.textContent = 'Model selection needs experimental readiness approval before saving.';
           return false;
         }
-        const selectedModel = installedSelection && (readinessOk || candidateBypass) ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
+        const selectedModel = installedSelection && (readinessOk || candidateBypassApproved) ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
         const saved = await api.updateSettings({
 
           startupOnLogin: startup.checked,
@@ -715,6 +732,8 @@
         settingsMessage.textContent = installedSelection ? 'Settings saved.' : 'Settings saved. Model selection was not applied because it is not downloaded yet.';
         output.textContent = JSON.stringify(saved, null, 2);
         settingsDirty = false;
+        readinessBypassModel = null;
+        readinessBypassModal.classList.add('hidden');
         if (refreshAfterSave) await refresh();
         return true;
       }
@@ -830,6 +849,8 @@
       };
       function discardSettingsChanges() {
         settingsDirty = false;
+        readinessBypassModel = null;
+        readinessBypassModal.classList.add('hidden');
         if (latestState) {
           renderModels(latestState.modelRuntime);
           populateSettingsFormFromState();
@@ -853,6 +874,16 @@
         discardSettingsChanges();
         settingsMessage.textContent = 'Unsaved changes discarded.';
         if (nextTab) await switchTab(nextTab);
+      };
+      document.getElementById('cancel-readiness-bypass').onclick = () => {
+        readinessBypassModal.classList.add('hidden');
+        settingsMessage.textContent = 'Model selection was not applied.';
+      };
+      document.getElementById('approve-readiness-bypass').onclick = () => {
+        readinessBypassModel = modelSelect.value;
+        readinessBypassModal.classList.add('hidden');
+        settingsMessage.textContent = 'Experimental model approved. Click Save settings again to apply it.';
+        document.getElementById('save-settings').focus();
       };
       document.getElementById('save-start').onclick = async () => { await saveSettings(); if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now. It may return to not running when the one-shot check finishes.'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
