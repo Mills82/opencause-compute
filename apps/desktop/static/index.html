@@ -215,6 +215,7 @@
             <label><input id="auto-start-worker" type="checkbox" /> Automatically resume/start worker when the app opens</label>
             <label><input id="battery" type="checkbox" /> Allow work while on battery power</label>
             <button id="save-settings" class="primary">Save settings</button>
+            <button id="discard-settings" type="button">Discard unsaved changes</button>
             <button id="save-start" class="primary">Save and start worker</button>
             <p id="settings-message" class="small">Defaults are conservative: idle-only, limited CPU, and no battery work.</p>
           </section>
@@ -758,9 +759,8 @@
       async function switchTab(nextTab) {
         if (nextTab === activeTab) return;
         if (activeTab === 'settings' && settingsDirty) {
-          if (!confirm('Save model/resource changes before leaving this tab?')) return;
-          const saved = await saveSettings();
-          if (saved) settingsMessage.textContent = 'Settings saved. Click the tab again to leave Models & resources.';
+          settingsMessage.textContent = 'You have unsaved model/resource changes. Click Save settings, or Discard unsaved changes, before leaving this tab.';
+          document.getElementById('save-settings').focus();
           return;
         }
         activeTab = nextTab;
@@ -798,6 +798,14 @@
         } catch (error) { registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`; output.textContent = registrationMessage.textContent; }
       };
       document.getElementById('save-settings').onclick = saveSettings;
+      document.getElementById('discard-settings').onclick = async () => {
+        settingsDirty = false;
+        if (latestState) {
+          renderModels(latestState.modelRuntime);
+          populateSettingsFormFromState();
+        }
+        settingsMessage.textContent = 'Unsaved changes discarded.';
+      };
       document.getElementById('save-start').onclick = async () => { await saveSettings(); if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now. It may return to not running when the one-shot check finishes.'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
       document.getElementById('uninstall-state').onclick = async () => { if (!confirm('Remove local OpenCause Compute worker credentials, enrollment state, and logs from this computer?')) return; output.textContent = JSON.stringify(await api.uninstallLocalState(), null, 2); await refresh(); };
