@@ -1,4 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
+import { normalizeSigningKey, signingKeyFormat, type SigningKeyFormat } from './signing-key-format';
 
 export type SigningDiagnostics = {
   signingMode: 'ed25519' | 'hmac-fallback';
@@ -10,12 +11,10 @@ export type SigningDiagnostics = {
   keyId?: string;
   publicKeyFingerprint?: string;
   derivedPublicKeyFingerprint?: string;
+  privateKeyFormat?: SigningKeyFormat;
+  publicKeyFormat?: SigningKeyFormat;
   error?: string;
 };
-
-function normalizePem(value: string): string {
-  return value.trim().replace(/^['\"]|['\"]$/g, '').replace(/\\n/g, '\n');
-}
 
 function fingerprint(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 16);
@@ -36,9 +35,11 @@ export function packetSigningDiagnostics(): SigningDiagnostics {
   if (!rawPrivate || !rawPublic) return base;
 
   try {
-    const privateKey = createPrivateKey(normalizePem(rawPrivate));
+    base.privateKeyFormat = signingKeyFormat(rawPrivate);
+    base.publicKeyFormat = signingKeyFormat(rawPublic);
+    const privateKey = createPrivateKey(normalizeSigningKey(rawPrivate));
     base.privateKeyParseOk = true;
-    const publicKey = createPublicKey(normalizePem(rawPublic));
+    const publicKey = createPublicKey(normalizeSigningKey(rawPublic));
     base.publicKeyParseOk = true;
     base.publicKeyFingerprint = fingerprint(publicKey.export({ type: 'spki', format: 'pem' }).toString());
     base.derivedPublicKeyFingerprint = fingerprint(createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString());

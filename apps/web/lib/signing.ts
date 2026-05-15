@@ -1,6 +1,7 @@
 import { createHash, createPublicKey } from 'node:crypto';
 import { signPayloadEd25519, signPayloadHmac, verifyPayloadEd25519, verifyPayloadHmac } from '@opencause/shared';
 import { isDevMode } from './runtime-config';
+import { normalizeSigningKey } from './signing-key-format';
 import { assertPacketSigningReady } from './signing-diagnostics';
 
 function hmacSecret(): string {
@@ -10,11 +11,11 @@ function hmacSecret(): string {
 }
 
 function signingPrivateKey(): string | undefined {
-  return process.env.PACKET_SIGNING_PRIVATE_KEY;
+  return process.env.PACKET_SIGNING_PRIVATE_KEY ? normalizeSigningKey(process.env.PACKET_SIGNING_PRIVATE_KEY) : undefined;
 }
 
 function signingPublicKey(): string | undefined {
-  return process.env.PACKET_SIGNING_PUBLIC_KEY;
+  return process.env.PACKET_SIGNING_PUBLIC_KEY ? normalizeSigningKey(process.env.PACKET_SIGNING_PUBLIC_KEY) : undefined;
 }
 
 function omitUndefined(value: unknown): unknown {
@@ -54,12 +55,12 @@ export function getPacketSigningKeypair(): { keyId: string; publicKeyPem: string
   if (!keyId || !publicKeyPem || !privateKeyPem) throw new Error('packet_signing_keypair_not_configured');
   return {
     keyId,
-    publicKeyPem: publicKeyPem.replace(/\\n/g, '\n').trim(),
-    privateKeyPem: privateKeyPem.replace(/\\n/g, '\n').trim()
+    publicKeyPem: normalizeSigningKey(publicKeyPem),
+    privateKeyPem: normalizeSigningKey(privateKeyPem)
   };
 }
 
 export function publicKeyFingerprint(publicKeyPem: string): string {
-  const key = createPublicKey(publicKeyPem.replace(/\\n/g, '\n').trim());
+  const key = createPublicKey(normalizeSigningKey(publicKeyPem));
   return createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex').slice(0, 16);
 }
