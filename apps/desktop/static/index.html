@@ -672,18 +672,19 @@
         }, 3000);
       }
 
-      async function saveSettings() {
+      async function saveSettings(options = {}) {
+        const refreshAfterSave = options.refreshAfterSave !== false;
         settingsMessage.textContent = 'Saving settings...';
         const installedSelection = selectedDropdownModelInstalled();
         const readinessOk = selectedModelReady();
         const candidateBypass = installedSelection && selectedModelIsCandidate() && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk;
         if (installedSelection && modelSelect.value !== latestState?.modelRuntime?.selectedModel && !readinessOk && !candidateBypass) {
           settingsMessage.textContent = 'Test this model before saving it for worker processing.';
-          return;
+          return false;
         }
         if (candidateBypass && !confirm(`${modelSelect.value} did not pass readiness. Use it anyway for experimental testing? It may fail, be slow, or produce unusable output.`)) {
           settingsMessage.textContent = 'Model selection was not applied.';
-          return;
+          return false;
         }
         const selectedModel = installedSelection && (readinessOk || candidateBypass) ? modelSelect.value : latestState?.modelRuntime?.selectedModel;
         const saved = await api.updateSettings({
@@ -697,7 +698,8 @@
         settingsMessage.textContent = installedSelection ? 'Settings saved.' : 'Settings saved. Model selection was not applied because it is not downloaded yet.';
         output.textContent = JSON.stringify(saved, null, 2);
         settingsDirty = false;
-        await refresh();
+        if (refreshAfterSave) await refresh();
+        return true;
       }
 
       [maxCpu, minIdle, numCtx, numPredict, schedule, startup, autoStartWorker, battery, modelSelect].forEach((input) => {
@@ -757,8 +759,8 @@
         if (nextTab === activeTab) return;
         if (activeTab === 'settings' && settingsDirty) {
           if (!confirm('Save model/resource changes before leaving this tab?')) return;
-          await saveSettings();
-          if (settingsDirty) return;
+          const saved = await saveSettings({ refreshAfterSave: false });
+          if (!saved || settingsDirty) return;
         }
         activeTab = nextTab;
         if (activeTab === 'settings' && latestState && !settingsDirty) {
@@ -766,6 +768,7 @@
           populateSettingsFormFromState();
         }
         updateProgress();
+        await refresh();
       }
 
       document.querySelectorAll('.tab').forEach((tab) => {
