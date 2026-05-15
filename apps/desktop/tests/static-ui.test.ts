@@ -62,7 +62,9 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('Test this model before saving it for worker processing.');
     expect(html).toContain('Use it anyway for experimental testing?');
     expect(html).toContain('Discard unsaved changes');
-    expect(html).toContain('You have unsaved model/resource changes. Click Save settings, or Discard unsaved changes, before leaving this tab.');
+    expect(html).toContain('Stay');
+    expect(html).toContain('Discard changes and leave');
+    expect(html).toContain('You have unsaved model/resource changes.');
     expect(html).toContain("activeTab !== 'settings' && !settingsDirty");
     expect(html).toContain('populateSettingsFormFromState');
     expect(html).not.toContain('Save model/resource changes before leaving this tab?');

@@ -218,6 +218,10 @@
             <button id="discard-settings" type="button">Discard unsaved changes</button>
             <button id="save-start" class="primary">Save and start worker</button>
             <p id="settings-message" class="small">Defaults are conservative: idle-only, limited CPU, and no battery work.</p>
+            <div id="unsaved-settings-actions" class="dashboard-actions hidden">
+              <button id="stay-settings" type="button">Stay</button>
+              <button id="discard-leave-settings" type="button">Discard changes and leave</button>
+            </div>
           </section>
 
           <section id="dashboard-step" class="hero-dashboard" data-panel="overview">
@@ -304,6 +308,7 @@
       const versionMessage = document.getElementById('version-message');
       const updateMessage = document.getElementById('update-message');
       const settingsMessage = document.getElementById('settings-message');
+      const unsavedSettingsActions = document.getElementById('unsaved-settings-actions');
       const coordinatorUrl = document.getElementById('coordinator-url');
       const maxCpu = document.getElementById('max-cpu');
       const minIdle = document.getElementById('min-idle');
@@ -347,6 +352,7 @@
       let profileSetupUrl = null;
       let activeTab = 'overview';
       let settingsDirty = false;
+      let pendingSettingsTab = null;
       const resourcePresets = {
         budget: { maxCpuPercent: 50, minIdleSeconds: 180, schedule: 'idle-only', runOnBattery: false, numCtx: 12288, numPredict: 4000 },
         balanced: { maxCpuPercent: 65, minIdleSeconds: 120, schedule: 'idle-only', runOnBattery: false, numCtx: 16384, numPredict: 5000 },
@@ -756,14 +762,22 @@
         const diagnostics = await api.diagnostics();
         output.textContent = `Worker diagnostics\n\nStatus:\n${JSON.stringify(diagnostics.status, null, 2)}\n\nWorker log:\n${diagnostics.workerLog || '(empty)'}\n\nRegistration debug log:\n${diagnostics.registrationDebugLog || '(empty)'}`;
       };
+      function showUnsavedSettingsActions(nextTab) {
+        pendingSettingsTab = nextTab;
+        settingsMessage.textContent = 'You have unsaved model/resource changes.';
+        unsavedSettingsActions.classList.remove('hidden');
+        document.getElementById('stay-settings').focus();
+      }
+
       async function switchTab(nextTab) {
         if (nextTab === activeTab) return;
         if (activeTab === 'settings' && settingsDirty) {
-          settingsMessage.textContent = 'You have unsaved model/resource changes. Click Save settings, or Discard unsaved changes, before leaving this tab.';
-          document.getElementById('save-settings').focus();
+          showUnsavedSettingsActions(nextTab);
           return;
         }
         activeTab = nextTab;
+        pendingSettingsTab = null;
+        unsavedSettingsActions.classList.add('hidden');
         if (activeTab === 'settings' && latestState && !settingsDirty) {
           renderModels(latestState.modelRuntime);
           populateSettingsFormFromState();
@@ -797,14 +811,38 @@
           await refresh();
         } catch (error) { registrationMessage.textContent = `Registration failed: ${error?.message ?? error}`; output.textContent = registrationMessage.textContent; }
       };
-      document.getElementById('save-settings').onclick = saveSettings;
-      document.getElementById('discard-settings').onclick = async () => {
+      document.getElementById('save-settings').onclick = async () => {
+        const saved = await saveSettings();
+        if (saved) {
+          pendingSettingsTab = null;
+          unsavedSettingsActions.classList.add('hidden');
+        }
+      };
+      function discardSettingsChanges() {
         settingsDirty = false;
         if (latestState) {
           renderModels(latestState.modelRuntime);
           populateSettingsFormFromState();
         }
+      }
+      document.getElementById('discard-settings').onclick = async () => {
+        pendingSettingsTab = null;
+        unsavedSettingsActions.classList.add('hidden');
+        discardSettingsChanges();
         settingsMessage.textContent = 'Unsaved changes discarded.';
+      };
+      document.getElementById('stay-settings').onclick = () => {
+        pendingSettingsTab = null;
+        unsavedSettingsActions.classList.add('hidden');
+        settingsMessage.textContent = 'Unsaved changes are still here. Save or discard when ready.';
+      };
+      document.getElementById('discard-leave-settings').onclick = async () => {
+        const nextTab = pendingSettingsTab;
+        pendingSettingsTab = null;
+        unsavedSettingsActions.classList.add('hidden');
+        discardSettingsChanges();
+        settingsMessage.textContent = 'Unsaved changes discarded.';
+        if (nextTab) await switchTab(nextTab);
       };
       document.getElementById('save-start').onclick = async () => { await saveSettings(); if (latestState?.runtime?.running) return; workerMessage.textContent = schedule.value === 'idle-only' ? 'Worker loop starting. It will wait until this computer is idle before claiming work.' : 'Worker starting...'; output.textContent = JSON.stringify(await api.startWorker(), null, 2); await refresh(); };
       document.getElementById('run-now').onclick = async () => { workerMessage.textContent = 'Running one forced check now. It may return to not running when the one-shot check finishes.'; output.textContent = JSON.stringify(await api.runNow(), null, 2); await refresh(); };
