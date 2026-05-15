@@ -45,3 +45,15 @@ export function verifyWorkPacketSignature(payload: unknown, signature: string): 
   }
   return verifyPayloadHmac(payload, signature, hmacSecret());
 }
+
+export function getPacketSigningKeypair(): { keyId: string; publicKeyPem: string; privateKeyPem: string } {
+  const keyId = process.env.PACKET_SIGNING_KEY_ID;
+  const publicKeyPem = process.env.PACKET_SIGNING_PUBLIC_KEY;
+  const privateKeyPem = process.env.PACKET_SIGNING_PRIVATE_KEY;
+  if (!keyId || !publicKeyPem || !privateKeyPem) throw new Error('packet_signing_keypair_not_configured');
+  return {
+    keyId,
+    publicKeyPem: publicKeyPem.replace(/\\n/g, '\n').trim(),
+    privateKeyPem: privateKeyPem.replace(/\\n/g, '\n').trim()
+  };
+}
