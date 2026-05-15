@@ -90,6 +90,11 @@ export class WorkerSupervisor {
 
   constructor(private readonly config: WorkerSupervisorConfig) {}
 
+  private workerCapabilities(): string[] {
+    const model = this.config.modelRuntime?.model;
+    return ['local-llm-v2', ...(model ? [`model:${model}`] : [])];
+  }
+
   status(): WorkerRuntimeStatus {
     return {
       configured: existsSync(this.config.workerEntry),
@@ -238,7 +243,7 @@ export class WorkerSupervisor {
       const response = await fetch(`${this.config.coordinatorUrl.replace(/\/$/, '')}/api/nodes/heartbeat`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-node-token': credentials.nodeToken },
-        body: JSON.stringify({ nodeId: credentials.nodeId, capabilities: ['local-llm-v2'] })
+        body: JSON.stringify({ nodeId: credentials.nodeId, capabilities: this.workerCapabilities() })
       });
       if (response.ok) return { registered: true, stale: false, message: 'Worker registration is recognized by the coordinator.' };
       const text = await response.text();
@@ -307,7 +312,7 @@ export class WorkerSupervisor {
           nodeName: `${os.hostname()}-worker`,
           platform: `${process.platform}-${process.arch}`,
           version: process.env.WORKER_VERSION ?? '0.1.0',
-          capabilities: ['local-llm-v2'],
+          capabilities: this.workerCapabilities(),
           enrollmentCode
         })
       });
