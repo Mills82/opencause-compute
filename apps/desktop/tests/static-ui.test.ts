@@ -61,8 +61,9 @@ describe('desktop static first-run UI', () => {
     expect(html).toContain('modelDownloadStatus');
     expect(html).toContain('Test this model before saving it for worker processing.');
     expect(html).toContain('Use it anyway for experimental testing?');
-    expect(html).toContain('document.activeElement === modelSelect || settingsDirty');
     expect(html).toContain('Save model/resource changes before leaving this tab?');
+    expect(html).toContain("activeTab !== 'settings' && !settingsDirty");
+    expect(html).toContain('populateSettingsFormFromState');
     expect(html).toContain("finalStatus?.status === 'succeeded'");
   });
 

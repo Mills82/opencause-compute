@@ -378,6 +378,20 @@
         return Boolean(latestState?.settings?.nodeId || latestState?.runtime?.registered);
       }
 
+      function populateSettingsFormFromState() {
+        if (!latestState) return;
+        coordinatorUrl.value = latestState.settings.coordinatorUrl;
+        maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
+        minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
+        schedule.value = latestState.settings.resourceControls.schedule;
+        startup.checked = latestState.settings.startupOnLogin;
+        autoStartWorker.checked = latestState.settings.autoStartWorker;
+        battery.checked = latestState.settings.resourceControls.runOnBattery;
+        qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
+        numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
+        numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 5000);
+      }
+
       function setupSteps() {
         return [
           { id: 'runtime-step', title: 'Install Ollama', done: Boolean(latestState?.modelRuntime?.available), help: 'Required local runtime' },
@@ -637,19 +651,8 @@
           if (staleRegistration) registrationStep.classList.remove('hidden');
           versionMessage.textContent = `App version: ${latestState.appVersion}. Worker entry: ${latestState.runtime.configured ? 'available' : 'missing'}.`;
           screens.innerHTML = latestState.viewModel.map(screen => { const [label, cls] = statusLabel(screen.status); return `<div class="card"><h3>${screen.title}<span class="pill ${cls}">${label}</span></h3><p>${screen.message}</p></div>`; }).join('');
-          if (!(document.activeElement === modelSelect || settingsDirty)) renderModels(latestState.modelRuntime);
-          if (!settingsDirty && !editableFocused()) {
-            coordinatorUrl.value = latestState.settings.coordinatorUrl;
-            maxCpu.value = latestState.settings.resourceControls.maxCpuPercent;
-            minIdle.value = latestState.settings.resourceControls.minIdleSeconds;
-            schedule.value = latestState.settings.resourceControls.schedule;
-            startup.checked = latestState.settings.startupOnLogin;
-            autoStartWorker.checked = latestState.settings.autoStartWorker;
-            battery.checked = latestState.settings.resourceControls.runOnBattery;
-            qualityMode.value = latestState.settings.modelRuntime.qualityMode || 'balanced';
-            numCtx.value = String(latestState.settings.modelRuntime.numCtx || resourcePresets[qualityMode.value]?.numCtx || 12288);
-            numPredict.value = String(latestState.settings.modelRuntime.numPredict || resourcePresets[qualityMode.value]?.numPredict || 5000);
-          }
+          if (activeTab !== 'settings' && !settingsDirty) renderModels(latestState.modelRuntime);
+          if (activeTab !== 'settings' && !settingsDirty && !editableFocused()) populateSettingsFormFromState();
           modelConfigGuidance.textContent = latestState.modelRecommendation ? `Model guidance: ${latestState.modelRecommendation.note} (${latestState.modelRecommendation.totalMemoryGb}GB RAM, ${latestState.modelRecommendation.cpuCores} CPU threads).` : '';
           output.textContent = JSON.stringify(latestState, null, 2);
           updateProgress();
@@ -758,6 +761,10 @@
           if (settingsDirty) return;
         }
         activeTab = nextTab;
+        if (activeTab === 'settings' && latestState && !settingsDirty) {
+          renderModels(latestState.modelRuntime);
+          populateSettingsFormFromState();
+        }
         updateProgress();
       }
 
