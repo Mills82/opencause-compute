@@ -84,6 +84,50 @@ export const CANDIDATE_LOCAL_MODELS: CandidateLocalModel[] = [
     memoryGuidance: 'Advanced/high-end Qwen candidate. Promising because Qwen3 14B is the current quality leader; verify runtime, schema behavior, latency, and exact-span fidelity.',
     notes: 'Ollama library tag found as qwen3.6:27b. Treat as experimental until bakeoff proves it.'
   },
+  {
+    id: 'medgemma:4b',
+    provider: 'ollama',
+    tier: 'laptop',
+    label: 'MedGemma 4B',
+    role: 'benchmark',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull medgemma:4b',
+    memoryGuidance: 'Small medical-domain retest candidate for laptops. Not recommended for production unless claims-v2 testing shows a real improvement over prior MedGemma runs.',
+    notes: 'Previously weak in early bakeoff, but worth a cheap retest after claims-v2-lite prompt and normalization changes.'
+  },
+  {
+    id: 'medgemma:27b',
+    provider: 'ollama',
+    tier: 'high_end',
+    label: 'MedGemma 27B',
+    role: 'adjudicator',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull medgemma:27b',
+    memoryGuidance: 'High-end medical-domain Gemma candidate. Best new model to test for biomedical/oncology evidence extraction on strong PCs.',
+    notes: 'Medical-text trained Gemma variant; compare recall, exact-span fidelity, and false positives against Gemma 3 12B, Gemma 4 26B, and Qwen models.'
+  },
+  {
+    id: 'qwen3.6:35b',
+    provider: 'ollama',
+    tier: 'high_end',
+    label: 'Qwen3.6 35B',
+    role: 'adjudicator',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull qwen3.6:35b',
+    memoryGuidance: 'Very high-end Qwen candidate for strong PCs. Test whether larger Qwen improves recall while preserving Qwen3 14B precision.',
+    notes: 'Experimental high-end comparator; expect slower runtime and larger memory footprint than Qwen3.6 27B.'
+  },
+  {
+    id: 'llama3.3:70b',
+    provider: 'ollama',
+    tier: 'high_end',
+    label: 'Llama 3.3 70B',
+    role: 'benchmark',
+    verificationStatus: 'verify_locally',
+    pullCommand: 'ollama pull llama3.3:70b',
+    memoryGuidance: 'Workstation-class baseline for friends with very high-end PCs. Useful general 70B comparator, not medical-specialized.',
+    notes: 'Only test on hardware with enough RAM/VRAM. Use as a quality baseline against medical/domain and Qwen/Gemma candidates.'
+  },
 ];
 
 export const DEFAULT_LOCAL_MODEL = 'qwen3:14b';

@@ -13,7 +13,7 @@ describe('model manifest', () => {
   });
 
   it('lists local-test candidates without approving them', () => {
-    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('medgemma1.5:4b');
+    expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).toContain('medgemma:4b');
     expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('qwen3:4b');
     expect(CANDIDATE_LOCAL_MODELS.map((model) => model.id)).not.toContain('gemma3:4b-it-qat');
     const candidateIds = CANDIDATE_LOCAL_MODELS.map((model) => model.id);
@@ -21,6 +21,9 @@ describe('model manifest', () => {
     expect(candidateIds).not.toContain('gpt-oss:20b');
     expect(candidateIds).toContain('gemma4:26b');
     expect(candidateIds).toContain('qwen3.6:27b');
+    expect(candidateIds).toContain('medgemma:27b');
+    expect(candidateIds).toContain('qwen3.6:35b');
+    expect(candidateIds).toContain('llama3.3:70b');
     expect(approvedModel('medgemma1.5:4b')).toBeUndefined();
     expect(candidateModel('medgemma1.5:4b')).toBeUndefined();
     expect(() => assertApprovedModel('medgemma1.5:4b')).toThrow('model_not_approved:medgemma1.5:4b');
@@ -32,6 +35,7 @@ describe('model manifest', () => {
 
   it('keeps removed legacy large and experimental models unapproved', () => {
     expect(() => assertApprovedModel('llama3.3:70b')).toThrow('model_not_approved:llama3.3:70b');
+    expect(assertApprovedModel('llama3.3:70b', { allowCandidate: true }).tier).toBe('high_end');
     expect(() => assertApprovedModel('llama4:scout')).toThrow('model_not_approved:llama4:scout');
   });
 });
