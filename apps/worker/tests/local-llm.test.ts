@@ -130,4 +130,11 @@ describe('local llm helpers', () => {
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200 })) as typeof fetch;
     await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'qwen3:14b', timeoutMs: 1000, options: {} })).resolves.toBeUndefined();
   });
+
+  it('allows candidate local models during availability check when explicitly enabled', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200 })) as typeof fetch;
+    process.env.OPENCAUSE_ALLOW_CANDIDATE_LOCAL_MODEL = 'true';
+    await expect(verifyLocalLlmAvailable({ endpoint: 'http://127.0.0.1:11434', model: 'gemma3:12b', timeoutMs: 1000, options: {} })).resolves.toBeUndefined();
+    delete process.env.OPENCAUSE_ALLOW_CANDIDATE_LOCAL_MODEL;
+  });
 });

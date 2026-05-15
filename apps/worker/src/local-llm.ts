@@ -443,7 +443,9 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 }
 
 export async function verifyLocalLlmAvailable(config: LocalLlmConfig): Promise<void> {
-  assertApprovedModel(config.model);
+  assertApprovedModel(config.model, {
+    allowCandidate: process.env.OPENCAUSE_ALLOW_CANDIDATE_LOCAL_MODEL === 'true'
+  });
   const response = await fetchWithTimeout(`${config.endpoint}/api/tags`, { method: 'GET' }, Math.min(config.timeoutMs, 10_000));
   if (!response.ok) throw new Error(`local_llm_unavailable:${response.status}`);
 }
