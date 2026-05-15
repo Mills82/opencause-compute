@@ -265,8 +265,8 @@ describePg('real Postgres relational storage integration', () => {
       const nodeBEnrollment = await app.issueVolunteerEnrollmentRelational('node-b@example.com', hashEnrollmentCode('node-b-code'));
       expect(nodeAEnrollment?.status).toBe('issued');
       expect(nodeBEnrollment?.status).toBe('issued');
-      const nodeA = await app.registerNodeRelational({ nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'], enrollmentCode: 'node-a-code' });
-      const nodeB = await app.registerNodeRelational({ nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2'], enrollmentCode: 'node-b-code' });
+      const nodeA = await app.registerNodeRelational({ nodeName: 'node-a', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2', 'model:qwen3:14b'], enrollmentCode: 'node-a-code' });
+      const nodeB = await app.registerNodeRelational({ nodeName: 'node-b', platform: 'linux', version: '0.1.0', capabilities: ['local-llm-v2', 'model:qwen3:14b'], enrollmentCode: 'node-b-code' });
       expect(nodeA?.nodeToken).toBeTruthy();
       expect(nodeB?.nodeToken).toBeTruthy();
 
@@ -290,15 +290,20 @@ describePg('real Postgres relational storage integration', () => {
 
       const firstClaim = await worker.claimWorkRelational(nodeA!.node.id, nodeA!.nodeToken);
       expect(firstClaim?.packet.title).toBe('PMC oncology smoke chunk');
-      const firstSubmit = await worker.submitResultRelational({ nodeId: nodeA!.node.id, token: nodeA!.nodeToken, claimId: firstClaim!.claimId, workPacketId: firstClaim!.packet.id, extractorVersion: 'Local LLM v2', result });
+      const firstSubmit = await worker.submitResultRelational({ nodeId: nodeA!.node.id, token: nodeA!.nodeToken, claimId: firstClaim!.claimId, workPacketId: firstClaim!.packet.id, extractorVersion: 'Local LLM v2', result, provenance: { workerVersion: '0.1.0', extractorVersion: 'Local LLM v2', modelName: 'qwen3:14b', modelProvider: 'ollama', promptVersion: 'p', promptHash: 'h', packetSchemaVersion: 'work-packet-v1', extractionTimestamp: new Date().toISOString(), workerPlatform: 'linux', workerCapabilities: ['local-llm-v2', 'model:qwen3:14b'], resultValidationVersion: 'claims-v2' } });
       expect(firstSubmit?.claims[0]?.claimType).toBe('local_control');
       expect(firstSubmit?.record.consensusStatus).toBe('consensus_pending');
       expect(firstSubmit?.workPacket.status).toBe('queued');
       expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extracted_claims')).rows[0].count)).toBe(1);
 
+      await app.heartbeatNodeRelational(nodeA!.node.id, nodeA!.nodeToken, ['local-llm-v2', 'model:gemma3:12b']);
+      const sameNodeDifferentModelClaim = await worker.claimWorkRelational(nodeA!.node.id, nodeA!.nodeToken);
+      expect(sameNodeDifferentModelClaim?.packet.id).toBe(firstClaim?.packet.id);
+      await worker.failClaimRelational({ nodeId: nodeA!.node.id, token: nodeA!.nodeToken, claimId: sameNodeDifferentModelClaim!.claimId, workPacketId: sameNodeDifferentModelClaim!.packet.id, reason: 'test releases same-node different-model claim' });
+
       const secondClaim = await worker.claimWorkRelational(nodeB!.node.id, nodeB!.nodeToken);
       expect(secondClaim?.packet.id).toBe(firstClaim?.packet.id);
-      const secondSubmit = await worker.submitResultRelational({ nodeId: nodeB!.node.id, token: nodeB!.nodeToken, claimId: secondClaim!.claimId, workPacketId: secondClaim!.packet.id, extractorVersion: 'Local LLM v2', result });
+      const secondSubmit = await worker.submitResultRelational({ nodeId: nodeB!.node.id, token: nodeB!.nodeToken, claimId: secondClaim!.claimId, workPacketId: secondClaim!.packet.id, extractorVersion: 'Local LLM v2', result, provenance: { workerVersion: '0.1.0', extractorVersion: 'Local LLM v2', modelName: 'qwen3:14b', modelProvider: 'ollama', promptVersion: 'p', promptHash: 'h', packetSchemaVersion: 'work-packet-v1', extractionTimestamp: new Date().toISOString(), workerPlatform: 'linux', workerCapabilities: ['local-llm-v2', 'model:qwen3:14b'], resultValidationVersion: 'claims-v2' } });
       expect(secondSubmit?.record.consensusStatus).toBe('consensus_passed');
       expect(secondSubmit?.workPacket.status).toBe('completed');
       expect(Number((await pool.query('SELECT COUNT(*)::int AS count FROM extracted_claims')).rows[0].count)).toBe(2);

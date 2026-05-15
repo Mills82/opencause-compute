@@ -220,11 +220,25 @@ export async function claimWorkRelational(nodeId: string, token: string | null):
        AND (
          COALESCE(($3::jsonb->>'qualityTier'), 'balanced') NOT IN ('balanced') OR char_length(source_text) <= 10000
        )
-       AND NOT EXISTS (
-         SELECT 1 FROM work_claims prior
-         WHERE prior.work_packet_id = work_packets.id
-         AND prior.node_id = $1
-         AND prior.status IN ('completed', 'failed')
+       AND (
+         (
+           $4::text IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM extraction_results prior_result
+             WHERE prior_result.work_packet_id = work_packets.id
+             AND prior_result.node_id = $1
+             AND coalesce(prior_result.provenance->>'modelName', prior_result.provenance->>'model', '') = $4::text
+           )
+         )
+         OR (
+           $4::text IS NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM work_claims prior
+             WHERE prior.work_packet_id = work_packets.id
+             AND prior.node_id = $1
+             AND prior.status IN ('completed', 'failed')
+           )
+         )
        )
        ORDER BY
          CASE
